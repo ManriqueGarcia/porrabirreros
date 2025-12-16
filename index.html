@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; connect-src 'self' https://porra.manriquegarcia.com; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
+  <title>Porra de los birreros — F1 y Fútbol</title>
+  <link rel="icon" href="data:,">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="./assets/vendor/react.js?v=20250310"></script>
+  <script src="./assets/vendor/react-dom.js?v=20250310"></script>
+  <script src="./assets/vendor/babel.js?v=20250310"></script>
+  <style>
+    body{margin:0;color:#f5f5f5;background:#000 url('./assets/bg_fire_diagonal.svg') center/cover fixed no-repeat;}
+    .card,.hero,.sidebar{background:#12141b;border:1px solid rgba(255,255,255,.1);border-radius:16px;}
+    /* Force readable selects */
+    select, .select { background:#fff !important; color:#111 !important; border-color: rgba(15,23,42,.3) !important; }
+    option { background:#fff; color:#111; }
+    .select-strong { background:#fff !important; color:#0f172a !important; font-weight:600; font-size:1rem; }
+  </style>
+</head>
+<body>
+  <script>
+    window.PORRA_API_BASE = "https://porra.manriquegarcia.com";
+  </script>
+  <div id="root">
+    <div style="padding:20px;color:#f5f5f5;text-align:center;">
+      <p>Cargando aplicación...</p>
+      <p style="font-size:12px;color:#888;">Si esto no desaparece, hay un error. Abre la consola (F12).</p>
+    </div>
+  </div>
+  <script>
+    // Verificar que los scripts se carguen
+    window.addEventListener('load', function() {
+      console.log('[Porra] Página cargada');
+      console.log('[Porra] React disponible:', typeof React !== 'undefined');
+      console.log('[Porra] ReactDOM disponible:', typeof ReactDOM !== 'undefined');
+      console.log('[Porra] Babel disponible:', typeof Babel !== 'undefined');
+    });
+  </script>
+  <script type="text/babel" data-presets="react" src="./app.jsx?v=20250310"></script>
+</body>
+</html>

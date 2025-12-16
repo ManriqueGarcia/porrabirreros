@@ -1,0 +1,34 @@
+[
+  {
+    "round": 22,
+    "key": "las_vegas",
+    "grand_prix": "Las Vegas Grand Prix",
+    "country": "United States (Las Vegas)",
+    "date_local": "2025-11-22",
+    "qualifying_time_local": "20:00",
+    "race_time_local": "20:00",
+    "timezone": "America/Los_Angeles"
+  },
+  {
+    "round": 23,
+    "key": "qatar",
+    "grand_prix": "Qatar Grand Prix",
+    "country": "Qatar (Lusail)",
+    "date_local": "2025-11-30",
+    "qualifying_time_local": "18:00",
+    "race_time_local": "16:00",
+    "timezone": "Asia/Qatar"
+  },
+  {
+    "round": 24,
+    "key": "abu_dhabi",
+    "grand_prix": "Abu Dhabi Grand Prix",
+    "country": "United Arab Emirates (Yas Marina)",
+    "date_local": "2025-12-07",
+    "q_date_local": "2025-12-06",
+    "race_date_local": "2025-12-07",
+    "qualifying_time_local": "18:00",
+    "race_time_local": "17:00",
+    "timezone": "Asia/Dubai"
+  }
+]

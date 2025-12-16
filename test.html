@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Test de carga</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #000; color: #0f0; }
+    .error { color: #f00; }
+    .ok { color: #0f0; }
+  </style>
+</head>
+<body>
+  <h1>Test de carga de recursos</h1>
+  <div id="results"></div>
+  <script>
+    const results = document.getElementById('results');
+    function addResult(msg, isOk) {
+      const div = document.createElement('div');
+      div.className = isOk ? 'ok' : 'error';
+      div.textContent = (isOk ? '✓' : '✗') + ' ' + msg;
+      results.appendChild(div);
+    }
+    
+    // Verificar archivos
+    const files = [
+      './assets/vendor/react.js',
+      './assets/vendor/react-dom.js',
+      './assets/vendor/babel.js',
+      './app.jsx',
+      './assets/calendar_2025_last3.json',
+      './assets/drivers_2025.json'
+    ];
+    
+    let checked = 0;
+    files.forEach(file => {
+      fetch(file)
+        .then(r => {
+          checked++;
+          if (r.ok) {
+            addResult(file + ' - OK (' + r.status + ')', true);
+          } else {
+            addResult(file + ' - Error ' + r.status, false);
+          }
+          if (checked === files.length) {
+            addResult('--- Verificación completa ---', true);
+          }
+        })
+        .catch(e => {
+          checked++;
+          addResult(file + ' - Error: ' + e.message, false);
+          if (checked === files.length) {
+            addResult('--- Verificación completa ---', true);
+          }
+        });
+    });
+  </script>
+</body>
+</html>
+
