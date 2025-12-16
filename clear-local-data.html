@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpiar datos locales - Porra</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #f5f5f5;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #b91c1c;
+        }
+        .success {
+            color: #10b981;
+            margin-top: 10px;
+        }
+        .warning {
+            color: #f59e0b;
+            margin-top: 10px;
+        }
+        .info {
+            background: #1e3a8a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Limpiar datos locales - Porra</h1>
+        <div class="info">
+            <p><strong>⚠️ ADVERTENCIA:</strong> Esto eliminará todos los datos guardados localmente, incluyendo:</p>
+            <ul>
+                <li>Usuarios y contraseñas</li>
+                <li>Apuestas de F1</li>
+                <li>Apuestas de Fútbol</li>
+                <li>Resultados</li>
+                <li>Configuraciones</li>
+            </ul>
+            <p>Los datos remotos (DynamoDB) NO se eliminarán. Al recargar la aplicación, se intentará cargar desde el servidor remoto.</p>
+        </div>
+        <button onclick="clearData()">Eliminar todos los datos locales</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function clearData() {
+            if (!confirm('¿Estás seguro de que quieres eliminar TODOS los datos locales? Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p class="warning">Eliminando datos...</p>';
+
+            try {
+                // Eliminar la clave principal
+                localStorage.removeItem('porra_f1_clean_v3');
+                
+                // Eliminar otras claves relacionadas si existen
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('porra') || key.includes('futbol') || key.includes('f1'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log('Eliminado:', key);
+                });
+
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <p><strong>✓ Datos eliminados correctamente</strong></p>
+                        <p>Se eliminaron ${keysToRemove.length} elementos del localStorage.</p>
+                        <p>Ahora puedes:</p>
+                        <ol>
+                            <li>Cerrar esta pestaña</li>
+                            <li>Abrir la aplicación principal</li>
+                            <li>Los datos se cargarán desde el servidor remoto (si está disponible)</li>
+                        </ol>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="warning">
+                        <p><strong>Error al eliminar datos:</strong></p>
+                        <p>${error.message}</p>
+                        <p>Intenta ejecutar en la consola del navegador:</p>
+                        <code style="display: block; background: #333; padding: 10px; margin: 10px 0; border-radius: 4px;">
+                            localStorage.clear();
+                        </code>
+                    </div>
+                `;
+            }
+        }
+
+        // Mostrar información actual
+        window.addEventListener('load', function() {
+            const data = localStorage.getItem('porra_f1_clean_v3');
+            const resultDiv = document.getElementById('result');
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    const size = new Blob([data]).size;
+                    resultDiv.innerHTML = `
+                        <div class="info" style="margin-top: 20px;">
+                            <p><strong>Datos actuales en localStorage:</strong></p>
+                            <p>Tamaño: ${(size / 1024).toFixed(2)} KB</p>
+                            <p>Claves encontradas: ${Object.keys(parsed).join(', ')}</p>
+                        </div>
+                    `;
+                } catch (e) {
+                    resultDiv.innerHTML = '<p class="warning">Hay datos pero no se pudieron leer correctamente.</p>';
+                }
+            } else {
+                resultDiv.innerHTML = '<p class="success">No hay datos locales guardados.</p>';
+            }
+        });
+    </script>
+</body>
+</html>
+
