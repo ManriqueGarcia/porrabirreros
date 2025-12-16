@@ -17,15 +17,39 @@ const API_HEADERS = API_SECRET ? {"x-porra-secret":API_SECRET} : {};
 
 async function fetchRemoteState(){
   if(!API_BASE_URL) return null;
-  const res = await fetch(`${API_BASE_URL}/state`, { headers:{"Accept":"application/json", ...API_HEADERS} });
-  if(res.status===404) return null;
-  if(!res.ok) throw new Error("Fetch remoto fallido");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE_URL}/state`, { headers:{"Accept":"application/json", ...API_HEADERS} });
+    if(res.status===404) {
+      console.info("[Porra] No hay estado remoto en DynamoDB (primera vez)");
+      return null;
+    }
+    if(!res.ok) throw new Error(`Fetch remoto fallido: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    console.info("[Porra] Estado cargado desde DynamoDB", {
+      hasF1: !!(data.bets || data.results),
+      hasFutbol: !!data.futbol,
+      futbolJornadas: data.futbol?.jornadas ? Object.keys(data.futbol.jornadas).length : 0
+    });
+    return data;
+  } catch(err) {
+    console.warn("[Porra] Error en fetchRemoteState:", err);
+    throw err;
+  }
 }
 
 async function saveRemoteState(payload){
   if(!API_BASE_URL) return;
-  await fetch(`${API_BASE_URL}/state`, { method:"PUT", headers:{"Content-Type":"application/json", ...API_HEADERS}, body:JSON.stringify(payload) });
+  try {
+    const response = await fetch(`${API_BASE_URL}/state`, { method:"PUT", headers:{"Content-Type":"application/json", ...API_HEADERS}, body:JSON.stringify(payload) });
+    if(!response.ok) {
+      console.warn("[Porra] Error guardando en DynamoDB:", response.status, response.statusText);
+    } else {
+      console.info("[Porra] Estado guardado en DynamoDB (incluye F1 y Fútbol)");
+    }
+  } catch(err) {
+    console.warn("[Porra] Error en saveRemoteState:", err);
+    throw err;
+  }
 }
 
 async function loadCalendar(){ const r = await fetch(`./assets/calendar_2025_last3.json?${CACHE_BUST}`); return r.json(); }
@@ -1558,7 +1582,12 @@ function App(){
           if(userActionRef.current){
             console.warn("Saltando carga remota: hay cambios locales recientes");
           } else {
-            setDb(remote); saveDB(remote);
+            // Asegurar que el estado de fútbol esté inicializado
+            const remoteWithFutbol = {
+              ...remote,
+              futbol: remote.futbol || defaultFutbolState()
+            };
+            setDb(remoteWithFutbol); saveDB(remoteWithFutbol);
           }
         }
       }catch(err){ console.warn("No se pudo cargar estado remoto", err); }
@@ -1569,7 +1598,12 @@ function App(){
   useEffect(()=>{
     saveDB(db);
     if(!hydrated) return;
-    saveRemoteState(db).catch(err=>console.warn("No se pudo guardar estado remoto", err));
+    // Asegurar que el estado de fútbol esté presente antes de guardar
+    const dbToSave = {
+      ...db,
+      futbol: db.futbol || defaultFutbolState()
+    };
+    saveRemoteState(dbToSave).catch(err=>console.warn("No se pudo guardar estado remoto", err));
   },[db,hydrated]);
   useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); hashPassword(DEFAULT_PASSWORD).then(setDefaultPwdHash).catch(err=>console.warn("No se pudo calcular hash por defecto",err)); },[]);
   useEffect(()=>{
