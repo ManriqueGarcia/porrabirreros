@@ -181,127 +181,90 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
   }
 }
 
-// Función para agrupar partidos por jornada/matchday
-function groupMatchesByMatchday(matches) {
-  const byMatchday = {};
-  
-  Object.keys(matches).forEach(team => {
-    matches[team].forEach(match => {
-      const md = match.matchday || "unknown";
-      if (!byMatchday[md]) {
-        byMatchday[md] = [];
-      }
-      // Evitar duplicados
-      const exists = byMatchday[md].some(m => m.id === match.id);
-      if (!exists) {
-        byMatchday[md].push(match);
-      }
-    });
-  });
-  
-  return byMatchday;
-}
-
 // Función principal para obtener jornadas listas para usar
+// Nueva estrategia: tomar el próximo partido de cada equipo y agruparlos por fecha
 async function getJornadasFromAPI(apiKey = null, numJornadas = 5) {
   try {
     const matches = await getUpcomingMatchesForTeams(apiKey);
-    const byMatchday = groupMatchesByMatchday(matches);
+    
+    const teamsNeeded = ["Real Madrid", "FC Barcelona", "Real Sociedad", "Real Sporting de Gijón"];
+    
+    // Verificar que tenemos partidos para cada equipo
+    console.log("[FutbolAPI] Partidos disponibles por equipo:");
+    teamsNeeded.forEach(team => {
+      const teamMatches = matches[team] || [];
+      console.log(`[FutbolAPI] ${team}: ${teamMatches.length} partidos`);
+      if (teamMatches.length > 0) {
+        console.log(`[FutbolAPI]   Próximo: ${teamMatches[0].home} vs ${teamMatches[0].away} (${teamMatches[0].date})`);
+      }
+    });
     
     const jornadas = [];
-    const matchdays = Object.keys(byMatchday).sort((a, b) => {
-      if (a === "unknown") return 1;
-      if (b === "unknown") return -1;
-      return Number(a) - Number(b);
-    });
-
-    for (let i = 0; i < Math.min(numJornadas, matchdays.length); i++) {
-      const md = matchdays[i];
-      const mdMatches = byMatchday[md];
-      
-      console.log(`[FutbolAPI] Procesando matchday ${md} con ${mdMatches.length} partidos`);
-      console.log(`[FutbolAPI] Partidos disponibles:`, mdMatches.map(m => `${m.home} vs ${m.away}`));
-      
-      // Seleccionar los 4 partidos que necesitamos
+    const usedMatchIds = new Set();
+    
+    // Crear jornadas tomando el próximo partido disponible de cada equipo
+    for (let jornadaIndex = 0; jornadaIndex < numJornadas; jornadaIndex++) {
       const selectedMatches = [];
-      const teamsNeeded = ["Real Madrid", "FC Barcelona", "Real Sociedad", "Real Sporting de Gijón"];
-      const teamsFound = new Set();
+      const jornadaDates = [];
       
-      // Primero buscar partidos de los equipos requeridos
+      // Para cada equipo, tomar el siguiente partido no usado
       teamsNeeded.forEach(team => {
-        const teamMatch = mdMatches.find(m => 
-          (m.home === team || m.away === team) && 
-          !selectedMatches.some(sm => (sm.home === m.home && sm.away === m.away))
-        );
-        if (teamMatch) {
+        const teamMatches = matches[team] || [];
+        // Buscar el primer partido que no hayamos usado
+        const nextMatch = teamMatches.find(m => !usedMatchIds.has(m.id));
+        
+        if (nextMatch) {
           selectedMatches.push({
-            home: teamMatch.home,
-            away: teamMatch.away,
-            date: teamMatch.date
+            home: nextMatch.home,
+            away: nextMatch.away,
+            date: nextMatch.date,
+            matchday: nextMatch.matchday
           });
-          teamsFound.add(team);
-          console.log(`[FutbolAPI] Encontrado partido para ${team}: ${teamMatch.home} vs ${teamMatch.away}`);
+          usedMatchIds.add(nextMatch.id);
+          jornadaDates.push(new Date(nextMatch.date));
+          console.log(`[FutbolAPI] Jornada ${jornadaIndex + 1}: Añadido ${team} - ${nextMatch.home} vs ${nextMatch.away}`);
         } else {
-          console.log(`[FutbolAPI] No se encontró partido para ${team} en matchday ${md}`);
+          console.warn(`[FutbolAPI] Jornada ${jornadaIndex + 1}: No hay más partidos disponibles para ${team}`);
         }
       });
       
-      // Si faltan partidos, añadir partidos de reserva (que no sean de equipos ya incluidos)
-      while (selectedMatches.length < 4 && mdMatches.length > 0) {
-        const allSelectedTeams = new Set();
-        selectedMatches.forEach(m => {
-          allSelectedTeams.add(m.home);
-          allSelectedTeams.add(m.away);
-        });
-        
-        const remaining = mdMatches.filter(m => 
-          !selectedMatches.some(sm => sm.home === m.home && sm.away === m.away) &&
-          (!allSelectedTeams.has(m.home) && !allSelectedTeams.has(m.away))
-        );
-        
-        if (remaining.length > 0) {
-          selectedMatches.push({
-            home: remaining[0].home,
-            away: remaining[0].away,
-            date: remaining[0].date
-          });
-          console.log(`[FutbolAPI] Añadido partido de reserva: ${remaining[0].home} vs ${remaining[0].away}`);
-        } else {
-          // Si no hay más partidos disponibles, romper
-          break;
-        }
+      // Si no tenemos al menos 1 partido, no podemos crear más jornadas
+      if (selectedMatches.length === 0) {
+        console.log(`[FutbolAPI] No hay más partidos disponibles. Se crearon ${jornadas.length} jornadas.`);
+        break;
       }
       
-      console.log(`[FutbolAPI] Matchday ${md}: ${selectedMatches.length} partidos seleccionados de ${mdMatches.length} disponibles`);
+      // Calcular fecha de la jornada (usar la fecha más temprana)
+      const earliestDate = jornadaDates.length > 0 
+        ? new Date(Math.min(...jornadaDates.map(d => d.getTime())))
+        : new Date();
       
-      // Solo crear jornada si tenemos al menos 1 partido (aunque idealmente 4)
-      if (selectedMatches.length > 0) {
-        const firstMatch = selectedMatches[0];
-        const matchDate = new Date(firstMatch.date || mdMatches[0]?.date);
-        const friday = getNextFriday(matchDate);
-        friday.setHours(15, 0, 0, 0);
-        
-        // Asegurar que tenemos exactamente 4 partidos (rellenar si es necesario)
-        while (selectedMatches.length < 4) {
-          selectedMatches.push({
-            home: `Equipo ${selectedMatches.length + 1}`,
-            away: `Equipo ${selectedMatches.length + 2}`
-          });
-        }
-        
-        jornadas.push({
-          id: `J${md}`,
-          name: `Jornada ${md}`,
-          deadline: friday.toISOString(),
-          matches: selectedMatches.slice(0, 4), // Asegurar máximo 4
-          source: "api",
-          matchday: md
+      const friday = getNextFriday(earliestDate);
+      friday.setHours(15, 0, 0, 0);
+      
+      // Si faltan partidos, rellenar con placeholders (no debería pasar si hay suficientes partidos)
+      while (selectedMatches.length < 4) {
+        selectedMatches.push({
+          home: `Equipo ${selectedMatches.length + 1}`,
+          away: `Equipo ${selectedMatches.length + 2}`,
+          date: earliestDate.toISOString()
         });
-        
-        console.log(`[FutbolAPI] Jornada ${md} creada con ${selectedMatches.length} partidos`);
-      } else {
-        console.warn(`[FutbolAPI] No se pudo crear jornada para matchday ${md}: no hay partidos disponibles`);
+        console.warn(`[FutbolAPI] Jornada ${jornadaIndex + 1}: Rellenando con placeholder (faltan ${4 - selectedMatches.length} partidos)`);
       }
+      
+      const jornadaId = `J${jornadaIndex + 1}`;
+      jornadas.push({
+        id: jornadaId,
+        name: `Jornada ${jornadaIndex + 1}`,
+        deadline: friday.toISOString(),
+        matches: selectedMatches.slice(0, 4).map(m => ({
+          home: m.home,
+          away: m.away
+        })),
+        source: "api"
+      });
+      
+      console.log(`[FutbolAPI] Jornada ${jornadaId} creada con ${selectedMatches.length} partidos reales`);
     }
     
     return jornadas;
