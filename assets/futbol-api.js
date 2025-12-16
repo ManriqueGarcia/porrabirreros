@@ -113,19 +113,42 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
     "Real Sporting de Gijón": []
   };
 
+  // Mapeo de nombres posibles de la API a nuestros nombres estándar
+  const teamNameVariations = {
+    "Real Madrid": ["Real Madrid", "Real Madrid CF", "Real Madrid Club de Fútbol"],
+    "FC Barcelona": ["FC Barcelona", "Barcelona", "FC Barcelona", "FC Barcelona"],
+    "Real Sociedad": ["Real Sociedad", "Real Sociedad de Fútbol", "Real Sociedad"],
+    "Real Sporting de Gijón": ["Real Sporting de Gijón", "Sporting Gijón", "Sporting de Gijón", "Real Sporting"]
+  };
+
   try {
     // Obtener partidos de Primera División (Real Madrid, Barcelona, Real Sociedad)
     const primeraMatches = await getLeagueFixtures(LEAGUE_IDS.PD, apiKey);
+    console.log(`[FutbolAPI] Primera División: ${primeraMatches.length} partidos obtenidos`);
     
     // Obtener partidos de Segunda División (Sporting)
     const segundaMatches = await getLeagueFixtures(LEAGUE_IDS.SD, apiKey);
+    console.log(`[FutbolAPI] Segunda División: ${segundaMatches.length} partidos obtenidos`);
 
-    // Filtrar partidos de nuestros equipos
+    // Función auxiliar para verificar si un nombre de equipo coincide
+    const matchesTeam = (teamName, targetTeam) => {
+      if (!teamName) return false;
+      const normalized = teamName.trim();
+      const variations = teamNameVariations[targetTeam] || [targetTeam];
+      return variations.some(v => normalized === v || normalized.includes(v) || v.includes(normalized));
+    };
+
+    // Filtrar partidos de nuestros equipos en Primera División
     primeraMatches.forEach(match => {
       const homeTeam = match.homeTeam?.name;
       const awayTeam = match.awayTeam?.name;
       
-      if (homeTeam === "Real Madrid" || awayTeam === "Real Madrid") {
+      // Log para depuración (solo los primeros 5)
+      if (primeraMatches.indexOf(match) < 5) {
+        console.log(`[FutbolAPI] Partido: ${homeTeam} vs ${awayTeam}`);
+      }
+      
+      if (matchesTeam(homeTeam, "Real Madrid") || matchesTeam(awayTeam, "Real Madrid")) {
         results["Real Madrid"].push({
           home: homeTeam,
           away: awayTeam,
@@ -134,7 +157,7 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
           id: match.id
         });
       }
-      if (homeTeam === "FC Barcelona" || awayTeam === "FC Barcelona") {
+      if (matchesTeam(homeTeam, "FC Barcelona") || matchesTeam(awayTeam, "FC Barcelona")) {
         results["FC Barcelona"].push({
           home: homeTeam,
           away: awayTeam,
@@ -143,7 +166,7 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
           id: match.id
         });
       }
-      if (homeTeam === "Real Sociedad" || awayTeam === "Real Sociedad") {
+      if (matchesTeam(homeTeam, "Real Sociedad") || matchesTeam(awayTeam, "Real Sociedad")) {
         results["Real Sociedad"].push({
           home: homeTeam,
           away: awayTeam,
@@ -154,11 +177,12 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
       }
     });
 
+    // Filtrar partidos de Sporting en Segunda División
     segundaMatches.forEach(match => {
       const homeTeam = match.homeTeam?.name;
       const awayTeam = match.awayTeam?.name;
       
-      if (homeTeam === "Real Sporting de Gijón" || awayTeam === "Real Sporting de Gijón") {
+      if (matchesTeam(homeTeam, "Real Sporting de Gijón") || matchesTeam(awayTeam, "Real Sporting de Gijón")) {
         results["Real Sporting de Gijón"].push({
           home: homeTeam,
           away: awayTeam,
@@ -172,6 +196,17 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
     // Ordenar por fecha
     Object.keys(results).forEach(team => {
       results[team].sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
+
+    // Log detallado de resultados
+    console.log("[FutbolAPI] Resumen de partidos encontrados:");
+    Object.keys(results).forEach(team => {
+      console.log(`[FutbolAPI] ${team}: ${results[team].length} partidos`);
+      if (results[team].length > 0 && results[team].length <= 3) {
+        results[team].forEach(m => {
+          console.log(`[FutbolAPI]   - ${m.home} vs ${m.away} (${m.date})`);
+        });
+      }
     });
 
     return results;
