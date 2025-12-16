@@ -1026,14 +1026,27 @@ function FutbolAdmin({db,setDb,currentUser}){
                   const jornadasMap={...(futbolPrev.jornadas||{})};
                   const order=[...(futbolPrev.order||[])];
                   jornadasAPI.forEach(j=>{
+                    // Asegurar que la jornada tenga matches con estructura correcta
+                    const fixedJornada = {
+                      ...j,
+                      matches: (j.matches || []).slice(0, 4).map((m, idx) => ({
+                        home: m.home || `Local ${idx + 1}`,
+                        away: m.away || `Visitante ${idx + 1}`
+                      }))
+                    };
+                    console.log(`[Porra] Guardando jornada ${fixedJornada.id} con ${fixedJornada.matches.length} partidos:`, fixedJornada.matches);
                     if(!jornadasMap[j.id]){
-                      jornadasMap[j.id]=j;
+                      jornadasMap[j.id]=fixedJornada;
                       if(!order.includes(j.id)) order.push(j.id);
+                    } else {
+                      // Actualizar jornada existente si viene de la API
+                      jornadasMap[j.id] = { ...jornadasMap[j.id], ...fixedJornada };
                     }
                   });
                   return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
                 });
-                alert(`Se cargaron ${jornadasAPI.length} jornada(s) desde la API`);
+                const totalMatches = jornadasAPI.reduce((sum, j) => sum + (j.matches?.length || 0), 0);
+                alert(`Se cargaron ${jornadasAPI.length} jornada(s) desde la API con ${totalMatches} partido(s) en total`);
                 if(jornadasAPI.length>0) setSelected(jornadasAPI[0].id);
               }catch(err){
                 console.error("Error cargando desde API:",err);
