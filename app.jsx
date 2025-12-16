@@ -676,6 +676,11 @@ function FutbolBetForm({jornada,bet,disabled,onSubmit}){
         {matches.map((m,idx)=>(
           <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900">
             <div className="text-sm font-medium mb-1">Partido {idx+1}: {m.home||"Local"} vs {m.away||"Visitante"}</div>
+            {m.date && (
+              <div className="text-xs text-slate-400 mb-1">
+                {formatDateTime(new Date(m.date), MADRID_TZ)}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <input disabled={disabled} type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles local" value={scores[idx]?.home} onChange={e=>handleScoreChange(idx,"home",e.target.value)} />
               <input disabled={disabled} type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles visitante" value={scores[idx]?.away} onChange={e=>handleScoreChange(idx,"away",e.target.value)} />
@@ -1069,6 +1074,11 @@ function FutbolAdmin({db,setDb,currentUser}){
           {matches.map((m,idx)=>(
             <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900 space-y-2">
               <div className="text-xs text-slate-300">Partido {idx+1}</div>
+              {m.date && (
+                <div className="text-xs text-slate-400">
+                  {formatDateTime(new Date(m.date), MADRID_TZ)}
+                </div>
+              )}
               <input className="select border rounded px-3 py-2" placeholder="Local" value={m.home} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
               <input className="select border rounded px-3 py-2" placeholder="Visitante" value={m.away} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
             </div>
@@ -1089,6 +1099,11 @@ function FutbolAdmin({db,setDb,currentUser}){
           {matches.map((m,idx)=>(
             <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900 space-y-2">
               <div className="text-xs text-slate-300">{m.home||"Local"} vs {m.away||"Visitante"}</div>
+              {m.date && (
+                <div className="text-xs text-slate-400">
+                  {formatDateTime(new Date(m.date), MADRID_TZ)}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <input type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles local" value={scores[idx]?.home} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
                 <input type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles visitante" value={scores[idx]?.away} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
@@ -1142,6 +1157,11 @@ function FutbolAdmin({db,setDb,currentUser}){
                   {matches.map((m,idx)=>(
                     <div key={idx} className="text-xs">
                       <div className="text-slate-400">{m.home||"Local"} vs {m.away||"Visitante"}</div>
+                      {m.date && (
+                        <div className="text-xs text-slate-500 mb-1">
+                          {formatDateTime(new Date(m.date), MADRID_TZ)}
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-1">
                         <input type="number" min="0" className="select border rounded px-2 py-1 text-xs" placeholder="Local" value={scores[idx]?.home} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
                         <input type="number" min="0" className="select border rounded px-2 py-1 text-xs" placeholder="Visitante" value={scores[idx]?.away} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />

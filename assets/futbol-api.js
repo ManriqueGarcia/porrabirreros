@@ -325,7 +325,8 @@ async function getJornadasFromAPI(apiKey = null, numJornadas = 5) {
       const jornadaId = `J${jornadaIndex + 1}`;
       const finalMatches = selectedMatches.slice(0, 4).map(m => ({
         home: m.home || "",
-        away: m.away || ""
+        away: m.away || "",
+        date: m.date || null // Incluir fecha del partido
       }));
       
       console.log(`[FutbolAPI] Jornada ${jornadaId} - Partidos finales:`, finalMatches.map(m => `${m.home} vs ${m.away}`));
