@@ -131,16 +131,32 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
     console.log(`[FutbolAPI] Segunda División: ${segundaMatches.length} partidos obtenidos`);
 
     // Función auxiliar para verificar si un nombre de equipo coincide
+    // IMPORTANTE: Debe ser una coincidencia exacta o muy específica para evitar falsos positivos
     const matchesTeam = (teamName, targetTeam) => {
       if (!teamName) return false;
       const normalized = teamName.trim();
       const variations = teamNameVariations[targetTeam] || [targetTeam];
-      // Comparación exacta primero, luego por inclusión
+      
+      // Para cada variación, verificar coincidencia exacta o que el nombre completo contenga la variación
       return variations.some(v => {
         const vNormalized = v.trim();
-        return normalized === vNormalized || 
-               normalized.includes(vNormalized) || 
-               vNormalized.includes(normalized);
+        // Coincidencia exacta
+        if (normalized === vNormalized) return true;
+        
+        // Para evitar falsos positivos (ej: "RCD Espanyol de Barcelona" no debe coincidir con "FC Barcelona")
+        // Solo permitir coincidencia por inclusión si el nombre es suficientemente específico
+        if (targetTeam === "FC Barcelona") {
+          // Para Barcelona, solo aceptar "FC Barcelona" o "Barcelona" como palabra completa
+          return normalized === "FC Barcelona" || normalized === "Barcelona";
+        }
+        
+        // Para otros equipos, permitir coincidencia por inclusión solo si la variación es suficientemente única
+        if (vNormalized.length >= 8) { // Variaciones largas son más específicas
+          return normalized.includes(vNormalized) || vNormalized.includes(normalized);
+        }
+        
+        // Para variaciones cortas, solo coincidencia exacta
+        return false;
       });
     };
 
