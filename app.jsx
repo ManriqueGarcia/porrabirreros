@@ -226,23 +226,51 @@ function Login({db,setDb,onLogged}){
   const doChange=async (e)=>{ e.preventDefault(); if(n1.length<6) return alert("Mínimo 6 caracteres"); if(n1!==n2) return alert("No coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); };
   const createDefaultUsers=async ()=>{
     if(!window.confirm("¿Crear usuarios por defecto? Esto añadirá: Antonio, Carlos, Pere, Toni, Manrique")) return;
-    const hash=await hashPassword(DEFAULT_PASSWORD);
-    const initial=["Antonio","Carlos","Pere","Toni","Manrique"];
-    setDb(prev=>{
-      const baseUsers={...(prev.users||{})};
+    try {
+      console.log("[Porra] Creando usuarios por defecto...");
+      const hash=await hashPassword(DEFAULT_PASSWORD);
+      console.log("[Porra] Hash calculado:", hash.substring(0,10)+"...");
+      const initial=["Antonio","Carlos","Pere","Toni","Manrique"];
+      const currentDb=db;
+      const baseUsers={...(currentDb.users||{})};
+      const baseParticipants={...(currentDb.participants||{})};
+      
       initial.forEach(n=>{
         if(!baseUsers[n]){
           baseUsers[n]={name:n,passwordHash:hash,mustChange:true,isAdmin:n==="Manrique",blocked:false,createdAt:nowISO()};
+          console.log("[Porra] Usuario creado:", n);
+        } else {
+          console.log("[Porra] Usuario ya existe:", n);
         }
       });
-      const baseParticipants={...(prev.participants||{})};
+      
       initial.forEach(n=>{
         if(!baseParticipants[n]) baseParticipants[n]={name:n,createdAt:nowISO()};
       });
-      const prevMeta=prev.meta||{};
-      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, seeded:true}};
-    });
-    alert("Usuarios creados. Recarga la página.");
+      
+      const prevMeta=currentDb.meta||{};
+      const newDb={
+        ...currentDb,
+        users:baseUsers,
+        participants:baseParticipants,
+        meta:{...prevMeta, seeded:true}
+      };
+      
+      console.log("[Porra] Nuevos usuarios:", Object.keys(baseUsers));
+      setDb(newDb);
+      // Guardar también en localStorage directamente
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(newDb));
+        console.log("[Porra] Guardado en localStorage");
+      } catch(e) {
+        console.warn("[Porra] Error guardando en localStorage:", e);
+      }
+      alert(`Usuarios creados: ${Object.keys(baseUsers).join(", ")}. Recarga la página.`);
+      setTimeout(()=>location.reload(), 1000);
+    } catch(err) {
+      console.error("[Porra] Error creando usuarios:", err);
+      alert("Error al crear usuarios: "+err.message);
+    }
   };
   return (
     <div className="grid gap-2 max-w-md">
