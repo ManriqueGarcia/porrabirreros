@@ -115,10 +115,10 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
 
   // Mapeo de nombres posibles de la API a nuestros nombres estándar
   const teamNameVariations = {
-    "Real Madrid": ["Real Madrid", "Real Madrid CF", "Real Madrid Club de Fútbol"],
-    "FC Barcelona": ["FC Barcelona", "Barcelona", "FC Barcelona", "FC Barcelona"],
-    "Real Sociedad": ["Real Sociedad", "Real Sociedad de Fútbol", "Real Sociedad"],
-    "Real Sporting de Gijón": ["Real Sporting de Gijón", "Sporting Gijón", "Sporting de Gijón", "Real Sporting"]
+    "Real Madrid": ["Real Madrid CF", "Real Madrid", "Real Madrid Club de Fútbol"],
+    "FC Barcelona": ["FC Barcelona", "Barcelona"],
+    "Real Sociedad": ["Real Sociedad de Fútbol", "Real Sociedad"],
+    "Real Sporting de Gijón": ["Real Sporting de Gijón", "Sporting Gijón", "Sporting de Gijón", "Real Sporting", "Sporting"]
   };
 
   try {
@@ -135,7 +135,13 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
       if (!teamName) return false;
       const normalized = teamName.trim();
       const variations = teamNameVariations[targetTeam] || [targetTeam];
-      return variations.some(v => normalized === v || normalized.includes(v) || v.includes(normalized));
+      // Comparación exacta primero, luego por inclusión
+      return variations.some(v => {
+        const vNormalized = v.trim();
+        return normalized === vNormalized || 
+               normalized.includes(vNormalized) || 
+               vNormalized.includes(normalized);
+      });
     };
 
     // Filtrar partidos de nuestros equipos en Primera División
@@ -178,10 +184,17 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
     });
 
     // Filtrar partidos de Sporting en Segunda División
+    console.log(`[FutbolAPI] Buscando Sporting en Segunda División...`);
+    if (segundaMatches.length > 0) {
+      console.log(`[FutbolAPI] Primeros equipos en Segunda División:`, 
+        segundaMatches.slice(0, 5).map(m => `${m.homeTeam?.name} vs ${m.awayTeam?.name}`));
+    }
+    
     segundaMatches.forEach(match => {
       const homeTeam = match.homeTeam?.name;
       const awayTeam = match.awayTeam?.name;
       
+      // Buscar variaciones de Sporting
       if (matchesTeam(homeTeam, "Real Sporting de Gijón") || matchesTeam(awayTeam, "Real Sporting de Gijón")) {
         results["Real Sporting de Gijón"].push({
           home: homeTeam,
@@ -190,8 +203,14 @@ async function getUpcomingMatchesForTeams(apiKey = null) {
           matchday: match.matchday,
           id: match.id
         });
+        console.log(`[FutbolAPI] Encontrado partido de Sporting: ${homeTeam} vs ${awayTeam}`);
       }
     });
+    
+    // Si no encontramos Sporting en Segunda División, intentar buscar en Primera si hay algún error
+    if (results["Real Sporting de Gijón"].length === 0 && segundaMatches.length === 0) {
+      console.warn("[FutbolAPI] No se encontraron partidos de Segunda División. La API puede no tener datos o requerir API key.");
+    }
 
     // Ordenar por fecha
     Object.keys(results).forEach(team => {
