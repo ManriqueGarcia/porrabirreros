@@ -55,9 +55,23 @@ async function saveRemoteState(payload){
 async function loadCalendar(){ const r = await fetch(`./assets/calendar_2025_last3.json?${CACHE_BUST}`); return r.json(); }
 async function loadDrivers(){ const r = await fetch(`./assets/drivers_2025.json?${CACHE_BUST}`); return r.json(); }
 async function hashPassword(pwd){
-  const data=new TextEncoder().encode(pwd||"");
-  const digest=await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  if(!pwd) return "";
+  // Verificar si crypto.subtle está disponible (requiere HTTPS o localhost)
+  if(typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const data=new TextEncoder().encode(pwd);
+      const digest=await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    } catch(err) {
+      console.warn("[Porra] Error con crypto.subtle, usando fallback:", err);
+      // Fallback para desarrollo local
+      return "fallback_"+pwd.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0).toString(16);
+    }
+  } else {
+    // Fallback para HTTP local sin crypto.subtle
+    console.warn("[Porra] crypto.subtle no disponible, usando hash simple");
+    return "local_"+pwd.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0).toString(16);
+  }
 }
 async function passwordMatches(user,pwd){
   if(!user) return false;
@@ -229,7 +243,7 @@ function Login({db,setDb,onLogged}){
     try {
       console.log("[Porra] Creando usuarios por defecto...");
       const hash=await hashPassword(DEFAULT_PASSWORD);
-      console.log("[Porra] Hash calculado:", hash.substring(0,10)+"...");
+      console.log("[Porra] Hash calculado:", hash.substring(0,20)+"...");
       const initial=["Antonio","Carlos","Pere","Toni","Manrique"];
       const currentDb=db;
       const baseUsers={...(currentDb.users||{})};
@@ -269,7 +283,7 @@ function Login({db,setDb,onLogged}){
       setTimeout(()=>location.reload(), 1000);
     } catch(err) {
       console.error("[Porra] Error creando usuarios:", err);
-      alert("Error al crear usuarios: "+err.message);
+      alert("Error al crear usuarios: "+err.message+". Abre la consola para más detalles.");
     }
   };
   return (
