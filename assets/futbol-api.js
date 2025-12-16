@@ -5,6 +5,12 @@ const FUTBOL_API_BASE = "https://api.football-data.org/v4";
 // Nota: Necesitarás una API key gratuita de https://www.football-data.org/
 // Por defecto usamos un modo sin autenticación (limitado)
 
+// Intentar usar proxy CORS si está disponible (para desarrollo local)
+// El proxy debe estar en http://localhost:8888
+const CORS_PROXY_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+  ? 'http://localhost:8888' 
+  : (window.PORRA_API_BASE ? `${window.PORRA_API_BASE}/proxy` : null);
+
 const TEAMS = {
   "Real Madrid": { id: 86, league: "PD" }, // Primera División
   "FC Barcelona": { id: 81, league: "PD" },
@@ -26,10 +32,43 @@ async function fetchWithAuth(url, apiKey = null) {
   }
   
   try {
+    // Intentar usar proxy CORS si está disponible (evita problemas de puerto)
+    if (CORS_PROXY_BASE) {
+      try {
+        const proxyUrl = `${CORS_PROXY_BASE}?url=${encodeURIComponent(url)}`;
+        const proxyHeaders = { "Accept": "application/json" };
+        if (apiKey) {
+          proxyHeaders["X-Football-API-Key"] = apiKey;
+        }
+        const response = await fetch(proxyUrl, { 
+          headers: proxyHeaders,
+          // Timeout corto para detectar si el proxy no está disponible
+          signal: AbortSignal.timeout(2000)
+        });
+        if (response.ok) {
+          console.info("[FutbolAPI] Usando proxy CORS para evitar problemas de puerto");
+          return await response.json();
+        }
+        // Si el proxy falla, continuar con intento directo
+        console.warn("[FutbolAPI] Proxy falló, intentando conexión directa...");
+      } catch (proxyError) {
+        // Si el proxy no está disponible (timeout o error), intentar directo
+        if (proxyError.name === 'TimeoutError' || proxyError.message.includes('Failed to fetch')) {
+          console.info("[FutbolAPI] Proxy no disponible, usando conexión directa. Para evitar CORS, ejecuta: python3 cors-proxy.py");
+        } else {
+          console.warn("[FutbolAPI] Error en proxy:", proxyError.message);
+        }
+      }
+    }
+    
     // Verificar si estamos en localhost (necesario para CORS de Football-Data.org)
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isLocalhost && window.location.protocol === 'http:') {
-      throw new Error("La API de Football-Data.org requiere localhost o HTTPS. Usa 'localhost' en lugar de '0.0.0.0' o accede vía HTTPS.");
+    const isLocalhostWithoutPort = window.location.port === '' || window.location.port === '80';
+    
+    // La API solo acepta localhost sin puerto o con puerto 80
+    if (isLocalhost && !isLocalhostWithoutPort && window.location.protocol === 'http:') {
+      console.warn("[FutbolAPI] Usando puerto no estándar. La API puede fallar por CORS.");
+      console.warn("[FutbolAPI] Solución: Usa 'python3 -m http.server 80' (requiere sudo) o accede desde producción (HTTPS)");
     }
     
     const response = await fetch(url, { headers });
@@ -43,7 +82,8 @@ async function fetchWithAuth(url, apiKey = null) {
   } catch (error) {
     if (error.message.includes("CORS") || error.message.includes("Failed to fetch")) {
       console.error("Error CORS:", error);
-      throw new Error("Error de CORS. La API de Football-Data.org solo funciona desde localhost o HTTPS. Usa 'python3 -m http.server 8000' y accede a http://localhost:8000");
+      const currentOrigin = window.location.origin;
+      throw new Error(`Error de CORS. La API de Football-Data.org solo acepta 'http://localhost' (sin puerto). Estás usando '${currentOrigin}'. Solución: Usa 'python3 -m http.server 80' (requiere sudo) o crea un proxy en el backend.`);
     }
     console.error("Error fetching from API:", error);
     throw error;

@@ -4,22 +4,47 @@ Aplicación web para gestionar porras de Fórmula 1 y Fútbol.
 
 ## 🚀 Cómo arrancar en local
 
-**⚠️ IMPORTANTE:** Usa `localhost` (no `0.0.0.0`) para que la API de fútbol funcione correctamente.
+**⚠️ IMPORTANTE:** La API de fútbol tiene restricciones CORS estrictas.
 
-### Opción 1: Python (recomendado)
+### Opción 1: Con Proxy CORS (recomendado)
 
-Si tienes Python instalado:
+Para evitar problemas de CORS, usa el proxy incluido:
+
+**Terminal 1 - Servidor principal:**
+```bash
+python3 -m http.server 8000 --bind localhost
+```
+
+**Terminal 2 - Proxy CORS:**
+```bash
+python3 cors-proxy.py
+```
+
+Luego abre en el navegador: `http://localhost:8000`
+
+El proxy se ejecuta en `http://localhost:8888` y permite que la API de fútbol funcione desde cualquier puerto.
+
+### Opción 2: Python en puerto 80 (sin proxy)
+
+Para que la API de fútbol funcione sin proxy:
+
+```bash
+# Requiere permisos de administrador
+sudo python3 -m http.server 80 --bind localhost
+```
+
+Luego abre en el navegador: `http://localhost` (sin puerto)
+
+### Opción 3: Python en puerto 8000 (sin proxy, puede fallar CORS)
 
 ```bash
 # Python 3 - Usa localhost explícitamente
 python3 -m http.server 8000 --bind localhost
-
-# O si tu versión no soporta --bind:
-python3 -m http.server 8000
-# Luego accede a http://localhost:8000 (NO uses 0.0.0.0:8000)
 ```
 
-Luego abre en el navegador: `http://localhost:8000` (no uses `0.0.0.0`)
+Luego abre en el navegador: `http://localhost:8000`
+
+**Nota:** Si usas un puerto diferente a 80 sin proxy, la API de fútbol puede fallar por CORS. En ese caso, los datos se guardan en localStorage pero no podrás cargar partidos desde la API.
 
 ### Opción 2: Node.js (http-server)
 
