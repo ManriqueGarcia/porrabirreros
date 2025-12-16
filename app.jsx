@@ -32,8 +32,13 @@ async function fetchRemoteState(){
     });
     return data;
   } catch(err) {
+    // CORS errors en desarrollo local son normales, no críticos
+    if(err.message.includes("CORS") || err.message.includes("Failed to fetch")) {
+      console.info("[Porra] CORS bloqueado (normal en desarrollo local). Usando solo localStorage.");
+      return null;
+    }
     console.warn("[Porra] Error en fetchRemoteState:", err);
-    throw err;
+    return null; // No lanzar error, solo usar localStorage
   }
 }
 
@@ -47,8 +52,13 @@ async function saveRemoteState(payload){
       console.info("[Porra] Estado guardado en DynamoDB (incluye F1 y Fútbol)");
     }
   } catch(err) {
+    // CORS errors en desarrollo local son normales, no críticos
+    if(err.message.includes("CORS") || err.message.includes("Failed to fetch")) {
+      console.info("[Porra] CORS bloqueado (normal en desarrollo local). Datos guardados solo en localStorage.");
+      return; // No lanzar error
+    }
     console.warn("[Porra] Error en saveRemoteState:", err);
-    throw err;
+    // No lanzar error, solo usar localStorage
   }
 }
 

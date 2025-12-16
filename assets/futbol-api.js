@@ -26,6 +26,12 @@ async function fetchWithAuth(url, apiKey = null) {
   }
   
   try {
+    // Verificar si estamos en localhost (necesario para CORS de Football-Data.org)
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalhost && window.location.protocol === 'http:') {
+      throw new Error("La API de Football-Data.org requiere localhost o HTTPS. Usa 'localhost' en lugar de '0.0.0.0' o accede vía HTTPS.");
+    }
+    
     const response = await fetch(url, { headers });
     if (!response.ok) {
       if (response.status === 429) {
@@ -35,6 +41,10 @@ async function fetchWithAuth(url, apiKey = null) {
     }
     return await response.json();
   } catch (error) {
+    if (error.message.includes("CORS") || error.message.includes("Failed to fetch")) {
+      console.error("Error CORS:", error);
+      throw new Error("Error de CORS. La API de Football-Data.org solo funciona desde localhost o HTTPS. Usa 'python3 -m http.server 8000' y accede a http://localhost:8000");
+    }
     console.error("Error fetching from API:", error);
     throw error;
   }

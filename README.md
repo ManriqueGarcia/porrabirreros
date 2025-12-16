@@ -4,19 +4,22 @@ Aplicación web para gestionar porras de Fórmula 1 y Fútbol.
 
 ## 🚀 Cómo arrancar en local
 
+**⚠️ IMPORTANTE:** Usa `localhost` (no `0.0.0.0`) para que la API de fútbol funcione correctamente.
+
 ### Opción 1: Python (recomendado)
 
 Si tienes Python instalado:
 
 ```bash
-# Python 3
-python3 -m http.server 8000
+# Python 3 - Usa localhost explícitamente
+python3 -m http.server 8000 --bind localhost
 
-# O Python 2
-python -m SimpleHTTPServer 8000
+# O si tu versión no soporta --bind:
+python3 -m http.server 8000
+# Luego accede a http://localhost:8000 (NO uses 0.0.0.0:8000)
 ```
 
-Luego abre en el navegador: `http://localhost:8000`
+Luego abre en el navegador: `http://localhost:8000` (no uses `0.0.0.0`)
 
 ### Opción 2: Node.js (http-server)
 
@@ -91,4 +94,22 @@ No requiere build ni instalación de dependencias. Solo sirve los archivos está
 - El modo seleccionado (F1/Fútbol) se guarda en localStorage
 - Los datos se sincronizan automáticamente si hay API configurada
 - La sesión expira tras 30 minutos de inactividad
+
+## ⚠️ Problemas Comunes
+
+### Errores de CORS
+
+**Si ves errores de CORS:**
+- **DynamoDB**: Normal en desarrollo local. Los datos se guardan en localStorage.
+- **API de fútbol**: Requiere `localhost` (no `0.0.0.0`). Asegúrate de acceder a `http://localhost:8000`.
+
+**Solución:**
+```bash
+# En lugar de:
+python3 -m http.server 8000  # (puede usar 0.0.0.0)
+
+# Usa:
+python3 -m http.server 8000 --bind localhost
+# Y accede a http://localhost:8000
+```
 
