@@ -1647,18 +1647,37 @@ function App(){
     })();
   },[hydrated,db.users,setDbUser]);
   useEffect(()=>{
-    if(db.meta?.seeded || !defaultPwdHash) return;
-    const initial=["Antonio","Carlos","Pere","Toni","Manrique"];
-    setDb(prev=>{
-      const baseUsers={...(prev.users||{})}; initial.forEach(n=>{ if(!baseUsers[n]) baseUsers[n]={name:n,passwordHash:defaultPwdHash,mustChange:true,isAdmin:n==="Manrique",blocked:false}; else if(baseUsers[n].password && !baseUsers[n].passwordHash){ baseUsers[n]={...baseUsers[n],passwordHash:defaultPwdHash}; delete baseUsers[n].password; } });
-      const baseParticipants={...(prev.participants||{})}; initial.forEach(n=>{ if(!baseParticipants[n]) baseParticipants[n]={name:n,createdAt:nowISO()}; });
-      const prevMeta=prev.meta||{};
-      const championships=prevMeta.championships || {Carlos:1,Toni:1};
-      const nextDrivers=drivers&&drivers.length?drivers:(prevMeta.drivers||[]);
-      const basePoints=prevMeta.basePoints || {Antonio:38,Carlos:17,Manrique:25,Pere:44,Toni:25};
-      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||"manrique", drivers:nextDrivers, championships, basePoints, seeded:true}};
-    });
-  },[drivers,db.meta,defaultPwdHash]);
+    if(!defaultPwdHash) return;
+    // Verificar si necesitamos crear usuarios iniciales
+    const hasUsers = db.users && Object.keys(db.users).length > 0;
+    const isSeeded = db.meta?.seeded;
+    
+    // Si no hay usuarios o no está marcado como seeded, crear usuarios
+    if(!hasUsers || !isSeeded){
+      const initial=["Antonio","Carlos","Pere","Toni","Manrique"];
+      setDb(prev=>{
+        const baseUsers={...(prev.users||{})}; 
+        initial.forEach(n=>{ 
+          if(!baseUsers[n]) {
+            baseUsers[n]={name:n,passwordHash:defaultPwdHash,mustChange:true,isAdmin:n==="Manrique",blocked:false,createdAt:nowISO()};
+          } else if(baseUsers[n].password && !baseUsers[n].passwordHash){ 
+            baseUsers[n]={...baseUsers[n],passwordHash:defaultPwdHash}; 
+            delete baseUsers[n].password; 
+          } 
+        });
+        const baseParticipants={...(prev.participants||{})}; 
+        initial.forEach(n=>{ 
+          if(!baseParticipants[n]) baseParticipants[n]={name:n,createdAt:nowISO()}; 
+        });
+        const prevMeta=prev.meta||{};
+        const championships=prevMeta.championships || {Carlos:1,Toni:1};
+        const nextDrivers=drivers&&drivers.length?drivers:(prevMeta.drivers||[]);
+        const basePoints=prevMeta.basePoints || {Antonio:38,Carlos:17,Manrique:25,Pere:44,Toni:25};
+        return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||"manrique", drivers:nextDrivers, championships, basePoints, seeded:true}};
+      });
+      console.info("[Porra] Usuarios iniciales creados:", initial.join(", "));
+    }
+  },[drivers,db.meta,defaultPwdHash,db.users]);
   const raceOverrides=db.meta?.raceOverrides||{};
   const races=(Array.isArray(cal)?cal:[]).map(item=>{
     const override=raceOverrides[item.key]||{};
