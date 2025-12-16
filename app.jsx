@@ -810,7 +810,7 @@ function FutbolParticipante({user,db,setDb}){
                   <div className="font-medium">{name}</div>
                   {other ? (
                     <div className="text-xs space-y-1 mt-1">
-                      {(jornada.matches||[]).map((m,idx)=><div key={idx}><b>{m.home||"Local"}-{m.away||"Visitante"}:</b> {other.matches?.[idx]?.home??"—"}-{other.matches?.[idx]?.away??"—"}</div>)}
+                      {(jornada.matches||[]).map((m,idx)=><div key={idx}><b>{m.home||"Local"}-{m.away||"Visitante"}:</b> {other.matches?.[idx]?.home??"—"}-{other.matches?.[idx]?.away??"—"}{m.date && <span className="text-slate-500 ml-1">({formatDateTime(new Date(m.date), MADRID_TZ)})</span>}</div>)}
                       <div><b>P.Adic.:</b> {(other.questions||["","",""]).join(" · ")}</div>
                       {other.late && <div className="text-amber-300">Fuera de plazo</div>}
                     </div>
