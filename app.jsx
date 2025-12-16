@@ -221,8 +221,29 @@ function ChangePasswordModal({open,onClose,db,setDb,user}){
 function Login({db,setDb,onLogged}){
   const [name,setName]=useState(""); const [pass,setPass]=useState("");
   const [needsChange,setNeedsChange]=useState(false); const [n1,setN1]=useState(""); const [n2,setN2]=useState("");
+  const usersList=Object.keys(db.users||{}).sort();
   const tryLogin=async (e)=>{ e&&e.preventDefault(); const u=db.users?.[name]; if(!u) return alert("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return alert("Contraseña incorrecta"); if(u.blocked) return alert("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); };
   const doChange=async (e)=>{ e.preventDefault(); if(n1.length<6) return alert("Mínimo 6 caracteres"); if(n1!==n2) return alert("No coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); };
+  const createDefaultUsers=async ()=>{
+    if(!window.confirm("¿Crear usuarios por defecto? Esto añadirá: Antonio, Carlos, Pere, Toni, Manrique")) return;
+    const hash=await hashPassword(DEFAULT_PASSWORD);
+    const initial=["Antonio","Carlos","Pere","Toni","Manrique"];
+    setDb(prev=>{
+      const baseUsers={...(prev.users||{})};
+      initial.forEach(n=>{
+        if(!baseUsers[n]){
+          baseUsers[n]={name:n,passwordHash:hash,mustChange:true,isAdmin:n==="Manrique",blocked:false,createdAt:nowISO()};
+        }
+      });
+      const baseParticipants={...(prev.participants||{})};
+      initial.forEach(n=>{
+        if(!baseParticipants[n]) baseParticipants[n]={name:n,createdAt:nowISO()};
+      });
+      const prevMeta=prev.meta||{};
+      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, seeded:true}};
+    });
+    alert("Usuarios creados. Recarga la página.");
+  };
   return (
     <div className="grid gap-2 max-w-md">
       {!needsChange ? (
@@ -230,11 +251,17 @@ function Login({db,setDb,onLogged}){
           <label className="text-sm">Usuario</label>
           <select className="select border rounded px-3 py-2 text-base" value={name} onChange={e=>setName(e.target.value)}>
             <option value="">— elige —</option>
-            {Object.keys(db.users||{}).sort().map(n=><option key={n} value={n}>{n}</option>)}
+            {usersList.length>0 ? usersList.map(n=><option key={n} value={n}>{n}</option>) : <option value="" disabled>No hay usuarios. Crea usuarios por defecto abajo.</option>}
           </select>
           <label className="text-sm mt-2">Contraseña</label>
           <input type="password" className="select border rounded px-3 py-2" value={pass} onChange={e=>setPass(e.target.value)} />
           <button className="mt-2 px-4 py-2 rounded bg-slate-900 text-white" onClick={tryLogin}>Entrar</button>
+          {usersList.length===0 && (
+            <div className="mt-3 p-3 bg-amber-500/10 border border-amber-400/30 rounded">
+              <p className="text-sm text-amber-200 mb-2">No hay usuarios disponibles.</p>
+              <button type="button" className="px-3 py-2 rounded bg-amber-600 text-white text-sm w-full" onClick={createDefaultUsers}>Crear usuarios por defecto</button>
+            </div>
+          )}
         </form>
       ) : (
         <form onSubmit={doChange} className="grid gap-2">
