@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; connect-src 'self' https://porra.manriquegarcia.com; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; connect-src 'self' https://porra.manriquegarcia.com https://api.football-data.org; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
   <title>Porra de los birreros — F1 y Fútbol</title>
   <link rel="icon" href="data:,">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -41,6 +41,7 @@
       console.log('[Porra] Babel disponible:', typeof Babel !== 'undefined');
     });
   </script>
+  <script src="./assets/futbol-api.js?v=20250310"></script>
   <script type="text/babel" data-presets="react" src="./app.jsx?v=20250310"></script>
 </body>
 </html>

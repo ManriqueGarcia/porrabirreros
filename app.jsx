@@ -732,6 +732,9 @@ function FutbolAdmin({db,setDb,currentUser}){
   const [editUser,setEditUser]=useState("");
   const [editLate,setEditLate]=useState(false);
   const [editingMode,setEditingMode]=useState("results"); // "results" or "bet"
+  const [apiKey,setApiKey]=useState(()=>localStorage.getItem("futbol_api_key")||"");
+  const [loadingAPI,setLoadingAPI]=useState(false);
+  const [apiError,setApiError]=useState("");
   useEffect(()=>{
     const j=selected?futbol.jornadas?.[selected]:null;
     if(j){
@@ -896,6 +899,52 @@ function FutbolAdmin({db,setDb,currentUser}){
           <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})))}>Cargar equipos base</button>
           <button className="px-3 py-2 rounded bg-emerald-600 text-white text-sm" onClick={saveJornada}>Guardar jornada</button>
           {selected && <button className="px-3 py-2 rounded bg-red-700 text-white text-sm" onClick={deleteJornada}>Eliminar</button>}
+        </div>
+        <div className="border border-blue-500/30 rounded p-3 bg-blue-500/10 mt-3">
+          <h4 className="font-semibold text-sm mb-2">Cargar partidos desde API</h4>
+          <p className="text-xs text-slate-300 mb-2">Obtiene los próximos partidos de Real Madrid, Barcelona, Real Sociedad y Sporting desde Football-Data.org</p>
+          <div className="flex gap-2 mb-2">
+            <input type="password" className="select border rounded px-3 py-2 flex-1 text-sm" placeholder="API Key (opcional, gratis en football-data.org)" value={apiKey} onChange={e=>{setApiKey(e.target.value); localStorage.setItem("futbol_api_key",e.target.value);}} />
+            <button className="px-3 py-2 rounded bg-blue-600 text-white text-sm" disabled={loadingAPI} onClick={async()=>{
+              setLoadingAPI(true);
+              setApiError("");
+              try{
+                if(typeof getJornadasFromAPI==="undefined"){
+                  throw new Error("API script no cargado. Recarga la página.");
+                }
+                const jornadasAPI=await getJornadasFromAPI(apiKey||null,5);
+                if(jornadasAPI.length===0){
+                  setApiError("No se encontraron partidos. Verifica la API key o intenta más tarde.");
+                  setLoadingAPI(false);
+                  return;
+                }
+                setDb(prev=>{
+                  const futbolPrev=prev.futbol||defaultFutbolState();
+                  const jornadasMap={...(futbolPrev.jornadas||{})};
+                  const order=[...(futbolPrev.order||[])];
+                  jornadasAPI.forEach(j=>{
+                    if(!jornadasMap[j.id]){
+                      jornadasMap[j.id]=j;
+                      if(!order.includes(j.id)) order.push(j.id);
+                    }
+                  });
+                  return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
+                });
+                alert(`Se cargaron ${jornadasAPI.length} jornada(s) desde la API`);
+                if(jornadasAPI.length>0) setSelected(jornadasAPI[0].id);
+              }catch(err){
+                console.error("Error cargando desde API:",err);
+                setApiError(err.message||"Error al cargar partidos. Verifica la consola.");
+                alert("Error: "+err.message);
+              }finally{
+                setLoadingAPI(false);
+              }
+            }}>{loadingAPI?"Cargando...":"Cargar desde API"}</button>
+          </div>
+          {apiError && <div className="text-xs text-amber-300 mt-1">{apiError}</div>}
+          <div className="text-xs text-slate-400 mt-1">
+            <a href="https://www.football-data.org/" target="_blank" rel="noopener noreferrer" className="underline">Obtener API key gratuita</a> (opcional, sin key hay límites)
+          </div>
         </div>
       </div>
       <div className="border border-white/10 rounded p-3 space-y-2">
