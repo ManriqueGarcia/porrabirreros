@@ -323,18 +323,22 @@ async function getJornadasFromAPI(apiKey = null, numJornadas = 5) {
       }
       
       const jornadaId = `J${jornadaIndex + 1}`;
+      const finalMatches = selectedMatches.slice(0, 4).map(m => ({
+        home: m.home || "",
+        away: m.away || ""
+      }));
+      
+      console.log(`[FutbolAPI] Jornada ${jornadaId} - Partidos finales:`, finalMatches.map(m => `${m.home} vs ${m.away}`));
+      
       jornadas.push({
         id: jornadaId,
         name: `Jornada ${jornadaIndex + 1}`,
         deadline: friday.toISOString(),
-        matches: selectedMatches.slice(0, 4).map(m => ({
-          home: m.home,
-          away: m.away
-        })),
+        matches: finalMatches,
         source: "api"
       });
       
-      console.log(`[FutbolAPI] Jornada ${jornadaId} creada con ${selectedMatches.length} partidos reales`);
+      console.log(`[FutbolAPI] Jornada ${jornadaId} creada con ${finalMatches.length} partidos`);
     }
     
     return jornadas;
