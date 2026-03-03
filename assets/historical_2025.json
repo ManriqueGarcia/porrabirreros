@@ -1,0 +1,11 @@
+{
+  "year": 2025,
+  "title": "Porra F1 2025",
+  "standings": [
+    {"rank": 1, "name": "Pere", "points": 44},
+    {"rank": 2, "name": "Antonio", "points": 38},
+    {"rank": 3, "name": "Manrique", "points": 25},
+    {"rank": 4, "name": "Toni", "points": 25},
+    {"rank": 5, "name": "Carlos", "points": 17}
+  ]
+}

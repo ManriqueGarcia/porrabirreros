@@ -1,7 +1,7 @@
 
 /* global React, ReactDOM */
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
-const CACHE_BUST = "v20250310";
+const CACHE_BUST = "v20260301";
 console.info("[PorraF1] Versión carga", CACHE_BUST);
 
 const LS_KEY = "porra_f1_clean_v3";
@@ -28,8 +28,10 @@ async function saveRemoteState(payload){
   await fetch(`${API_BASE_URL}/state`, { method:"PUT", headers:{"Content-Type":"application/json", ...API_HEADERS}, body:JSON.stringify(payload) });
 }
 
-async function loadCalendar(){ const r = await fetch(`./assets/calendar_2025_last3.json?${CACHE_BUST}`); return r.json(); }
-async function loadDrivers(){ const r = await fetch(`./assets/drivers_2025.json?${CACHE_BUST}`); return r.json(); }
+async function loadCalendar(){ const r = await fetch(`./assets/calendar_2026.json?${CACHE_BUST}`); return r.json(); }
+async function loadDrivers(){ const r = await fetch(`./assets/drivers_2026.json?${CACHE_BUST}`); return r.json(); }
+async function loadTeams(){ const r = await fetch(`./assets/teams_2026.json?${CACHE_BUST}`); return r.json(); }
+async function loadHistorical(year){ const r = await fetch(`./assets/historical_${year}.json?${CACHE_BUST}`); return r.json(); }
 async function hashPassword(pwd){
   const data=new TextEncoder().encode(pwd||"");
   const digest=await crypto.subtle.digest("SHA-256", data);
@@ -372,7 +374,7 @@ function Ranking({db,races,setDb,currentUser}){
   const [scope,setScope]=useState("all"); const participants=Object.keys(db.participants||{});
   const isAdmin=!!db.users?.[currentUser]?.isAdmin;
   const forceAuto=!!db.meta?.forceAutoStandings;
-  const backupDefaults={Antonio:38,Carlos:17,Manrique:25,Pere:44,Toni:25};
+  const backupDefaults={Antonio:0,Carlos:0,Manrique:0,Pere:0,Toni:0};
   const basePoints=db.meta?.basePoints||{};
   const baseEntries=Object.entries(basePoints).filter(([_,v])=>Number(v)>0);
   const manualStandings=useMemo(()=>{
@@ -420,7 +422,7 @@ function Ranking({db,races,setDb,currentUser}){
           {scope!=="all" && <button className="text-xs underline" onClick={()=>setScope("all")}>Ir a Global para editar</button>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>{ setDb(prev=>({...prev, meta:{...(prev.meta||{}), basePoints:{...backupDefaults}, forceAutoStandings:true}})); }}>Cargar valores del backup</button>
+          <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>{ setDb(prev=>({...prev, meta:{...(prev.meta||{}), basePoints:{...backupDefaults}, forceAutoStandings:true}})); }}>Poner todos a 0</button>
           <button className="px-3 py-2 rounded bg-slate-800 text-white text-sm" onClick={()=>{ participants.forEach(n=>updateBasePoint(n,0)); }}>Resetear a 0</button>
         </div>
         <div className="grid gap-2 md:grid-cols-2">
@@ -479,6 +481,32 @@ function RaceBreakdown({db,races,raceKey,rows}){
 
 function QuestionsHistory({db,races}){
   return (<div className="card p-4 space-y-3"><h2 className="font-semibold">Histórico de preguntas</h2>{(races||[]).map(r=>{ const qs=db.questions?.[r.key]||["","",""]; const st=db.questionsStatus?.[r.key]; const owner=db.questionOwner?.[r.key]||""; return (<div key={r.key} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="flex items-center justify-between"><div className="font-medium">{r.round}. {r.grand_prix} — <span className="text-slate-300">{r.date_local}</span></div><div className="text-xs">{st?.published?<span className="text-emerald-400">Publicado</span>:<span className="text-amber-400">Pendiente</span>}</div></div><div className="text-xs text-slate-300">Autor: {owner||"—"}</div>{st?.published?<ol className="list-decimal pl-5 text-sm">{qs.map((q,i)=><li key={i}>{q||"—"}</li>)}</ol>:<div className="text-sm text-slate-400">Aún no publicadas.</div>}</div>); })}</div>);
+}
+
+function Historico(){
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState(null);
+  useEffect(()=>{ loadHistorical(2025).then(setData).catch(e=>{ setError(e.message); }).finally(()=>setLoading(false)); },[]);
+  if(loading) return <div className="card p-4"><p className="text-slate-300">Cargando histórico...</p></div>;
+  if(error) return <div className="card p-4"><p className="text-amber-300">Error al cargar: {error}</p></div>;
+  if(!data?.standings?.length) return <div className="card p-4"><p className="text-slate-300">No hay datos históricos disponibles.</p></div>;
+  return (
+    <div className="space-y-4">
+      <div className="card p-4">
+        <h2 className="font-semibold text-lg mb-1">{data.title||`Porra F1 ${data.year}`}</h2>
+        <p className="text-sm text-slate-400 mb-4">Clasificación final de la temporada anterior</p>
+        <div className="overflow-x-auto">
+          <table className="min-w-[400px] text-sm w-full">
+            <thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th></tr></thead>
+            <tbody>
+              {data.standings.map((row,i)=>(<tr key={row.name} className="border-t border-white/10"><td className="p-2">{row.rank??(i+1)}</td><td className="p-2 font-medium">{row.name}{row.rank===1?" 🏆":""}</td><td className="p-2">{row.points}</td></tr>))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Stats({db,races}){
@@ -1081,7 +1109,7 @@ function FutbolRanking({db}){
   );
 }
 
-function Admin({db,setDb,races,drivers,calendar}){
+function Admin({db,setDb,races,drivers,teams,calendar}){
   const [pass,setPass]=useState("");
   const [ok,setOk]=useState(false);
   const [selected,setSelected]=useState(()=> (races&&races[0]?.key)||"");
@@ -1142,7 +1170,9 @@ const baseCalendar=baseCal;
   if(!db.users?.[user]?.isAdmin) return <div className="card p-4"><h2 className="font-semibold">Admin</h2><p className="text-sm text-slate-300">Inicia sesión como admin.</p></div>;
   if(!ok){ return (<div className="card p-4"><h2 className="font-semibold mb-2">Admin</h2><form onSubmit={(e)=>{e.preventDefault(); if(pass===(db.meta?.adminSecret||"manrique")){setOk(true);sessionStorage.setItem("admin_ok","1");} else alert("Contraseña admin incorrecta");}}><input type="password" className="select border rounded px-3 py-2 mr-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-3 py-2 rounded bg-slate-900 text-white">Entrar</button></form></div>); }
   const driversText=(db.meta?.drivers||[]).join("\n");
+  const teamsText=(db.meta?.teams||[]).join("\n");
   const driverList=(db.meta?.drivers?.length?db.meta.drivers:drivers)||[];
+  const teamList=(db.meta?.teams?.length?db.meta.teams:teams)||[];
   const manualBets=db.betsWindow?.[selected];
   const manualReveal=db.betsReveal?.[selected];
   const historyLocked=selectedRace ? now < selectedRace.qStart : true;
@@ -1330,6 +1360,7 @@ const baseCalendar=baseCal;
       </div>
     </div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Parrilla (pilotos) — desplegables</h3><textarea className="w-full h-40 select border rounded px-3 py-2" defaultValue={driversText} onBlur={(e)=>{ const lines=e.target.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); setDb(prev=>({...prev, meta:{...prev.meta, drivers:lines}})); alert("Lista de pilotos actualizada"); }}></textarea></div>
+    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Escuderías (F1 2026)</h3><textarea className="w-full h-40 select border rounded px-3 py-2" defaultValue={teamsText} onBlur={(e)=>{ const lines=e.target.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); setDb(prev=>({...prev, meta:{...prev.meta, teams:lines}})); alert("Lista de escuderías actualizada"); }}></textarea><p className="text-xs text-slate-400 mt-2">Una por línea. Usada para preguntas adicionales (ej. ¿Qué escudería ganará?).</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Horario del GP</h3>{selectedRace ? (<div className="text-sm text-slate-200 space-y-1 mb-3"><div>Quali local: {selectedRace.q_date_local} {selectedRace.labels?.qLocal||"—"} · España: {selectedRace.labels?.qMadrid||"—"}</div>{selectedRace.labels?.raceLocal && <div>Carrera local: {selectedRace.race_date_local} {selectedRace.labels.raceLocal} · España: {selectedRace.labels.raceMadrid||"—"}</div>}<div className="text-xs text-slate-400">Usa hora local del circuito; las horas de España se recalculan.</div></div>):(<p className="text-sm text-slate-300 mb-2">Selecciona un GP para editar su horario.</p>)}<div className="grid gap-2 md:grid-cols-2"><label className="text-sm">Fecha quali (local)</label><label className="text-sm">Hora quali (local)</label><input type="date" className="select border rounded px-3 py-2" value={qDateInput} onChange={e=>setQDateInput(e.target.value)} /><input type="time" className="select border rounded px-3 py-2" value={qTimeInput} onChange={e=>setQTimeInput(e.target.value)} /><label className="text-sm">Fecha carrera (local)</label><label className="text-sm">Hora carrera (local)</label><input type="date" className="select border rounded px-3 py-2" value={raceDateInput} onChange={e=>setRaceDateInput(e.target.value)} /><input type="time" className="select border rounded px-3 py-2" value={raceTimeInput} onChange={e=>setRaceTimeInput(e.target.value)} /></div><label className="text-sm mt-2 block">Zona horaria (IANA, ej. Europe/Madrid)</label><input className="select border rounded px-3 py-2 mb-2" placeholder={baseCal?.timezone||"Asia/Dubai"} value={tzInput} onChange={e=>setTzInput(e.target.value)} /><div className="flex flex-wrap gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={saveSchedule}>Guardar horario</button><button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={resetSchedule}>Volver al calendario</button></div><p className="text-xs text-slate-400 mt-2">El horario ajusta el cierre de apuestas y la publicación automática.</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Resultados oficiales</h3><div className="grid gap-2"><label className="text-sm">Pole</label><SelectDriver value={currentRes.pole||""} onChange={(val)=>updateRes(prev=>({...prev, pole:val}))} drivers={driverList} placeholder="Selecciona piloto" /><label className="text-sm">Podio</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><SelectDriver key={i} value={currentRes.podium?.[i]||""} onChange={(val)=>updateRes(prev=>{ const next=[...(prev.podium||["","",""])]; next[i]=val; return {...prev, podium:next}; })} drivers={driverList} placeholder={`P${i+1}`} />)}</div><label className="text-sm">Respuestas a preguntas</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" value={currentRes.qAnswers?.[i]||""} onChange={e=>updateRes(prev=>{ const next=[...(prev.qAnswers||["","",""])]; next[i]=e.target.value; return {...prev, qAnswers:next}; })}/>)}</div><button className="mt-2 px-3 py-2 rounded bg-slate-900 text-white" onClick={()=>{ setDb(prev=>({...prev, results:{...(prev.results||{}), [selected]:currentRes}})); alert("Resultados guardados (puedes guardar parciales)"); }}>Guardar</button></div></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Control de apuestas</h3><p className="text-xs text-slate-400">Fuerza apertura o cierre sin depender del horario.</p><div className="flex flex-wrap gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>setBetsOverride("open")}>Abrir</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>setBetsOverride("close")}>Cerrar</button><button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={()=>setBetsOverride("auto")}>Automático</button></div><div className="text-xs text-slate-300 mt-2">Estado actual: {betsStatusLabel}</div>{selectedRace && (<div className="text-xs text-slate-400 mt-1">Quedará automático 1 minuto antes de la quali ({selectedRace.labels?.qLocal||"—"} · España: {selectedRace.labels?.qMadrid||"—"})</div>)}<div className="mt-3 border border-white/5 rounded p-3 bg-neutral-900"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="font-medium text-sm">Publicar apuestas</div><div className="text-xs text-slate-400">Enséñalas antes de la hora de quali.</div></div><div className="flex flex-wrap gap-2"><button className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm" onClick={()=>setBetsReveal("show")}>Publicar ya</button><button className="px-3 py-1.5 rounded bg-slate-800 text-white text-sm" onClick={()=>setBetsReveal("auto")}>Volver a automático</button></div></div><div className="text-xs text-slate-300 mt-2">Visibilidad: {betsRevealLabel}</div>{selectedRace && <div className="text-[11px] text-slate-500">Automático: 1 minuto después del inicio de quali ({selectedRace.labels?.qMadrid||"—"}).</div>}</div></div>
@@ -1488,7 +1519,7 @@ function Participante({user,races,db,setDb,drivers}){
 }
 
 function App(){
-  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
+  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
   const userActionRef=useRef(false);
   const setDbUser=useCallback((updater)=>{ userActionRef.current=true; setDb(prev=> typeof updater==="function" ? updater(prev) : updater); },[]);
   const logout=React.useCallback((reason)=>{
@@ -1522,7 +1553,7 @@ function App(){
     if(!hydrated) return;
     saveRemoteState(db).catch(err=>console.warn("No se pudo guardar estado remoto", err));
   },[db,hydrated]);
-  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); hashPassword(DEFAULT_PASSWORD).then(setDefaultPwdHash).catch(err=>console.warn("No se pudo calcular hash por defecto",err)); },[]);
+  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); loadTeams().then(setTeams); hashPassword(DEFAULT_PASSWORD).then(setDefaultPwdHash).catch(err=>console.warn("No se pudo calcular hash por defecto",err)); },[]);
   useEffect(()=>{
     const stored=Number(localStorage.getItem("porra_last_active")||0);
     if(user && stored && Date.now()-stored>SESSION_TIMEOUT_MS){
@@ -1570,12 +1601,13 @@ function App(){
       const baseUsers={...(prev.users||{})}; initial.forEach(n=>{ if(!baseUsers[n]) baseUsers[n]={name:n,passwordHash:defaultPwdHash,mustChange:true,isAdmin:n==="Manrique",blocked:false}; else if(baseUsers[n].password && !baseUsers[n].passwordHash){ baseUsers[n]={...baseUsers[n],passwordHash:defaultPwdHash}; delete baseUsers[n].password; } });
       const baseParticipants={...(prev.participants||{})}; initial.forEach(n=>{ if(!baseParticipants[n]) baseParticipants[n]={name:n,createdAt:nowISO()}; });
       const prevMeta=prev.meta||{};
-      const championships=prevMeta.championships || {Carlos:1,Toni:1};
+      const championships=prevMeta.championships || {Carlos:1,Toni:1,Pere:1};
       const nextDrivers=drivers&&drivers.length?drivers:(prevMeta.drivers||[]);
-      const basePoints=prevMeta.basePoints || {Antonio:38,Carlos:17,Manrique:25,Pere:44,Toni:25};
-      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||"manrique", drivers:nextDrivers, championships, basePoints, seeded:true}};
+      const nextTeams=teams&&teams.length?teams:(prevMeta.teams||[]);
+      const basePoints=prevMeta.basePoints || {};
+      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||"manrique", drivers:nextDrivers, teams:nextTeams, championships, basePoints, seeded:true}};
     });
-  },[drivers,db.meta,defaultPwdHash]);
+  },[drivers,teams,db.meta,defaultPwdHash]);
   const raceOverrides=db.meta?.raceOverrides||{};
   const races=(Array.isArray(cal)?cal:[]).map(item=>{
     const override=raceOverrides[item.key]||{};
@@ -1596,7 +1628,7 @@ function App(){
     setMode(newMode);
     localStorage.setItem("porra_mode",newMode);
     // Resetear vista si la actual no existe en el nuevo modo
-    if(newMode==="f1" && !["participante","ranking","stats","questions","admin"].includes(view)){
+    if(newMode==="f1" && !["participante","ranking","stats","questions","historico","admin"].includes(view)){
       setView("participante");
     } else if(newMode==="futbol" && !["participante","ranking","rules","admin"].includes(view)){
       setView("participante");
@@ -1609,7 +1641,7 @@ function App(){
     </section>
     <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-center md:text-left">{mode==="f1"?"Porra F1 — Últimas 3 (2025)":"Porra Fútbol"}</h1>
+        <h1 className="text-2xl font-bold text-center md:text-left">{mode==="f1"?"Porra F1 — Temporada 2026":"Porra Fútbol"}</h1>
         <div className="flex gap-2 justify-center md:justify-start items-center">
           <span className="text-sm text-slate-300">Modo:</span>
           <button className={`px-4 py-2 rounded font-medium ${mode==="f1"?"bg-emerald-600 text-white":"bg-neutral-700 text-slate-300 hover:bg-neutral-600"}`} onClick={()=>handleModeChange("f1")}>🏎️ F1</button>
@@ -1622,6 +1654,7 @@ function App(){
           <button className={`px-3 py-2 rounded ${view==="ranking"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("ranking")}>Ranking</button>
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="stats"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("stats")}>Estadísticas</button>}
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>}
+          {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="historico"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("historico")}>Histórico</button>}
           {mode==="futbol" && <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Reglas</button>}
           <button className={`px-3 py-2 rounded ${view==="admin"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("admin")}>Admin</button>
         </nav>
@@ -1639,10 +1672,11 @@ function App(){
         {mode==="f1" && (
           <>
             {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers}/>}
-            {view==="admin" && <Admin db={db} setDb={setDbUser} races={races} drivers={drivers} calendar={cal}/>}
+            {view==="admin" && <Admin db={db} setDb={setDbUser} races={races} drivers={drivers} teams={teams} calendar={cal}/>}
             {view==="ranking" && <Ranking db={db} setDb={setDbUser} races={races} currentUser={user}/>}
             {view==="stats" && <Stats db={db} races={races}/>}
             {view==="questions" && <QuestionsHistory db={db} races={races}/>}
+            {view==="historico" && <Historico/>}
           </>
         )}
         {mode==="futbol" && (
