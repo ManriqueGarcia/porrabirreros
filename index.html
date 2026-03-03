@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; connect-src 'self' https://porra.manriquegarcia.com; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
   <title>Porra de los birreros — F1 y Fútbol</title>
   <link rel="icon" href="data:,">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,17 +14,31 @@
   <script src="./assets/vendor/react-dom.js?v=20260301"></script>
   <script src="./assets/vendor/babel.js?v=20260301"></script>
   <style>
-    body{margin:0;color:#f5f5f5;background:#000 url('./assets/bg_fire_diagonal.svg') center/cover fixed no-repeat;}
-    .card,.hero,.sidebar{background:#12141b;border:1px solid rgba(255,255,255,.1);border-radius:16px;}
+    html,body{margin:0;min-height:100vh;color:#f5f5f5;}
+    html{background:#050208;}
+    body{background:transparent;}
+    body::before{content:'';position:fixed;inset:0;background:linear-gradient(180deg,rgba(5,2,8,.15) 0%,transparent 50%,rgba(5,2,8,.2) 100%);pointer-events:none;z-index:1;}
+    #bg-f1,#bg-futbol{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+    #root{position:relative;z-index:2;}
+    body[data-porra-mode="f1"] #bg-f1{display:block} body[data-porra-mode="f1"] #bg-futbol{display:none}
+    body[data-porra-mode="futbol"] #bg-f1{display:none} body[data-porra-mode="futbol"] #bg-futbol{display:block}
+    .card,.hero,.sidebar{background:rgba(10,12,22,.88);backdrop-filter:blur(12px);border:1px solid rgba(225,6,0,.2);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(0,212,255,.03);}
+    body[data-porra-mode="futbol"] .card,body[data-porra-mode="futbol"] .hero,body[data-porra-mode="futbol"] .sidebar{border-color:rgba(34,197,94,.3);box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(34,197,94,.08);}
+    .hero{border-color:rgba(225,6,0,.35);}
+    body[data-porra-mode="futbol"] .hero{border-color:rgba(34,197,94,.4);}
     /* Force readable selects */
     select, .select { background:#fff !important; color:#111 !important; border-color: rgba(15,23,42,.3) !important; }
     option { background:#fff; color:#111; }
     .select-strong { background:#fff !important; color:#0f172a !important; font-weight:600; font-size:1rem; }
   </style>
 </head>
-<body>
+<body data-porra-mode="">
+  <script>document.body.dataset.porraMode=localStorage.getItem("porra_mode")||"f1";</script>
+  <div id="bg-f1"><img src="./assets/bg_f1_racing.svg" alt="" style="width:100%;height:100%;object-fit:cover;min-width:100%;min-height:100%"/></div>
+  <div id="bg-futbol" style="display:none"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;object-fit:cover"><defs><radialGradient id="bgRadialFutbol" cx="50%" cy="50%" r="90%"><stop offset="0%" stop-color="#0a1a0d"/><stop offset="40%" stop-color="#061408"/><stop offset="80%" stop-color="#030a05"/><stop offset="100%" stop-color="#000000"/></radialGradient><linearGradient id="accentGreen" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#22c55e"/><stop offset="50%" stop-color="#16a34a"/><stop offset="100%" stop-color="#15803d"/></linearGradient><pattern id="grass" width="60" height="60" patternUnits="userSpaceOnUse"><rect width="60" height="60" fill="#0d2818"/><path d="M0,30 L60,30 M30,0 L30,60" stroke="#14532d" stroke-width="0.5" opacity="0.4"/></pattern></defs><rect width="1920" height="1080" fill="url(#bgRadialFutbol)"/><rect x="0" y="0" width="1920" height="1080" fill="url(#grass)" opacity="0.5"/><ellipse cx="960" cy="200" rx="1000" ry="250" fill="url(#accentGreen)" opacity="0.12"/><ellipse cx="960" cy="880" rx="1000" ry="300" fill="url(#accentGreen)" opacity="0.1"/><rect x="400" y="340" width="1120" height="400" fill="none" stroke="#22c55e" stroke-width="4" opacity="0.25" rx="8"/><circle cx="960" cy="540" r="80" fill="none" stroke="#22c55e" stroke-width="3" opacity="0.2"/><rect x="400" y="440" width="120" height="200" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.2"/><rect x="1400" y="440" width="120" height="200" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.2"/><text x="960" y="560" font-family="Arial Black,sans-serif" font-size="200" font-weight="900" fill="#22c55e" opacity="0.05" text-anchor="middle">LIGA</text></svg></div>
   <script>
     window.PORRA_API_BASE = "https://porra.manriquegarcia.com";
+    window.PORRA_AI_URL = "https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com";
   </script>
   <div id="root">
     <div style="padding:20px;color:#f5f5f5;text-align:center;">

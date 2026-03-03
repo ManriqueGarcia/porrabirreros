@@ -6,6 +6,7 @@ console.info("[PorraF1] Versión carga", CACHE_BUST);
 
 const LS_KEY = "porra_f1_clean_v3";
 const DEFAULT_PASSWORD = "B1rr3r0s";
+const QUESTION_AUTHORS_ORDER = ["Pere","Antonio","Manrique","Toni","Carlos"];
 const MADRID_TZ = "Europe/Madrid";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const nowISO = ()=>new Date().toISOString();
@@ -31,6 +32,7 @@ async function saveRemoteState(payload){
 async function loadCalendar(){ const r = await fetch(`./assets/calendar_2026.json?${CACHE_BUST}`); return r.json(); }
 async function loadDrivers(){ const r = await fetch(`./assets/drivers_2026.json?${CACHE_BUST}`); return r.json(); }
 async function loadTeams(){ const r = await fetch(`./assets/teams_2026.json?${CACHE_BUST}`); return r.json(); }
+async function loadCircuits(){ const r = await fetch(`./assets/circuits_2026.json?${CACHE_BUST}`); return r.json(); }
 async function loadHistorical(year){ const r = await fetch(`./assets/historical_${year}.json?${CACHE_BUST}`); return r.json(); }
 async function hashPassword(pwd){
   const data=new TextEncoder().encode(pwd||"");
@@ -161,10 +163,126 @@ function listFutbolJornadas(futbol){
   });
 }
 
-function Avatar({name}){
-  const src = `./assets/avatars/${name.toLowerCase()}.svg`; return <img src={src} alt={name} className="w-28 h-32 rounded-xl object-cover" />;
+function Avatar({name,avatar:customAvatar,size="md"}){
+  const base=`./assets/avatars/${(name||"").toLowerCase().replace(/\s+/g,"")}.svg`;
+  const [imgSrc,setImgSrc]=React.useState(customAvatar||base);
+  React.useEffect(()=>{ setImgSrc(customAvatar||base); },[customAvatar,base]);
+  const fallback=()=>setImgSrc("./assets/avatars/default.svg");
+  const sizeCls=size==="sm"?"w-8 h-8":size==="xs"?"w-6 h-6":"w-28 h-32";
+  return <img src={imgSrc} alt={name} onError={fallback} className={`${sizeCls} rounded-xl object-contain`} />;
 }
 
+const MAX_AVATAR_BASE64=120000;
+function resizeImageToDataUrl(file,maxW=128,maxH=128,quality=0.85){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const c=document.createElement("canvas");
+      let w=img.width,h=img.height;
+      if(w>maxW||h>maxH){ const r=Math.min(maxW/w,maxH/h); w=Math.round(w*r); h=Math.round(h*r); }
+      c.width=w; c.height=h;
+      const ctx=c.getContext("2d");
+      ctx.drawImage(img,0,0,w,h);
+      let dataUrl=c.toDataURL("image/jpeg",quality);
+      while(dataUrl.length>MAX_AVATAR_BASE64&&quality>0.3){ quality-=0.1; dataUrl=c.toDataURL("image/jpeg",quality); }
+      resolve(dataUrl);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error("Error cargando imagen")); };
+    img.src=url;
+  });
+}
+function readFileAsDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.onerror=()=>reject(new Error("Error leyendo archivo"));
+    if(file.type==="image/svg+xml") r.readAsDataURL(file);
+    else r.readAsDataURL(file);
+  });
+}
+function CircuitCard({race,circuits,compact}){
+  if(!race||!circuits) return null;
+  const c=circuits[race.key]||{};
+  const trackSrc=`./assets/circuit_tracks/${race.key}.svg`;
+  if(compact) return (
+    <div className="mt-4 w-full p-2 rounded-lg bg-slate-800/60 border border-slate-600/40">
+      <h3 className="text-xs font-semibold text-slate-100 mb-2">🏁 {race.grand_prix}</h3>
+      <div className="flex gap-2">
+        <div className="w-16 h-12 flex-shrink-0 rounded bg-slate-900/80 flex items-center justify-center">
+          <img src={trackSrc} alt="" className="w-full h-full object-contain" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
+        </div>
+        <div className="text-[11px] text-slate-300 space-y-0.5 min-w-0">
+          <div>{c.length||"—"} km · {c.laps||"—"} vueltas</div>
+          <div>Récord: {c.fastestLap||"—"}</div>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="mb-4 p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
+      <h3 className="text-sm font-semibold text-slate-100 mb-2 flex items-center gap-2">🏁 Circuito {race.grand_prix}</h3>
+      <div className="flex flex-col sm:flex-row gap-4 items-start">
+        <div className="w-full sm:w-40 h-24 flex-shrink-0 rounded overflow-hidden bg-slate-900/80 flex items-center justify-center">
+          <img src={trackSrc} alt="" className="w-full h-full object-contain" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
+        </div>
+        <div className="text-sm text-slate-300 space-y-1 flex-1 min-w-0">
+          <div><span className="text-slate-400">Longitud:</span> {c.length||"—"} km</div>
+          <div><span className="text-slate-400">Vueltas:</span> {c.laps||"—"}</div>
+          <div><span className="text-slate-400">Vuelta rápida:</span> {c.fastestLap||"—"}{c.driver?` (${c.driver}${c.year?`, ${c.year}`:""})`:""}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function ChangeAvatarModal({open,onClose,db,setDb,user}){
+  const [busy,setBusy]=React.useState(false);
+  const inputRef=React.useRef(null);
+  if(!open) return null;
+  const handleFile=async(e)=>{
+    const file=e?.target?.files?.[0];
+    if(!file) return;
+    const ok=/\.(jpe?g|png|svg)$/i.test(file.name)||["image/jpeg","image/png","image/svg+xml"].includes(file.type);
+    if(!ok){ alert("Formato no válido. Usa JPG, PNG o SVG."); return; }
+    setBusy(true);
+    try{
+      let dataUrl;
+      if(file.type==="image/svg+xml"){
+        dataUrl=await readFileAsDataUrl(file);
+        if(dataUrl.length>MAX_AVATAR_BASE64){ alert("El SVG es demasiado grande. Usa uno más simple o JPG/PNG."); setBusy(false); return; }
+      }else{
+        dataUrl=await resizeImageToDataUrl(file);
+      }
+      setDb(prev=>({...prev,meta:{...(prev.meta||{}),avatars:{...(prev.meta?.avatars||{}),[user]:dataUrl}}}));
+      alert("Avatar actualizado");
+      onClose();
+    }catch(err){ alert(err?.message||"Error al subir"); }
+    finally{ setBusy(false); if(inputRef.current) inputRef.current.value=""; }
+  };
+  const removeAvatar=()=>{
+    setDb(prev=>{
+      const avatars={...(prev.meta?.avatars||{})};
+      delete avatars[user];
+      return {...prev,meta:{...(prev.meta||{}),avatars}};
+    });
+    alert("Avatar eliminado");
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-white text-slate-900 rounded-xl p-5 w-96">
+        <div className="font-semibold mb-3">Cambiar avatar</div>
+        <p className="text-sm text-slate-600 mb-3">JPG, PNG o SVG. Máx. ~100KB.</p>
+        <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml" onChange={handleFile} className="block w-full text-sm mb-3" disabled={busy} />
+        <div className="flex gap-2 justify-end">
+          <button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button>
+          {db.meta?.avatars?.[user]&&<button type="button" className="px-3 py-2 rounded bg-red-100 text-red-700" onClick={removeAvatar}>Quitar avatar</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
 function ChangePasswordModal({open,onClose,db,setDb,user}){
   const [curr,setCurr]=React.useState("");
   const [n1,setN1]=React.useState("");
@@ -409,9 +527,9 @@ function Ranking({db,races,setDb,currentUser}){
     });
   };
   return (<div className="space-y-4">
-    <div className="card p-4"><div className="flex items-center justify-between mb-3"><h2 className="font-semibold">Ranking</h2><select className="select select-strong border rounded px-3 py-2 shadow-sm" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto"><table className="min-w-[800px] text-sm"><thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th><th className="p-2 text-left">{scope==="all"?"TB2 Σ":"TB1 Σ"}</th><th className="p-2 text-left">Aciertos</th><th className="p-2 text-left">Orden exacto</th><th className="p-2 text-left">Penalizaciones</th></tr></thead><tbody>{data.map((r,i)=>(<tr key={r.name} className="border-t border-white/10"><td className="p-2">{manualActive?(r.manualRank||i+1):i+1}</td><td className="p-2">{r.name}</td><td className="p-2 font-semibold">{r.points}</td><td className="p-2">{scope==="all"?r.tb2:r.tb1}</td><td className="p-2">{r.tb3}</td><td className="p-2">{r.tb4}</td><td className="p-2">{r.pen}</td></tr>))}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Mostrando clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática + sumar backup</button></div>:<p className="text-xs text-slate-300 mt-2">Desempates: puntos, TB1 (menor), TB2 global (menor), aciertos, orden exacto y menos penalizaciones.</p>}{!manualActive && baseEntries.length>0 && <p className="text-xs text-emerald-300 mt-1">Incluye puntos base importados: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <div className="card p-4"><div className="flex items-center justify-between mb-3"><h2 className="font-semibold">Ranking</h2><select className="select select-strong border rounded px-3 py-2 shadow-sm" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto"><table className="min-w-[800px] text-sm"><thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th><th className="p-2 text-left">{scope==="all"?"TB2 Σ":"TB1 Σ"}</th><th className="p-2 text-left">Aciertos</th><th className="p-2 text-left">Orden exacto</th><th className="p-2 text-left">Penalizaciones</th></tr></thead><tbody>{data.map((r,i)=>(<tr key={r.name} className="border-t border-white/10"><td className="p-2">{manualActive?(r.manualRank||i+1):i+1}</td><td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}</span></div></td><td className="p-2 font-semibold">{r.points}</td><td className="p-2">{scope==="all"?r.tb2:r.tb1}</td><td className="p-2">{r.tb3}</td><td className="p-2">{r.tb4}</td><td className="p-2">{r.pen}</td></tr>))}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Mostrando clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática + sumar backup</button></div>:<p className="text-xs text-slate-300 mt-2">Desempates: puntos, TB1 (menor), TB2 global (menor), aciertos, orden exacto y menos penalizaciones.</p>}{!manualActive && baseEntries.length>0 && <p className="text-xs text-emerald-300 mt-1">Incluye puntos base importados: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
     <RaceBreakdown db={db} races={races} raceKey={scope} rows={data} />
-    <div className="card p-4"><h3 className="font-semibold mb-2">Ranking campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><span className="font-medium">{idx+1}. {item.name}</span><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
+    <div className="card p-4"><h3 className="font-semibold mb-2">Ranking campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
     {isAdmin && setDb && (
       <div className="card p-4 space-y-3">
         <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -464,8 +582,8 @@ function RaceBreakdown({db,races,raceKey,rows}){
           const detail=describeBetAgainstResult(bet,res,manualAdj);
           return (
             <div key={row.name} className="border border-white/10 rounded p-3 bg-neutral-900">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{row.name}</div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2"><Avatar name={row.name} avatar={db.meta?.avatars?.[row.name]} size="sm"/><span className="font-medium">{row.name}</span></div>
                 <div className="text-sm">{row.points} pts {bet?.late && <span className="text-xs text-amber-300 ml-2">(tarde)</span>}</div>
               </div>
               <ul className="mt-2 space-y-1 text-xs text-slate-300">
@@ -487,22 +605,103 @@ function Historico(){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
-  useEffect(()=>{ loadHistorical(2025).then(setData).catch(e=>{ setError(e.message); }).finally(()=>setLoading(false)); },[]);
+  const [year,setYear]=useState(2025);
+  useEffect(()=>{ loadHistorical(year).then(setData).catch(e=>{ setError(e.message); setData(null); }).finally(()=>setLoading(false)); },[year]);
+  useEffect(()=>{ setLoading(true); },[year]);
   if(loading) return <div className="card p-4"><p className="text-slate-300">Cargando histórico...</p></div>;
   if(error) return <div className="card p-4"><p className="text-amber-300">Error al cargar: {error}</p></div>;
-  if(!data?.standings?.length) return <div className="card p-4"><p className="text-slate-300">No hay datos históricos disponibles.</p></div>;
+  if(!data) return <div className="card p-4"><p className="text-slate-300">No hay datos históricos disponibles.</p></div>;
+  const races=data.races||[];
+  const hasStandings=!!data?.standings?.length;
   return (
     <div className="space-y-4">
-      <div className="card p-4">
-        <h2 className="font-semibold text-lg mb-1">{data.title||`Porra F1 ${data.year}`}</h2>
-        <p className="text-sm text-slate-400 mb-4">Clasificación final de la temporada anterior</p>
-        <div className="overflow-x-auto">
-          <table className="min-w-[400px] text-sm w-full">
-            <thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th></tr></thead>
-            <tbody>
-              {data.standings.map((row,i)=>(<tr key={row.name} className="border-t border-white/10"><td className="p-2">{row.rank??(i+1)}</td><td className="p-2 font-medium">{row.name}{row.rank===1?" 🏆":""}</td><td className="p-2">{row.points}</td></tr>))}
-            </tbody>
-          </table>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="font-semibold text-lg">{data.title||`Porra F1 ${data.year}`}</h2>
+        <select className="select border rounded px-3 py-2 text-sm" value={year} onChange={e=>setYear(Number(e.target.value))}>
+          <option value={2025}>2025</option>
+        </select>
+      </div>
+      {hasStandings && (
+        <div className="card p-4">
+          <h3 className="font-semibold mb-2">Clasificación final</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-[400px] text-sm w-full">
+              <thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th></tr></thead>
+              <tbody>
+                {data.standings.map((row,i)=>(<tr key={row.name} className="border-t border-white/10"><td className="p-2">{row.rank??(i+1)}</td><td className="p-2 font-medium">{row.name}{row.rank===1?" 🏆":""}</td><td className="p-2">{row.points}</td></tr>))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {races.length>0 && (
+        <div className="card p-4">
+          <h3 className="font-semibold mb-3">Preguntas por Gran Premio</h3>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {races.map(r=>{
+              const hasRealData = REAL_HISTORICAL_2025_ROUNDS.includes(r.round);
+              return (
+              <div key={r.round} className="border border-white/10 rounded p-3 bg-neutral-900">
+                <div className="font-medium text-sm mb-2">{r.round}. {r.grand_prix}</div>
+                {hasRealData && (r.questions||[]).length>0 ? (
+                  <ol className="list-decimal pl-5 text-sm text-slate-200 space-y-1">
+                    {(r.questions||[]).map((q,i)=><li key={i}>{q||"—"}</li>)}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-slate-400">—</p>
+                )}
+              </div>
+            );})}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AIAssistant({open,onClose,races}){
+  const [input,setInput]=useState("");
+  const [messages,setMessages]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const apiBase=(window.PORRA_API_BASE||"").replace(/\/$/,"");
+  const aiUrl=window.PORRA_AI_URL||(apiBase?`${apiBase}/assistant`:"");
+  const apiSecret=window.PORRA_API_SECRET||"";
+  const headers=apiSecret?{"Content-Type":"application/json","x-porra-secret":apiSecret}:{"Content-Type":"application/json"};
+  const ask=async()=>{
+    const q=(input||"").trim();
+    if(!q||loading||!aiUrl) return;
+    setInput("");
+    setMessages(prev=>[...prev,{role:"user",text:q}]);
+    setLoading(true);
+    try{
+      const res=await fetch(aiUrl,{method:"POST",headers,body:JSON.stringify({question:q})});
+      const data=await res.json().catch(()=>({}));
+      const answer=data.answer||data.error||"No se pudo obtener respuesta.";
+      setMessages(prev=>[...prev,{role:"assistant",text:answer}]);
+    }catch(err){
+      setMessages(prev=>[...prev,{role:"assistant",text:"Error de conexión. ¿Está configurado el endpoint /assistant?"}]);
+    }finally{ setLoading(false); }
+  };
+  if(!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
+      <div className="relative w-full max-w-md max-h-[80vh] flex flex-col bg-[#12141b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <h2 className="font-semibold flex items-center gap-2">🤖 Asistente F1</h2>
+          <button className="text-slate-400 hover:text-white p-1" onClick={onClose}>✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+          <p className="text-xs text-slate-400">Pregunta sobre datos históricos de F1. Ej: &quot;¿Cuántos coches han acabado la carrera en Mónaco históricamente?&quot;</p>
+          {messages.map((m,i)=>(<div key={i} className={`rounded-lg p-3 ${m.role==="user"?"bg-slate-800 ml-8":"bg-emerald-900/30 mr-8"}`}><p className="text-sm whitespace-pre-wrap">{m.text}</p></div>))}
+          {loading && <div className="rounded-lg p-3 bg-emerald-900/30 mr-8"><p className="text-sm text-slate-300">Pensando...</p></div>}
+        </div>
+        <div className="p-4 border-t border-white/10">
+          <div className="flex gap-2">
+            <input className="flex-1 select border border-white/20 rounded-lg px-3 py-2 bg-neutral-900 text-sm" placeholder="Escribe tu pregunta..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&ask()}/>
+            <button className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-sm disabled:opacity-50" onClick={ask} disabled={loading||!input.trim()}>Enviar</button>
+          </div>
+          {!aiUrl && <p className="text-xs text-amber-400 mt-2">Configura PORRA_AI_URL o PORRA_API_BASE/assistant para usar el asistente.</p>}
         </div>
       </div>
     </div>
@@ -726,15 +925,16 @@ function FutbolParticipante({user,db,setDb}){
           {jornada && canViewFull && (
             <ul className="space-y-2">
               {others.map(({name,bet:other})=>(
-                <li key={name} className="border border-white/10 rounded p-3 bg-neutral-900">
-                  <div className="font-medium">{name}</div>
+                <li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3">
+                  <Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm"/>
+                  <div className="flex-1 min-w-0"><div className="font-medium">{name}</div>
                   {other ? (
                     <div className="text-xs space-y-1 mt-1">
                       {(jornada.matches||[]).map((m,idx)=><div key={idx}><b>{m.home||"Local"}-{m.away||"Visitante"}:</b> {other.matches?.[idx]?.home??"—"}-{other.matches?.[idx]?.away??"—"}</div>)}
                       <div><b>P.Adic.:</b> {(other.questions||["","",""]).join(" · ")}</div>
                       {other.late && <div className="text-amber-300">Fuera de plazo</div>}
                     </div>
-                  ) : (<div className="text-xs text-slate-400">Sin apuesta</div>)}
+                  ) : (<div className="text-xs text-slate-400">Sin apuesta</div>)}</div>
                 </li>
               ))}
             </ul>
@@ -1066,7 +1266,7 @@ function FutbolRanking({db}){
               {rows.map((r,idx)=>(
                 <tr key={r.name} className="border-t border-white/10">
                   <td className="p-2">{idx+1}</td>
-                  <td className="p-2">{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</td>
+                  <td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</span></div></td>
                   <td className="p-2 font-semibold">{r.points}</td>
                   <td className="p-2">{r.exact}</td>
                   <td className="p-2">{r.qHits}</td>
@@ -1366,7 +1566,7 @@ const baseCalendar=baseCal;
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Control de apuestas</h3><p className="text-xs text-slate-400">Fuerza apertura o cierre sin depender del horario.</p><div className="flex flex-wrap gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>setBetsOverride("open")}>Abrir</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>setBetsOverride("close")}>Cerrar</button><button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={()=>setBetsOverride("auto")}>Automático</button></div><div className="text-xs text-slate-300 mt-2">Estado actual: {betsStatusLabel}</div>{selectedRace && (<div className="text-xs text-slate-400 mt-1">Quedará automático 1 minuto antes de la quali ({selectedRace.labels?.qLocal||"—"} · España: {selectedRace.labels?.qMadrid||"—"})</div>)}<div className="mt-3 border border-white/5 rounded p-3 bg-neutral-900"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="font-medium text-sm">Publicar apuestas</div><div className="text-xs text-slate-400">Enséñalas antes de la hora de quali.</div></div><div className="flex flex-wrap gap-2"><button className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm" onClick={()=>setBetsReveal("show")}>Publicar ya</button><button className="px-3 py-1.5 rounded bg-slate-800 text-white text-sm" onClick={()=>setBetsReveal("auto")}>Volver a automático</button></div></div><div className="text-xs text-slate-300 mt-2">Visibilidad: {betsRevealLabel}</div>{selectedRace && <div className="text-[11px] text-slate-500">Automático: 1 minuto después del inicio de quali ({selectedRace.labels?.qMadrid||"—"}).</div>}</div></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Editar apuestas de participantes</h3><div className="grid gap-2 md:grid-cols-[2fr,1fr]"><select className="select border rounded px-3 py-2" value={editName} onChange={e=>setEditName(e.target.value)}><option value="">— Elige participante —</option>{participantNames.map(n=><option key={n} value={n}>{n}</option>)}</select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!editBet.late} onChange={e=>setEditBet(prev=>({...prev, late:e.target.checked}))} /><span>Marcar como fuera de plazo</span></label></div><div className="grid gap-2 mt-3"><label className="text-sm">Pole</label><SelectDriver value={editBet.pole} onChange={(val)=>setEditBet(prev=>({...prev, pole:val}))} drivers={driverList} placeholder="Selecciona piloto" /><label className="text-sm">Podio</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><SelectDriver key={i} value={editBet.podium?.[i]||""} onChange={(val)=>setEditBet(prev=>{ const next=[...(prev.podium||["","",""])]; next[i]=val; return {...prev, podium:next}; })} drivers={driverList} placeholder={`P${i+1}`} />)}</div><label className="text-sm">Preguntas adicionales</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" value={editBet.q?.[i]||""} onChange={e=>setEditBet(prev=>{ const next=[...(prev.q||["","",""])]; next[i]=e.target.value; return {...prev, q:next}; })} placeholder={`Respuesta ${i+1}`}/>)}</div><button className="mt-2 px-3 py-2 rounded bg-emerald-700 text-white" onClick={saveAdminBet}>Guardar apuesta</button></div><p className="text-xs text-slate-400 mt-2">Guarda una apuesta tal cual la haría el usuario y decide si computa como tarde.</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Ajustes manuales de puntuación ({selected||"—"})</h3><p className="text-xs text-slate-400 mb-2">Suma o resta puntos de esta carrera. Afecta ranking, detalle y estadísticas.</p><div className="grid gap-2 md:grid-cols-2">{participantNames.map(name=>{ const val=Number(scoreAdjustments[name]||0); return (<label key={name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900 text-sm"><span>{name}</span><input type="number" className="w-24 text-right select border rounded px-2 py-1" value={val} onChange={e=>{ const parsed=parseInt(e.target.value,10); updateScoreAdjustment(name, Number.isNaN(parsed)?0:parsed); }} /></label>); })}</div><p className="text-[11px] text-slate-500 mt-2">Deja en 0 para eliminar ajustes.</p></div>
-    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Autor y publicación de preguntas</h3><div className="flex gap-2 items-center"><span className="text-sm">Autor asignado:</span><select className="select border rounded px-3 py-2" value={db.questionOwner?.[selected]||""} onChange={e=>setDb(prev=>({...prev, questionOwner:{...(prev.questionOwner||{}), [selected]:e.target.value}}))}><option value="">— Sin asignar —</option>{Object.keys(db.participants||{}).map(n=><option key={n} value={n}>{n}</option>)}</select></div><div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={(db.questions?.[selected]?.[i]||"")} onChange={e=>{const next=[...(db.questions?.[selected]||["","",""])]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [selected]: next}}));}}/>)}</div><div className="flex items-center gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:true, force:true}}})); alert("Publicación forzada"); }}>Forzar publicar</button><button className="px-3 py-2 rounded bg-gray-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:false, force:false}}})); alert("Despublicado"); }}>Despublicar</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>{ const v=!(db.questionsStatus?.[selected]?.locked); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), locked:v}}})); alert(v?"Edición bloqueada":"Edición desbloqueada"); }}>{db.questionsStatus?.[selected]?.locked ? "Desbloquear edición" : "Bloquear edición"}</button></div></div>
+    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Autor y publicación de preguntas</h3><p className="text-xs text-slate-400 mb-2">Orden por clasificación 2025: Pere → Antonio → Manrique → Toni → Carlos (cíclico)</p><div className="flex gap-2 items-center"><span className="text-sm">Autor asignado:</span><select className="select border rounded px-3 py-2" value={db.questionOwner?.[selected]||""} onChange={e=>setDb(prev=>({...prev, questionOwner:{...(prev.questionOwner||{}), [selected]:e.target.value}}))}><option value="">— Sin asignar —</option>{Object.keys(db.participants||{}).map(n=><option key={n} value={n}>{n}</option>)}</select></div><div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={(db.questions?.[selected]?.[i]||"")} onChange={e=>{const next=[...(db.questions?.[selected]||["","",""])]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [selected]: next}}));}}/>)}</div><div className="flex flex-wrap items-center gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:true, force:true}}})); alert("Publicación forzada"); }}>Forzar publicar</button><button className="px-3 py-2 rounded bg-gray-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:false, force:false}}})); alert("Despublicado"); }}>Despublicar</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>{ const v=!(db.questionsStatus?.[selected]?.locked); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), locked:v}}})); alert(v?"Edición bloqueada":"Edición desbloqueada"); }}>{db.questionsStatus?.[selected]?.locked ? "Desbloquear edición" : "Bloquear edición"}</button><button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ if(!confirm("¿Borrar preguntas de Las Vegas, Qatar y Abu Dhabi (GP 22–24)? Son datos de 2025 que no deberían mostrarse en 2026.")) return; const keys=["las_vegas","qatar","abu_dhabi"]; setDb(prev=>{ const q={...(prev.questions||{})}; const qs={...(prev.questionsStatus||{})}; const qo={...(prev.questionOwner||{})}; keys.forEach(k=>{ delete q[k]; delete qs[k]; delete qo[k]; }); return {...prev, questions:q, questionsStatus:qs, questionOwner:qo}; }); alert("Preguntas de GP 22–24 borradas. Se guardará automáticamente en el servidor."); }}>Limpiar GP 22–24 (legacy)</button></div></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Gestión de usuarios</h3>
       <form onSubmit={handleAddUser} className="grid gap-2 md:grid-cols-[2fr,2fr,auto]">
         <input className="select border rounded px-3 py-2" placeholder="Nombre" value={newUserName} onChange={e=>setNewUserName(e.target.value)} />
@@ -1418,12 +1618,35 @@ const baseCalendar=baseCal;
   </div>);
 }
 
-function Participante({user,races,db,setDb,drivers}){
+const CURRENT_SEASON_YEAR = 2026;
+const REAL_HISTORICAL_2025_KEYS = ["las_vegas","qatar","abu_dhabi"];
+const REAL_HISTORICAL_2025_ROUNDS = [22,23,24];
+
+function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setSelectedRaceKey}){
   const [now,setNow]=useState(()=>new Date());
-  const [selected,setSelected]=useState(races?.[0]?.key||""); const race=races?.find(r=>r.key===selected);
+  const selected=selectedRaceKey||"";
+  const setSelected=setSelectedRaceKey||(()=>{});
+  const race=races?.find(r=>r.key===selected);
   const [showOthers,setShowOthers]=useState(false);
+  const [historicalPrev,setHistoricalPrev]=useState(null);
+  useEffect(()=>{
+    if(races?.length){
+      const valid=races.some(r=>r.key===selected);
+      const next=!selected||!valid?races[0].key:selected;
+      if(next!==selected) setSelected(next);
+    }
+  },[races,selected]);
+  useEffect(()=>{ if(selected) sessionStorage.setItem("porra_selected_race",selected); },[selected]);
+  useEffect(()=>{ loadHistorical(CURRENT_SEASON_YEAR-1).then(setHistoricalPrev).catch(()=>setHistoricalPrev(null)); },[]);
   useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),30000); return ()=>clearInterval(id); },[]);
   useEffect(()=>{ if(!race) setShowOthers(false); },[race]);
+  const prevYearResult=race && historicalPrev?.resultsByKey?.[race.key];
+  const prevYearPoints=race && historicalPrev?.pointsByKey?.[race.key]?.[user];
+  const last3WithResults=useMemo(()=>{
+    const nowMs=Date.now();
+    const withRes=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3);
+    return withRes;
+  },[races,db.results]);
   const bet=race?(db.bets?.[race.key]?.[user]||{pole:"",podium:["","",""],q:["","",""],submittedAt:null,late:false}):null;
   const owner=race?(db.questionOwner?.[race.key]||""):""; const questions=race?(db.questions?.[race.key]||["","",""]):["","",""];
   const manualWindow=race ? db.betsWindow?.[race.key] : null;
@@ -1436,12 +1659,11 @@ function Participante({user,races,db,setDb,drivers}){
   const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
   const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":manualWindow?.forceOpen?"Abierto por admin":(now<race.cutoff?"Abierto (horario)":"Cerrado (horario)")) : "—";
-  const myRaceScores=useMemo(()=>{
-    return (races||[]).map(r=>{
-      const res=db.results?.[r.key];
-      if(!res) return null;
-      return {race:r,score:scoreForRace(db,r.key,user)};
-    }).filter(Boolean);
+  const last3RacesDisplay=useMemo(()=>{
+    const nowMs=Date.now();
+    const withResults=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3).map(r=>({race:r,score:scoreForRace(db,r.key,user),hasData:true}));
+    if(withResults.length>0) return withResults;
+    return (races||[]).slice(0,3).map(r=>({race:r,score:null,hasData:false}));
   },[races,db.results,db.bets,user]);
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
@@ -1452,7 +1674,43 @@ function Participante({user,races,db,setDb,drivers}){
         {race && (<button type="button" className="text-sm px-3 py-1.5 rounded bg-neutral-900 text-white" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar apuestas":"Ver apuestas de otros"}</button>)}
       </div>
       <select className="select select-strong border rounded px-3 py-2 mb-3 shadow-sm" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
-      {race && <div className="text-sm text-slate-200 mb-3 space-y-1"><div>Quali (local): {race.labels?.qLocal||"—"} · España: {race.labels?.qMadrid||"—"}</div>{race.labels?.raceLocal && <div>Carrera (local): {race.labels.raceLocal} · España: {race.labels.raceMadrid}</div>}{authorDeadline && <div>Cierre preguntas (autor): {formatDateTime(authorDeadline,MADRID_TZ)} (España)</div>}<div>Cierre apuestas automático: {formatTime(race.cutoff,MADRID_TZ)} (España)</div><div>Estado apuestas: {betsStatus}</div><div>Visibilidad de apuestas: {manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali (o cuando el admin publique)"}</div></div>}
+      {race && <div className="md:hidden"><CircuitCard race={race} circuits={circuits}/></div>}
+      {race && (
+        <div className="mb-4 p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
+          <h3 className="text-sm font-semibold text-slate-100 mb-2 flex items-center gap-2">🕐 Horarios del GP</h3>
+          <div className="grid gap-2 text-sm">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="text-slate-400">Quali:</span>
+              <span className="text-slate-300">{race.labels?.qLocal||"—"} (local)</span>
+              <span className="text-emerald-300 font-semibold">→ {race.labels?.qMadrid||"—"} España</span>
+            </div>
+            {race.labels?.raceLocal && (
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-slate-400">Carrera:</span>
+                <span className="text-slate-300">{race.labels.raceLocal} (local)</span>
+                <span className="text-emerald-300 font-semibold">→ {race.labels.raceMadrid} España</span>
+              </div>
+            )}
+            {authorDeadline && (
+              <div className="flex flex-wrap items-baseline gap-2 text-slate-300">
+                <span className="text-slate-400">Cierre preguntas (autor):</span>
+                <span className="text-amber-200 font-medium">{formatDateTime(authorDeadline,MADRID_TZ)} España</span>
+              </div>
+            )}
+            <div className="mt-2 pt-2 border-t border-slate-600/50">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-slate-400">Cierre apuestas:</span>
+                <span className="text-amber-300 font-bold text-base">{formatTime(race.cutoff,MADRID_TZ)}</span>
+                <span className="text-amber-100 text-xs">(España)</span>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-1 text-xs">
+                <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
+                <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {race && (<div className="mb-3"><div className="flex items-start justify-between bg-amber-500/10 border border-amber-400/30 rounded p-2"><div><div className="font-medium text-amber-200">Preguntas de este GP</div><div className="text-xs text-amber-300">{owner?<>Autor: <b>{owner}</b> — {db.questionsStatus?.[race.key]?.published?"Publicadas":"Pendiente"}</>:"Sin autor asignado"}</div></div></div>{(owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked)) && (<div id="owner-questions-editor" className="mt-2 space-y-2 bg-neutral-900 border border-white/10 rounded p-3"><div className="text-xs text-slate-300">Editor de preguntas (hasta 4h antes de quali)</div><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div><div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return alert("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); alert("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return alert("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); alert("Actualizado"); }}>Actualizar</button>)}</div></div>)}</div>)}
       {race && <BetForm key={race.key} bet={bet} disabled={!canEdit} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={(b)=>{ const late=new Date()>=race.cutoff; setDb(prev=>{
         const timestamp=nowISO();
@@ -1469,38 +1727,71 @@ function Participante({user,races,db,setDb,drivers}){
         }
         return {...prev, bets:nextBets, betHistory};
       }); alert(late?"Apuesta enviada (fuera de plazo)":"Apuesta guardada"); }}/>}      
-      {myRaceScores.length>0 ? (
+      {race && prevYearResult && REAL_HISTORICAL_2025_KEYS.includes(race.key) && (
+        <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
+          <h3 className="text-sm font-semibold text-slate-200 mb-2">📋 Resultado año anterior ({race.grand_prix} {CURRENT_SEASON_YEAR-1})</h3>
+          <div className="text-sm text-slate-300 space-y-1">
+            <div>Pole: <span className="text-emerald-300">{prevYearResult.pole||"—"}</span></div>
+            <div>Podio: <span className="text-emerald-300">{(prevYearResult.podium||[]).join(" · ")}</span></div>
+            {(prevYearResult.qAnswers||[]).length>0 && <div>Preguntas: <span className="text-amber-200">{(prevYearResult.qAnswers||[]).join(" · ")}</span></div>}
+          </div>
+        </div>
+      )}
+      {last3WithResults.length>0 && (
+        <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
+          <h3 className="text-sm font-semibold text-slate-200 mb-2">🏁 Últimos 3 GP de esta temporada</h3>
+          <div className="space-y-2">
+            {last3WithResults.map(r=>{
+              const res=db.results?.[r.key];
+              if(!res) return null;
+              return (
+                <div key={r.key} className="text-sm border-b border-slate-600/40 pb-2 last:border-0 last:pb-0">
+                  <div className="font-medium text-slate-200">{r.round}. {r.grand_prix}</div>
+                  <div className="text-xs text-slate-400">Pole: {res.pole||"—"} · Podio: {(res.podium||[]).join(" · ")} · Preg: {(res.qAnswers||[]).join(" · ")}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {race && prevYearPoints!=null && REAL_HISTORICAL_2025_KEYS.includes(race.key) && (
+        <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
+          <h3 className="text-sm font-semibold text-slate-200 mb-2">🏆 Tus puntos en este circuito ({CURRENT_SEASON_YEAR-1})</h3>
+          <div className="text-lg font-bold text-emerald-300">{prevYearPoints} pts</div>
+          <p className="text-xs text-slate-400 mt-1">Puntos que conseguiste en {race.grand_prix} la temporada pasada</p>
+        </div>
+      )}
+      {last3RacesDisplay.length>0 && (
         <div className="mt-4 border border-white/10 rounded p-3 bg-neutral-900">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold">Puntos por carrera</h3>
             <span className="text-xs text-slate-400">Incluye bonus/penalizaciones</span>
           </div>
           <div className="space-y-2">
-            {myRaceScores.map(({race:rc,score})=>(
+            {last3RacesDisplay.map(({race:rc,score,hasData})=>(
               <div key={rc.key} className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 border border-white/5 rounded px-2 py-2">
                 <div className="text-sm font-medium">{rc.round}. {rc.grand_prix}</div>
                 <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <span className="font-semibold">{score.points} pts</span>
-                  <span className="text-xs text-slate-300">TB1: {score.tb1}</span>
-                  <span className="text-xs text-slate-300">Aciertos: {score.hits}</span>
-                  <span className="text-xs text-slate-300">Exactos: {score.exact}</span>
-                  {score.pen>0 && <span className="text-xs text-amber-300">Pen: {score.pen}</span>}
-                  {score.manualAdj!==0 && <span className="text-xs text-emerald-300">Ajuste: {score.manualAdj>0?`+${score.manualAdj}`:score.manualAdj}</span>}
+                  <span className="font-semibold">{hasData ? `${score.points} pts` : '—'}</span>
+                  <span className="text-xs text-slate-300">TB1: {hasData ? score.tb1 : '—'}</span>
+                  <span className="text-xs text-slate-300">Aciertos: {hasData ? score.hits : '—'}</span>
+                  <span className="text-xs text-slate-300">Exactos: {hasData ? score.exact : '—'}</span>
+                  {hasData && score.pen>0 && <span className="text-xs text-amber-300">Pen: {score.pen}</span>}
+                  {hasData && score.manualAdj!==0 && <span className="text-xs text-emerald-300">Ajuste: {score.manualAdj>0?`+${score.manualAdj}`:score.manualAdj}</span>}
                 </div>
               </div>
             ))}
           </div>
         </div>
-      ) : (
-        <div className="mt-4 text-sm text-slate-300">Aún no hay resultados oficiales cargados.</div>
       )}
     </div>
     {showOthersPanel && (<div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start"><h2 className="font-semibold mb-4">Apuestas de otros {showStatusOnly && <span className="text-xs text-emerald-300">(estado admin)</span>}</h2>
       {!race && <p className="text-sm text-slate-300">Selecciona un GP para ver apuestas.</p>}
       {race && showStatusOnly && (
         <ul className="space-y-2">
-          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center justify-between">
-            <div>
+          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3">
+            <Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm"/>
+            <div className="flex-1 min-w-0">
               <div className="font-medium">{name}</div>
               <div className="text-xs text-slate-400">{bet?(bet.submittedAt?`Enviada ${new Date(bet.submittedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`:"Enviada"):"Sin apuesta"}</div>
             </div>
@@ -1511,7 +1802,7 @@ function Participante({user,races,db,setDb,drivers}){
       {race && !showStatusOnly && !canViewFull && <p className="text-sm text-slate-300">Se verán 1 minuto después del inicio de la quali (o si el admin las publica antes).</p>}
       {race && canViewFull && (
         <ul className="space-y-2">
-          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div></div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</li>))}
+          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div></div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
         </ul>
       )}
     </div>)}
@@ -1519,7 +1810,7 @@ function Participante({user,races,db,setDb,drivers}){
 }
 
 function App(){
-  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
+  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [circuits,setCircuits]=useState({}); const [selectedRaceKey,setSelectedRaceKey]=useState(()=>sessionStorage.getItem("porra_selected_race")||""); useEffect(()=>{ if(selectedRaceKey&&!cal?.find(r=>r.key===selectedRaceKey)&&cal?.length) setSelectedRaceKey(cal[0].key); },[cal,selectedRaceKey]); useEffect(()=>{ if(selectedRaceKey) sessionStorage.setItem("porra_selected_race",selectedRaceKey); },[selectedRaceKey]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [showAvatar,setShowAvatar]=useState(false); const [showAI,setShowAI]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
   const userActionRef=useRef(false);
   const setDbUser=useCallback((updater)=>{ userActionRef.current=true; setDb(prev=> typeof updater==="function" ? updater(prev) : updater); },[]);
   const logout=React.useCallback((reason)=>{
@@ -1553,7 +1844,7 @@ function App(){
     if(!hydrated) return;
     saveRemoteState(db).catch(err=>console.warn("No se pudo guardar estado remoto", err));
   },[db,hydrated]);
-  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); loadTeams().then(setTeams); hashPassword(DEFAULT_PASSWORD).then(setDefaultPwdHash).catch(err=>console.warn("No se pudo calcular hash por defecto",err)); },[]);
+  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); loadTeams().then(setTeams); loadCircuits().then(setCircuits).catch(()=>{}); hashPassword(DEFAULT_PASSWORD).then(setDefaultPwdHash).catch(err=>console.warn("No se pudo calcular hash por defecto",err)); },[]);
   useEffect(()=>{
     const stored=Number(localStorage.getItem("porra_last_active")||0);
     if(user && stored && Date.now()-stored>SESSION_TIMEOUT_MS){
@@ -1608,6 +1899,34 @@ function App(){
       return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||"manrique", drivers:nextDrivers, teams:nextTeams, championships, basePoints, seeded:true}};
     });
   },[drivers,teams,db.meta,defaultPwdHash]);
+  useEffect(()=>{
+    if(!hydrated) return;
+    if(db.meta?.futbolJornadasUpdated) return;
+    const futbol=db.futbol||defaultFutbolState();
+    const order=futbol.order||[];
+    const hasOldSeed=order.length>0 && order.every(id=>["J1","J2","J3"].includes(id));
+    const needsUpdate=order.length===0||hasOldSeed;
+    if(!needsUpdate) return;
+    const defaultJornadas=[
+      {id:"J28",name:"Jornada 28 (13-16 Mar)",deadline:new Date(2026,2,13,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Elche"},{home:"FC Barcelona",away:"Sevilla"},{home:"Real Sociedad",away:"Osasuna"},{home:"Oviedo",away:"Valencia"}]},
+      {id:"J29",name:"Jornada 29 (20-22 Mar)",deadline:new Date(2026,2,20,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Atlético de Madrid"},{home:"FC Barcelona",away:"Rayo Vallecano"},{home:"Villarreal",away:"Real Sociedad"},{home:"Athletic Club",away:"Betis"}]},
+      {id:"J30",name:"Jornada 30 (5 Abr)",deadline:new Date(2026,3,3,15,0).toISOString(),matches:[{home:"Mallorca",away:"Real Madrid"},{home:"Atlético de Madrid",away:"FC Barcelona"},{home:"Real Sociedad",away:"Levante"},{home:"Oviedo",away:"Sevilla"}]}
+    ];
+    setDb(prev=>{
+      const f=prev.futbol||defaultFutbolState();
+      let jornadas={...f.jornadas};
+      let newOrder=[...f.order||[]];
+      if(hasOldSeed){
+        ["J1","J2","J3"].forEach(id=>{ delete jornadas[id]; newOrder=newOrder.filter(x=>x!==id); });
+      }
+      defaultJornadas.forEach(j=>{
+        jornadas[j.id]=j;
+        if(!newOrder.includes(j.id)) newOrder.push(j.id);
+      });
+      newOrder.sort((a,b)=>{ const na=parseInt(a.replace(/\D/g,""),10); const nb=parseInt(b.replace(/\D/g,""),10); return (na||0)-(nb||0)||a.localeCompare(b); });
+      return {...prev, futbol:{...f, jornadas, order:newOrder}, meta:{...(prev.meta||{}), futbolJornadasUpdated:true}};
+    });
+  },[hydrated,db.futbol,db.meta]);
   const raceOverrides=db.meta?.raceOverrides||{};
   const races=(Array.isArray(cal)?cal:[]).map(item=>{
     const override=raceOverrides[item.key]||{};
@@ -1624,6 +1943,26 @@ function App(){
     const labels=qStart?{qLocal:formatDateTime(qStart,timeZone), qMadrid:formatDateTime(qStart,MADRID_TZ), raceLocal:raceStart?formatDateTime(raceStart,timeZone):null, raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null}:{qLocal:"—",qMadrid:"—",raceLocal:raceStart?formatDateTime(raceStart,timeZone):null,raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null};
     return {...item,q_date_local:qDate,race_date_local:raceDate,timeZone,qStart,raceStart,cutoff,showBetsAt,authorCutoff,labels};
   }).filter(r=>r.qStart);
+  useEffect(()=>{
+    if(!races?.length || !hydrated) return;
+    const participants=Object.keys(db.participants||{});
+    if(!participants.length) return;
+    const needsUpdate=races.some(r=>!db.questionOwner?.[r.key]);
+    if(!needsUpdate) return;
+    setDb(prev=>{
+      const next={...prev, questionOwner:{...(prev.questionOwner||{})}};
+      races.forEach(r=>{
+        if(!next.questionOwner[r.key]){
+          const idx=(r.round-1)%QUESTION_AUTHORS_ORDER.length;
+          const author=QUESTION_AUTHORS_ORDER[idx];
+          if(participants.includes(author)) next.questionOwner[r.key]=author;
+        }
+      });
+      return next;
+    });
+  },[hydrated,races,db.participants,db.questionOwner]);
+  useEffect(()=>{ document.body.dataset.porraMode=mode||"f1"; },[mode]);
+  const sidebarRace=mode==="f1"&&view==="participante"&&selectedRaceKey?races?.find(r=>r.key===selectedRaceKey):null;
   const handleModeChange=(newMode)=>{
     setMode(newMode);
     localStorage.setItem("porra_mode",newMode);
@@ -1635,9 +1974,9 @@ function App(){
     }
   };
   return (<div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-4 space-y-6">
-    <section className="hero p-4 text-center md:text-left">
-      <div className="text-xl md:text-2xl font-bold">Porra de los birreros</div>
-      <div className="text-sm md:text-base text-slate-200">Las cervezas están en juego 🍻</div>
+    <section className="hero p-5 text-center md:text-left border-l-4 border-[#E10600]">
+      <div className="text-xl md:text-2xl font-bold tracking-tight">Porra de los birreros</div>
+      <div className="text-sm md:text-base text-slate-200 mt-1">Las cervezas están en juego 🍻 · F1 2026</div>
     </section>
     <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-col gap-2">
@@ -1655,6 +1994,7 @@ function App(){
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="stats"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("stats")}>Estadísticas</button>}
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>}
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="historico"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("historico")}>Histórico</button>}
+          {mode==="f1" && <button className="px-3 py-2 rounded bg-emerald-800/50 hover:bg-emerald-700/50 text-emerald-200" onClick={()=>setShowAI(true)}>🤖 Asistente</button>}
           {mode==="futbol" && <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Reglas</button>}
           <button className={`px-3 py-2 rounded ${view==="admin"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("admin")}>Admin</button>
         </nav>
@@ -1668,10 +2008,10 @@ function App(){
       </div>
     </header>
     {!user ? (<div className="card p-4"><h2 className="font-semibold mb-2">Acceso</h2><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); }} /></div>) : (
-      <div className="md:flex md:gap-4"><aside className="sidebar p-3 w-56 shrink-0 hidden md:flex md:flex-col md:items-center"><Avatar name={user}/><div className="mt-2 text-sm font-medium">{user}</div></aside><main className="flex-1 space-y-6">
+      <div className="md:flex md:gap-4"><aside className="sidebar p-3 w-56 shrink-0 hidden md:flex md:flex-col md:items-center"><Avatar name={user} avatar={db.meta?.avatars?.[user]}/><div className="mt-2 text-sm font-medium">{user}</div><button type="button" className="text-xs text-slate-400 hover:text-slate-300 underline mt-1" onClick={()=>setShowAvatar(true)}>Subir avatar</button>{sidebarRace&&<CircuitCard race={sidebarRace} circuits={circuits} compact/>}</aside><main className="flex-1 space-y-6">
         {mode==="f1" && (
           <>
-            {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers}/>}
+            {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers} circuits={circuits} selectedRaceKey={mode==="f1"?selectedRaceKey:""} setSelectedRaceKey={mode==="f1"?setSelectedRaceKey:()=>{}}/>}
             {view==="admin" && <Admin db={db} setDb={setDbUser} races={races} drivers={drivers} teams={teams} calendar={cal}/>}
             {view==="ranking" && <Ranking db={db} setDb={setDbUser} races={races} currentUser={user}/>}
             {view==="stats" && <Stats db={db} races={races}/>}
@@ -1690,7 +2030,8 @@ function App(){
       </main></div>
     )}
     <footer className="text-xs text-slate-400 pt-8">Hecho con ❤️. </footer>
-    <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} />
+    <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} /><ChangeAvatarModal open={showAvatar} onClose={()=>setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />
+    <AIAssistant open={showAI} onClose={()=>setShowAI(false)} races={races} />
   </div>);
 }
 

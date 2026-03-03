@@ -86,9 +86,16 @@ La aplicación usa:
 
 No requiere build ni instalación de dependencias. Solo sirve los archivos estáticos con un servidor HTTP.
 
+## 🌐 Despliegue
+
+La app se despliega en **S3 + CloudFront**. El despliegue automático se ejecuta al hacer push a `main`. Ver [DEPLOY.md](DEPLOY.md) para la configuración.
+
+**URL en producción:** https://porra.manriquegarcia.com
+
 ## 📝 Notas
 
 - El modo seleccionado (F1/Fútbol) se guarda en localStorage
 - Los datos se sincronizan automáticamente si hay API configurada
 - La sesión expira tras 30 minutos de inactividad
+- **Histórico 2025:** Solo Las Vegas, Qatar y Abu Dhabi tienen datos reales (la app se usó desde las últimas 3 carreras)
 

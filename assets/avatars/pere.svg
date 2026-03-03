@@ -1,14 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
-  <rect width="220" height="240" fill="#0b0c10"/>
-  <rect x="10" y="10" width="200" height="220" rx="20" fill="#12141b" stroke="#2a2f3a" stroke-width="3"/>
-  <rect x="60" y="160" width="100" height="50" rx="16" fill="#D90429"/>
-  <rect x="42" y="166" width="30" height="18" rx="8" fill="#D90429"/>
-  <rect x="148" y="166" width="30" height="18" rx="8" fill="#D90429"/>
-  <ellipse cx="110" cy="110" rx="48" ry="44" fill="#7A0213"/>
-  <rect x="70" y="105" width="80" height="18" rx="9" fill="#0b0c10"/>
-  <rect x="78" y="109" width="64" height="10" rx="5" fill="#cde7ff"/>
-  <path d="M64,86 C84,76 136,76 156,86" stroke="#D90429" stroke-width="6" fill="none"/>
-  <path d="M64,134 C84,144 136,144 156,134" stroke="#D90429" stroke-width="6" fill="none"/>
-  <rect x="20" y="206" width="180" height="18" rx="9" fill="#222733"/>
-  <text x="110" y="219" font-family="Verdana" font-size="12" fill="#e5e7eb" text-anchor="middle">Pere</text>
+  <defs>
+    <linearGradient id="pere-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#1a1d26"/><stop offset="100%" style="stop-color:#0b0c10"/></linearGradient>
+    <linearGradient id="pere-suit" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#EF4444"/><stop offset="100%" style="stop-color:#D90429"/></linearGradient>
+    <linearGradient id="pere-helmet" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#F87171"/><stop offset="100%" style="stop-color:#DC2626"/></linearGradient>
+  </defs>
+  <rect width="220" height="240" fill="url(#pere-bg)"/>
+  <rect x="10" y="10" width="200" height="220" rx="24" fill="#161922" stroke="#2a2f3a" stroke-width="2"/>
+  <!-- Cuerpo mono -->
+  <path d="M55 175 Q55 155 75 145 L145 145 Q165 155 165 175 L165 210 Q165 220 110 220 Q55 220 55 210 Z" fill="url(#pere-suit)"/>
+  <rect x="35" y="168" width="28" height="22" rx="10" fill="url(#pere-suit)"/>
+  <rect x="157" y="168" width="28" height="22" rx="10" fill="url(#pere-suit)"/>
+  <!-- Franja negra -->
+  <rect x="70" y="155" width="80" height="12" rx="6" fill="#1a1d26"/>
+  <!-- Cabeza/helmet -->
+  <ellipse cx="110" cy="95" rx="52" ry="50" fill="url(#pere-helmet)"/>
+  <ellipse cx="110" cy="95" rx="48" ry="46" fill="url(#pere-helmet)" stroke="#B91C1C" stroke-width="2"/>
+  <!-- Visor -->
+  <path d="M62 85 Q62 70 110 68 Q158 70 158 85 L158 105 Q158 120 110 122 Q62 120 62 105 Z" fill="#1a1d26" stroke="#2a2f3a" stroke-width="2"/>
+  <ellipse cx="110" cy="92" rx="38" ry="28" fill="#87CEEB" opacity="0.6"/>
+  <!-- Ojos simpáticos (un poco guiñados) -->
+  <path d="M82 86 Q88 90 82 94" stroke="#1a1d26" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="132" cy="88" rx="8" ry="10" fill="#1a1d26"/>
+  <circle cx="134" cy="86" r="2" fill="white"/>
+  <!-- Sonrisa grande -->
+  <path d="M88 98 Q110 112 132 98" stroke="#1a1d26" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Mano en V (victoria) -->
+  <path d="M157 145 Q172 132 178 125 Q182 120 180 115 Q178 110 173 112 Q168 115 162 120" fill="#FDE68A" stroke="#FCD34D" stroke-width="1.5"/>
+  <path d="M173 112 L178 100" stroke="#FDE68A" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M173 112 L168 98" stroke="#FDE68A" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Nombre -->
+  <text x="110" y="218" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#e5e7eb" text-anchor="middle">Pere</text>
 </svg>

@@ -36,3 +36,9 @@ build/
 # Archivos de backup
 *.bak
 backup/
+
+# Cursor
+.cursor/
+
+# Build / artefactos
+porra-ai.zip

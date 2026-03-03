@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+  <defs>
+    <linearGradient id="def-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#1a1d26"/><stop offset="100%" style="stop-color:#0b0c10"/></linearGradient>
+    <linearGradient id="def-suit" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#64748B"/><stop offset="100%" style="stop-color:#475569"/></linearGradient>
+    <linearGradient id="def-helmet" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#94A3B8"/><stop offset="100%" style="stop-color:#64748B"/></linearGradient>
+  </defs>
+  <rect width="220" height="240" fill="url(#def-bg)"/>
+  <rect x="10" y="10" width="200" height="220" rx="24" fill="#161922" stroke="#2a2f3a" stroke-width="2"/>
+  <path d="M55 175 Q55 155 75 145 L145 145 Q165 155 165 175 L165 210 Q165 220 110 220 Q55 220 55 210 Z" fill="url(#def-suit)"/>
+  <rect x="35" y="168" width="28" height="22" rx="10" fill="url(#def-suit)"/>
+  <rect x="157" y="168" width="28" height="22" rx="10" fill="url(#def-suit)"/>
+  <rect x="70" y="155" width="80" height="12" rx="6" fill="#94A3B8"/>
+  <ellipse cx="110" cy="95" rx="52" ry="50" fill="url(#def-helmet)"/>
+  <ellipse cx="110" cy="95" rx="48" ry="46" fill="url(#def-helmet)" stroke="#475569" stroke-width="2"/>
+  <path d="M62 85 Q62 70 110 68 Q158 70 158 85 L158 105 Q158 120 110 122 Q62 120 62 105 Z" fill="#1a1d26" stroke="#2a2f3a" stroke-width="2"/>
+  <ellipse cx="110" cy="92" rx="38" ry="28" fill="#87CEEB" opacity="0.6"/>
+  <ellipse cx="88" cy="88" rx="8" ry="10" fill="#1a1d26"/>
+  <ellipse cx="132" cy="88" rx="8" ry="10" fill="#1a1d26"/>
+  <circle cx="90" cy="86" r="2" fill="white"/>
+  <circle cx="134" cy="86" r="2" fill="white"/>
+  <path d="M92 98 Q110 108 128 98" stroke="#1a1d26" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M157 145 Q175 130 180 125 Q185 122 182 118 Q179 115 174 118 Q165 125 155 132" fill="#FDE68A" stroke="#FCD34D" stroke-width="1.5"/>
+  <ellipse cx="178" cy="118" rx="6" ry="7" fill="#FDE68A"/>
+</svg>
