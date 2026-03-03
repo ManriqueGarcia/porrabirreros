@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Logs y caché
+*.log
+.npm
+.cache
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE / Editor
+.idea/
+.vscode/
+*.sublime-*
+
+# Variables de entorno (si añades .env)
+.env
+.env.local
+.env.*.local
+
+# Build / dist (si en el futuro compilas)
+dist/
+build/
