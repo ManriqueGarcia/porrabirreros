@@ -1,28 +1,38 @@
 # Dependencias
 node_modules/
+package-lock.json
 
-# Logs y caché
-*.log
-.npm
-.cache
-
-# Sistema
+# Archivos del sistema
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
 *~
 
-# IDE / Editor
-.idea/
-.vscode/
-*.sublime-*
-
-# Variables de entorno (si añades .env)
+# Archivos de entorno
 .env
 .env.local
 .env.*.local
 
-# Build / dist (si en el futuro compilas)
+# Logs
+*.log
+.npm
+.cache
+npm-debug.log*
+
+# Archivos temporales
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Build
 dist/
 build/
+
+# Archivos de backup
+*.bak
+backup/

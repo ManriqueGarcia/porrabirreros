@@ -66,6 +66,98 @@ function formatDateTime(date, timeZone){
 function formatTime(date, timeZone){
   return date.toLocaleTimeString([], {timeZone:timeZone||MADRID_TZ, hour:"2-digit", minute:"2-digit"});
 }
+const FUTBOL_BASE_TEAMS=["Real Madrid","FC Barcelona","Real Sociedad","Real Sporting de Gijón"];
+const FUTBOL_DEFAULT_DEADLINE_HOUR="15:00";
+function defaultFutbolState(){
+  return {order:[], jornadas:{}, bets:{}, results:{}, betsWindow:{}, betsReveal:{}, betHistory:{}, questions:{}, questionsStatus:{}};
+}
+function parseLocalDateTime(input){
+  if(!input) return null;
+  const parsed=new Date(input);
+  if(Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+function toLocalDateTimeInput(date){
+  if(!date) return "";
+  const pad=(n)=>String(n).padStart(2,"0");
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+function nextFridayAt1500(){
+  const now=new Date();
+  const day=now.getDay(); // 0 domingo ... 5 viernes
+  const diff=(5-day+7)%7 || 7;
+  const target=new Date(now);
+  target.setDate(now.getDate()+diff);
+  target.setHours(15,0,0,0);
+  return target;
+}
+function futbolSign(score){
+  if(!score || score.home==null || score.away==null || Number.isNaN(score.home) || Number.isNaN(score.away)) return null;
+  if(score.home>score.away) return "1";
+  if(score.home<score.away) return "2";
+  return "X";
+}
+function futbolMatchPoints(pred,res){
+  if(!res || res.home==null || res.away==null) return {points:0,exact:false,sign:false};
+  if(!pred || pred.home==null || pred.away==null) return {points:0,exact:false,sign:false};
+  const exact=Number(pred.home)===Number(res.home) && Number(pred.away)===Number(res.away);
+  const signOk=futbolSign(pred)===futbolSign(res);
+  const points=exact?3:(signOk?1:0);
+  return {points, exact, sign:signOk};
+}
+function scoreFutbolJornada(db,jornadaId,name){
+  const futbol=db.futbol||{};
+  const jornada=futbol.jornadas?.[jornadaId];
+  const bet=futbol.bets?.[jornadaId]?.[name];
+  const res=futbol.results?.[jornadaId];
+  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,late:!!bet?.late,items:[]};
+  const validBet=!!bet && !bet.late;
+  const predictions=validBet?(bet.matches||[]):[];
+  const questions=validBet?(bet.questions||[]):[];
+  const late=!!bet?.late;
+  let points=0; let exact=0; let signs=0; let qHits=0; const items=[];
+  const official=res.matches||[];
+  official.forEach((m,idx)=>{
+    const pred=predictions[idx];
+    const {points:p,exact:ex,sign}=futbolMatchPoints(pred,m);
+    points+=p; if(ex) exact++; if(sign) signs++;
+    items.push({label:`${jornada?.matches?.[idx]?.home||"Local"} ${pred?.home??"?"}-${pred?.away??"?"} vs ${m?.home??"?"}-${m?.away??"?"}`, delta:p});
+  });
+  const answers=res.qAnswers||[];
+  answers.forEach((ans,idx)=>{
+    const sel=(questions[idx]||"").trim();
+    const ok=ans && sel && sel.toLowerCase()===ans.trim().toLowerCase();
+    if(ok){ points+=2; qHits++; }
+    items.push({label:`Pregunta ${idx+1}: ${sel||"—"} vs ${ans||"—"}`, delta:ok?2:0});
+  });
+  const missed=!bet || late;
+  let missingPenalty=0;
+  if(missed){ missingPenalty=-2; points+=missingPenalty; items.push({label:"Sin apuesta a tiempo", delta:missingPenalty}); }
+  let catPenalty=0;
+  if(!missed && points===0){ catPenalty=-1; points+=catPenalty; items.push({label:"Apuesta catastrófica", delta:catPenalty}); }
+  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,items};
+}
+function computeFutbolStandings(dbFutbol,participants,jornadas){
+  const completed=(jornadas||[]).filter(j=>dbFutbol.results?.[j.id]);
+  return participants.map(name=>{
+    return completed.reduce((acc,j)=>{
+      const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
+      acc.points+=s.points; acc.exact+=s.exact; acc.qHits+=s.qHits; acc.signs+=s.signs; acc.missed+=s.missed?1:0; acc.cat+=s.catPenalty?1:0; return acc;
+    },{name,points:0,exact:0,signs:0,qHits:0,missed:0,cat:0});
+  }).sort((a,b)=>b.points-a.points||b.exact-a.exact||b.qHits-a.qHits||b.signs-a.signs||a.missed-b.missed||a.name.localeCompare(b.name));
+}
+function listFutbolJornadas(futbol){
+  const entries=Object.values(futbol?.jornadas||{});
+  const order=futbol?.order||[];
+  if(order.length){
+    return order.map(id=>entries.find(j=>j.id===id)).filter(Boolean);
+  }
+  return entries.sort((a,b)=>{
+    const da=a.deadline?new Date(a.deadline).getTime():Infinity;
+    const db=b.deadline?new Date(b.deadline).getTime():Infinity;
+    return da-db||a.name.localeCompare(b.name);
+  });
+}
 
 function Avatar({name}){
   const src = `./assets/avatars/${name.toLowerCase()}.svg`; return <img src={src} alt={name} className="w-28 h-32 rounded-xl object-cover" />;
@@ -439,6 +531,552 @@ function Stats({db,races}){
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FutbolRules(){
+  return (
+    <div className="card p-4 space-y-3">
+      <h2 className="font-semibold text-lg">📋 Chuleta porra futbolera</h2>
+      <ul className="list-disc pl-5 space-y-2 text-sm text-slate-200">
+        <li>4 partidos por jornada: Madrid, Barça, Real Sociedad y Sporting. Si se enfrentan entre ellos, mete partido(s) de reserva hasta llegar a 4.</li>
+        <li>Límite para apostar: viernes 15:00 (marcadores + respuestas a 3 preguntas).</li>
+        <li>Puntos partidos: 3 por resultado exacto, 1 por acertar el signo (1X2), 0 si fallas.</li>
+        <li>Preguntas extra: 3 por jornada, cada acierto vale 2 puntos. Máximo jornada = 18 puntos.</li>
+        <li>No apostar a tiempo: 0 puntos + -2 puntos en la general. Con 3 jornadas sin apostar → eliminado.</li>
+        <li>Apuestas catastróficas (0 puntos en todo): -1 punto extra en la general.</li>
+        <li>Desempate: más exactos → más preguntas acertadas → más signos → segunda vuelta → duelo especial → sorteo.</li>
+      </ul>
+      <p className="text-xs text-slate-400">Las reglas se aplican a la porra de fútbol; la de F1 sigue con sus normas actuales.</p>
+    </div>
+  );
+}
+
+function FutbolBetForm({jornada,bet,disabled,onSubmit}){
+  const matches=jornada?.matches||[];
+  const initialScores=()=>matches.map((_,idx)=>({home:bet?.matches?.[idx]?.home??"", away:bet?.matches?.[idx]?.away??""}));
+  const [scores,setScores]=useState(initialScores);
+  const [qs,setQs]=useState(()=>[...(bet?.questions||["","",""])]);
+  useEffect(()=>{ setScores(initialScores()); setQs([...(bet?.questions||["","",""])]); },[bet,jornada?.id,matches.length]);
+  const handleScoreChange=(idx,field,val)=>{
+    setScores(prev=>prev.map((s,i)=> i===idx ? {...s, [field]: val===""?"" : val} : s));
+  };
+  const submit=(e)=>{
+    e.preventDefault();
+    const parsedScores=scores.map(s=>({home:s.home===""||s.home==null?null:Number(s.home), away:s.away===""||s.away==null?null:Number(s.away)}));
+    onSubmit({matches:parsedScores, questions:qs});
+  };
+  return (
+    <form className="grid gap-3" onSubmit={submit}>
+      <div className="space-y-2">
+        {matches.map((m,idx)=>(
+          <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900">
+            <div className="text-sm font-medium mb-1">Partido {idx+1}: {m.home||"Local"} vs {m.away||"Visitante"}</div>
+            <div className="grid grid-cols-2 gap-2">
+              <input disabled={disabled} type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles local" value={scores[idx]?.home} onChange={e=>handleScoreChange(idx,"home",e.target.value)} />
+              <input disabled={disabled} type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles visitante" value={scores[idx]?.away} onChange={e=>handleScoreChange(idx,"away",e.target.value)} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2">
+        <div className="text-sm font-semibold">Preguntas</div>
+        <div className="grid gap-2 md:grid-cols-3">
+          {[0,1,2].map(i=>(
+            <input key={i} disabled={disabled} className="select border rounded px-3 py-2" placeholder={`Respuesta ${i+1}`} value={qs[i]||""} onChange={e=>setQs(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
+          ))}
+        </div>
+      </div>
+      <button disabled={disabled} className={`mt-2 px-4 py-2 rounded ${disabled?"bg-slate-200 text-slate-500":"bg-emerald-600 text-white"}`}>{disabled?"Cerrado":"Guardar apuesta"}</button>
+    </form>
+  );
+}
+
+function FutbolParticipante({user,db,setDb}){
+  const [now,setNow]=useState(()=>new Date());
+  const [showOthers,setShowOthers]=useState(false);
+  useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),30000); return ()=>clearInterval(id); },[]);
+  const futbol=db.futbol||defaultFutbolState();
+  const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
+  const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
+  useEffect(()=>{ if(!selected && jornadas.length) setSelected(jornadas[0].id); },[selected,jornadas]);
+  const jornada=jornadas.find(j=>j.id===selected);
+  const deadline=jornada?.deadline?new Date(jornada.deadline):null;
+  const manualWindow=futbol.betsWindow?.[selected];
+  const manualReveal=futbol.betsReveal?.[selected];
+  const baseCanEdit=deadline ? now<deadline : true;
+  const canEdit=manualWindow?.forceClosed?false:manualWindow?.forceOpen?true:baseCanEdit;
+  const revealAt=deadline?new Date(deadline.getTime()+60*1000):null;
+  const canViewFull=manualReveal?.forceShow || (!!revealAt && now>revealAt);
+  const bet=jornada ? (futbol.bets?.[selected]?.[user]||{matches:[],questions:["","",""],submittedAt:null,late:false}) : null;
+  const res=jornada ? futbol.results?.[selected] : null;
+  const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
+  const myScore=jornada && res ? scoreFutbolJornada(db,selected,user) : null;
+  const betsStatus=jornada ? (manualWindow?.forceClosed?"Cerrado por admin":manualWindow?.forceOpen?"Abierto por admin":(deadline?`Cierre automático: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto")) : "—";
+  const saveBet=(payload)=>{
+    if(!jornada) return;
+    const ts=nowISO();
+    const late=deadline ? new Date()>=deadline : false;
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const raceBets={...(futbolPrev.bets?.[selected]||{})};
+      const prevBet=raceBets[user];
+      const nextBet={...prevBet, matches:payload.matches, questions:payload.questions, submittedAt:ts, late};
+      const nextBets={...(futbolPrev.bets||{}), [selected]:{...raceBets, [user]:nextBet}};
+      let betHistory=futbolPrev.betHistory||{};
+      const sameMatch=JSON.stringify(prevBet?.matches||[])===JSON.stringify(payload.matches||[]);
+      const sameQ=(prevBet?.questions||[]).join("|")===(payload.questions||[]).join("|");
+      if(!prevBet || !sameMatch || !sameQ || (!!prevBet?.late)!==late){
+        const raceHistory={...(betHistory[selected]||{})};
+        const logs=[...(raceHistory[user]||[])];
+        logs.push({ts:ts,matches:payload.matches,questions:payload.questions,late});
+        betHistory={...betHistory,[selected]:{...raceHistory,[user]:logs}};
+      }
+      return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
+    });
+    alert(late?"Apuesta registrada (fuera de plazo)":"Apuesta guardada");
+  };
+  const showOthersPanel=showOthers && !!jornada;
+  const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
+  return (
+    <div className={`grid gap-4 ${layoutCols}`}>
+      <div className="card p-4 min-w-0">
+        <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
+          <h2 className="font-semibold">Tu apuesta (fútbol)</h2>
+          {jornada && (<button type="button" className="text-sm px-3 py-1.5 rounded bg-neutral-900 text-white" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar apuestas":"Ver apuestas de otros"}</button>)}
+        </div>
+        <select className="select select-strong border rounded px-3 py-2 mb-3 shadow-sm" value={selected} onChange={e=>setSelected(e.target.value)}>
+          {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id} {j.deadline?`— ${new Date(j.deadline).toLocaleDateString("es-ES")}`:""}</option>)}
+        </select>
+        {jornada ? (
+          <div className="text-sm text-slate-200 mb-3 space-y-1">
+            <div>Partidos: {jornada.matches?.length||0} (Madrid · Barça · Real Sociedad · Sporting)</div>
+            <div>Cierre apuestas: {deadline?formatDateTime(deadline,MADRID_TZ):"Sin límite (define en Admin)"}</div>
+            <div>Estado apuestas: {betsStatus}</div>
+            <div>Visibilidad: {manualReveal?.forceShow?"Publicadas por admin":"Se verán tras el cierre (o si se publican antes)"}</div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-300 mb-3">No hay jornadas creadas. Pide al admin que añada una.</p>
+        )}
+        {jornada && (
+          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit} onSubmit={saveBet} />
+        )}
+        {myScore && (
+          <div className="mt-4 border border-white/10 rounded p-3 bg-neutral-900">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Puntos jornada</h3>
+              <span className="text-sm font-semibold">{myScore.points} pts</span>
+            </div>
+            <div className="text-xs text-slate-300 mt-1 flex flex-wrap gap-3">
+              <span>Exactos: {myScore.exact}</span>
+              <span>Signos: {myScore.signs}</span>
+              <span>Preguntas: {myScore.qHits}</span>
+              {myScore.missed && <span className="text-amber-300">Sin apuesta a tiempo (-2)</span>}
+              {myScore.catPenalty<0 && <span className="text-amber-300">Catastrófica (-1)</span>}
+            </div>
+            <ul className="mt-2 space-y-1 text-xs text-slate-300">
+              {myScore.items.map((item,idx)=>(<li key={idx} className="flex items-center justify-between border border-white/5 rounded px-2 py-1"><span>{item.label}</span><span className={`${item.delta>0?"text-emerald-300":item.delta<0?"text-amber-300":"text-slate-400"}`}>{item.delta>0?`+${item.delta}`:item.delta}</span></li>))}
+            </ul>
+          </div>
+        )}
+        {res && (
+          <div className="mt-4 border border-white/10 rounded p-3 bg-neutral-900">
+            <h3 className="font-semibold mb-2">Oficial</h3>
+            <ul className="text-sm space-y-1">
+              {(res.matches||[]).map((m,idx)=><li key={idx} className="flex items-center justify-between"><span>{jornada?.matches?.[idx]?.home||"Local"} vs {jornada?.matches?.[idx]?.away||"Visitante"}</span><span className="text-xs">{m?.home??"—"} - {m?.away??"—"}</span></li>)}
+            </ul>
+            <div className="text-xs text-slate-300 mt-2">Preguntas: {(res.qAnswers||["","",""]).join(" · ")}</div>
+          </div>
+        )}
+      </div>
+      {showOthersPanel && (
+        <div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start">
+          <h2 className="font-semibold mb-4">Apuestas de otros</h2>
+          {!jornada && <p className="text-sm text-slate-300">Selecciona una jornada.</p>}
+          {jornada && !canViewFull && <p className="text-sm text-slate-300">Se publicarán tras el cierre o si el admin las muestra antes.</p>}
+          {jornada && canViewFull && (
+            <ul className="space-y-2">
+              {others.map(({name,bet:other})=>(
+                <li key={name} className="border border-white/10 rounded p-3 bg-neutral-900">
+                  <div className="font-medium">{name}</div>
+                  {other ? (
+                    <div className="text-xs space-y-1 mt-1">
+                      {(jornada.matches||[]).map((m,idx)=><div key={idx}><b>{m.home||"Local"}-{m.away||"Visitante"}:</b> {other.matches?.[idx]?.home??"—"}-{other.matches?.[idx]?.away??"—"}</div>)}
+                      <div><b>P.Adic.:</b> {(other.questions||["","",""]).join(" · ")}</div>
+                      {other.late && <div className="text-amber-300">Fuera de plazo</div>}
+                    </div>
+                  ) : (<div className="text-xs text-slate-400">Sin apuesta</div>)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FutbolAdmin({db,setDb,currentUser}){
+  const isAdmin=!!db.users?.[currentUser]?.isAdmin;
+  const futbol=db.futbol||defaultFutbolState();
+  const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
+  const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
+  const [jId,setJId]=useState("");
+  const [jName,setJName]=useState("");
+  const [deadlineInput,setDeadlineInput]=useState(()=>toLocalDateTimeInput(nextFridayAt1500()));
+  const [matches,setMatches]=useState(()=>FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
+  const [questions,setQuestions]=useState(["","",""]);
+  const [scores,setScores]=useState(()=>matches.map(()=>({home:"",away:""})));
+  const [answers,setAnswers]=useState(["","",""]);
+  const [editUser,setEditUser]=useState("");
+  const [editLate,setEditLate]=useState(false);
+  const [editingMode,setEditingMode]=useState("results"); // "results" or "bet"
+  useEffect(()=>{
+    const j=selected?futbol.jornadas?.[selected]:null;
+    if(j){
+      setJId(j.id);
+      setJName(j.name||j.id);
+      setDeadlineInput(toLocalDateTimeInput(j.deadline?new Date(j.deadline):nextFridayAt1500()));
+      const baseMatches=(j.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
+      setMatches(baseMatches);
+      setQuestions(futbol.questions?.[j.id]||["","",""]);
+      if(editingMode==="results"){
+        const res=futbol.results?.[j.id];
+        setScores((res?.matches?.length?res.matches:baseMatches.map(()=>({home:"",away:""}))).map(m=>({home:m.home==null?"":m.home, away:m.away==null?"":m.away})));
+        setAnswers(res?.qAnswers||["","",""]);
+      }
+    } else {
+      setJId("");
+      setJName("");
+      setDeadlineInput(toLocalDateTimeInput(nextFridayAt1500()));
+      setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
+      setQuestions(["","",""]);
+      setScores(FUTBOL_BASE_TEAMS.map(()=>({home:"",away:""})));
+      setAnswers(["","",""]);
+    }
+  },[selected,futbol,editingMode]);
+  useEffect(()=>{
+    if(editUser && selected && editingMode==="bet"){
+      const bet=futbol.bets?.[selected]?.[editUser];
+      const baseMatches=matches;
+      setEditLate(!!bet?.late);
+      if(bet){
+        const betMatches=(bet.matches||[]).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)}));
+        while(betMatches.length<baseMatches.length) betMatches.push({home:"",away:""});
+        setScores(betMatches);
+        setAnswers(bet.questions||["","",""]);
+      } else {
+        setScores(baseMatches.map(()=>({home:"",away:""})));
+        setAnswers(["","",""]);
+      }
+    } else if(editingMode==="results" && selected){
+      const j=futbol.jornadas?.[selected];
+      const baseMatches=(j?.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
+      const res=futbol.results?.[selected];
+      setScores((res?.matches?.length?res.matches:baseMatches.map(()=>({home:"",away:""}))).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)})));
+      setAnswers(res?.qAnswers||["","",""]);
+    }
+  },[editUser,selected,editingMode,futbol,matches]);
+  const participants=useMemo(()=>Object.keys(db.participants||{}).sort((a,b)=>a.localeCompare(b)),[db.participants]);
+  if(!isAdmin) return <div className="card p-4"><h2 className="font-semibold">Admin fútbol</h2><p className="text-sm text-slate-300">Inicia sesión como admin para editar.</p></div>;
+  const ensureId=()=>{
+    const id=(jId||jName||"").trim();
+    return id || "";
+  };
+  const saveJornada=()=>{
+    const id=ensureId();
+    if(!id) return alert("Define ID o nombre de jornada");
+    const parsedDeadline=parseLocalDateTime(deadlineInput)||nextFridayAt1500();
+    const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`}));
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const jornadasMap={...(futbolPrev.jornadas||{})};
+      jornadasMap[id]={id,name:jName||id,deadline:parsedDeadline?parsedDeadline.toISOString():null,matches:fixedMatches};
+      const order=[...(futbolPrev.order||[])];
+      if(!order.includes(id)) order.push(id);
+      const questionsMap={...(futbolPrev.questions||{})};
+      questionsMap[id]=questions;
+      return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, questions:questionsMap}};
+    });
+    setSelected(id);
+    alert("Jornada guardada");
+  };
+  const deleteJornada=()=>{
+    if(!selected) return;
+    if(!window.confirm(`Eliminar jornada ${selected}?`)) return;
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const jornadasMap={...(futbolPrev.jornadas||{})};
+      delete jornadasMap[selected];
+      const order=(futbolPrev.order||[]).filter(id=>id!==selected);
+      const questionsMap={...(futbolPrev.questions||{})}; delete questionsMap[selected];
+      const resultsMap={...(futbolPrev.results||{})}; delete resultsMap[selected];
+      const betsMap={...(futbolPrev.bets||{})}; delete betsMap[selected];
+      const windowMap={...(futbolPrev.betsWindow||{})}; delete windowMap[selected];
+      const revealMap={...(futbolPrev.betsReveal||{})}; delete revealMap[selected];
+      return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, questions:questionsMap, results:resultsMap, bets:betsMap, betsWindow:windowMap, betsReveal:revealMap}};
+    });
+    setSelected("");
+  };
+  const saveResults=()=>{
+    const id=ensureId()||selected;
+    if(!id) return alert("Guarda la jornada primero");
+    const parsedScores=scores.slice(0,matches.length).map(s=>({home:s.home===""||s.home==null?null:Number(s.home), away:s.away===""||s.away==null?null:Number(s.away)}));
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const resultsMap={...(futbolPrev.results||{})};
+      resultsMap[id]={matches:parsedScores,qAnswers:[...answers]};
+      return {...prev, futbol:{...futbolPrev, results:resultsMap}};
+    });
+    alert("Resultados guardados");
+  };
+  const setBetsOverride=(mode)=>{
+    const id=ensureId()||selected;
+    if(!id) return;
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const map={...(futbolPrev.betsWindow||{})};
+      if(mode==="auto"){ delete map[id]; }
+      else map[id]={forceOpen:mode==="open", forceClosed:mode==="close"};
+      return {...prev, futbol:{...futbolPrev, betsWindow:map}};
+    });
+  };
+  const setReveal=(mode)=>{
+    const id=ensureId()||selected;
+    if(!id) return;
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const map={...(futbolPrev.betsReveal||{})};
+      if(mode==="auto"){ delete map[id]; }
+      else map[id]={forceShow:true};
+      return {...prev, futbol:{...futbolPrev, betsReveal:map}};
+    });
+  };
+  const saveAdminBet=()=>{
+    const id=ensureId()||selected;
+    if(!id) return alert("Selecciona jornada");
+    if(!editUser) return alert("Selecciona participante");
+    const ts=nowISO();
+    setDb(prev=>{
+      const futbolPrev=prev.futbol||defaultFutbolState();
+      const raceBets={...(futbolPrev.bets?.[id]||{})};
+      const prevBet=raceBets[editUser];
+      const payload={matches:scores.map(s=>({home:s.home===""?null:Number(s.home), away:s.away===""?null:Number(s.away)})), questions:[...answers]};
+      const nextBet={...prevBet, ...payload, submittedAt:ts, late:editLate, adminEdited:true};
+      const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:nextBet}};
+      return {...prev, futbol:{...futbolPrev, bets:nextBets}};
+    });
+    alert("Apuesta guardada para el usuario");
+  };
+  const manualStatus=selected ? (futbol.betsWindow?.[selected]?.forceOpen?"Abierto manualmente":futbol.betsWindow?.[selected]?.forceClosed?"Cerrado manualmente":"Automático (viernes 15:00)") : "—";
+  const revealStatus=selected ? (futbol.betsReveal?.[selected]?.forceShow?"Publicadas manualmente":"Automático tras cierre") : "—";
+  return (
+    <div className="card p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">Admin fútbol</h2>
+        <div className="flex gap-2">
+          <select className="select border rounded px-3 py-2" value={selected} onChange={e=>setSelected(e.target.value)}>
+            <option value="">— Nueva jornada —</option>
+            {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}
+          </select>
+          <button className="px-3 py-2 rounded bg-neutral-900 text-white" onClick={()=>{setSelected("");}}>Nueva</button>
+        </div>
+      </div>
+      <div className="border border-white/10 rounded p-3 space-y-2">
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="text-sm">ID jornada</label>
+          <input className="select border rounded px-3 py-2" placeholder="J1" value={jId} onChange={e=>setJId(e.target.value)} />
+          <label className="text-sm">Nombre visible</label>
+          <input className="select border rounded px-3 py-2" placeholder="Jornada 1" value={jName} onChange={e=>setJName(e.target.value)} />
+          <label className="text-sm">Cierre (España)</label>
+          <input type="datetime-local" className="select border rounded px-3 py-2" value={deadlineInput} onChange={e=>setDeadlineInput(e.target.value)} />
+        </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})))}>Cargar equipos base</button>
+          <button className="px-3 py-2 rounded bg-emerald-600 text-white text-sm" onClick={saveJornada}>Guardar jornada</button>
+          {selected && <button className="px-3 py-2 rounded bg-red-700 text-white text-sm" onClick={deleteJornada}>Eliminar</button>}
+        </div>
+      </div>
+      <div className="border border-white/10 rounded p-3 space-y-2">
+        <h3 className="font-semibold">Partidos (4)</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {matches.map((m,idx)=>(
+            <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900 space-y-2">
+              <div className="text-xs text-slate-300">Partido {idx+1}</div>
+              <input className="select border rounded px-3 py-2" placeholder="Local" value={m.home} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
+              <input className="select border rounded px-3 py-2" placeholder="Visitante" value={m.away} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="border border-white/10 rounded p-3 space-y-2">
+        <h3 className="font-semibold">Preguntas de la jornada</h3>
+        <div className="grid gap-2 md:grid-cols-3">
+          {[0,1,2].map(i=>(
+            <input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={questions[i]||""} onChange={e=>setQuestions(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
+          ))}
+        </div>
+      </div>
+      <div className="border border-white/10 rounded p-3 space-y-2">
+        <h3 className="font-semibold">Resultados oficiales</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {matches.map((m,idx)=>(
+            <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900 space-y-2">
+              <div className="text-xs text-slate-300">{m.home||"Local"} vs {m.away||"Visitante"}</div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles local" value={scores[idx]?.home} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
+                <input type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles visitante" value={scores[idx]?.away} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-2 md:grid-cols-3">
+          {[0,1,2].map(i=>(
+            <input key={i} className="select border rounded px-3 py-2" placeholder={`Respuesta ${i+1}`} value={answers[i]||""} onChange={e=>setAnswers(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
+          ))}
+        </div>
+        <button className="px-3 py-2 rounded bg-slate-900 text-white" onClick={saveResults}>Guardar resultados</button>
+      </div>
+      <div className="border border-white/10 rounded p-3 space-y-2">
+        <h3 className="font-semibold">Control de apuestas</h3>
+        <div className="flex flex-wrap gap-2">
+          <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>setBetsOverride("open")}>Abrir</button>
+          <button className="px-3 py-2 rounded bg-red-700 text-white text-sm" onClick={()=>setBetsOverride("close")}>Cerrar</button>
+          <button className="px-3 py-2 rounded bg-slate-800 text-white text-sm" onClick={()=>setBetsOverride("auto")}>Automático</button>
+        </div>
+        <div className="text-xs text-slate-300">Estado actual: {manualStatus}</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>setReveal("show")}>Publicar apuestas ya</button>
+          <button className="px-3 py-2 rounded bg-slate-800 text-white text-sm" onClick={()=>setReveal("auto")}>Automático</button>
+        </div>
+        <div className="text-xs text-slate-300">Visibilidad: {revealStatus}</div>
+      </div>
+      <div className="border border-white/10 rounded p-3 space-y-2">
+        <h3 className="font-semibold">Editar apuesta de participante</h3>
+        <div className="flex gap-2 mb-2">
+          <button className={`px-3 py-1.5 rounded text-sm ${editingMode==="results"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>{setEditingMode("results"); setEditUser("");}}>Editar resultados</button>
+          <button className={`px-3 py-1.5 rounded text-sm ${editingMode==="bet"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>{setEditingMode("bet");}}>Editar apuesta usuario</button>
+        </div>
+        {editingMode==="bet" && (
+          <>
+            <div className="grid gap-2 md:grid-cols-[2fr,1fr] md:items-center">
+              <select className="select border rounded px-3 py-2" value={editUser} onChange={e=>{setEditUser(e.target.value);}}>
+                <option value="">— Elige participante —</option>
+                {participants.map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={editLate} onChange={e=>setEditLate(e.target.checked)} />
+                <span>Marcar como fuera de plazo</span>
+              </label>
+            </div>
+            {editUser && (
+              <div className="border border-white/10 rounded p-2 bg-neutral-900 mt-2">
+                <div className="text-xs text-slate-300 mb-2">Marcadores del usuario:</div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {matches.map((m,idx)=>(
+                    <div key={idx} className="text-xs">
+                      <div className="text-slate-400">{m.home||"Local"} vs {m.away||"Visitante"}</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <input type="number" min="0" className="select border rounded px-2 py-1 text-xs" placeholder="Local" value={scores[idx]?.home} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
+                        <input type="number" min="0" className="select border rounded px-2 py-1 text-xs" placeholder="Visitante" value={scores[idx]?.away} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid gap-2 md:grid-cols-3 mt-2">
+                  {[0,1,2].map(i=>(
+                    <input key={i} className="select border rounded px-2 py-1 text-xs" placeholder={`Respuesta ${i+1}`} value={answers[i]||""} onChange={e=>setAnswers(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
+                  ))}
+                </div>
+              </div>
+            )}
+            <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm mt-2" onClick={saveAdminBet} disabled={!editUser}>Guardar apuesta del usuario</button>
+          </>
+        )}
+        {editingMode==="results" && (
+          <div className="text-xs text-slate-400">Usa la sección de resultados oficiales arriba para editar resultados.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FutbolRanking({db}){
+  const futbol=db.futbol||defaultFutbolState();
+  const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
+  const participants=useMemo(()=>Object.keys(db.participants||{}),[db.participants]);
+  const [scope,setScope]=useState("all");
+  useEffect(()=>{ if(scope!=="all" && !jornadas.find(j=>j.id===scope)) setScope("all"); },[scope,jornadas]);
+  const standings=useMemo(()=>computeFutbolStandings(futbol,participants,jornadas),[futbol,participants,jornadas]);
+  const rows=useMemo(()=>{
+    if(scope==="all") return standings;
+    if(!futbol.results?.[scope]) return [];
+    return participants.map(name=>{
+      const s=scoreFutbolJornada(db,scope,name);
+      return {...s,name};
+    }).sort((A,B)=>B.points-A.points||B.exact-A.exact||B.qHits-A.qHits||B.signs-A.signs||A.missed-B.missed||A.name.localeCompare(B.name));
+  },[scope,standings,participants,futbol.results,db]);
+  const selectedJornada=scope==="all"?null:jornadas.find(j=>j.id===scope);
+  const res=scope==="all"?null:futbol.results?.[scope];
+  return (
+    <div className="space-y-4">
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Ranking fútbol</h2>
+          <select className="select border rounded px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}>
+            <option value="all">Global</option>
+            {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}
+          </select>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[720px] text-sm">
+            <thead>
+              <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Pts</th><th className="p-2 text-left">Exactos</th><th className="p-2 text-left">Preg.</th><th className="p-2 text-left">Signos</th><th className="p-2 text-left">Sin apostar</th><th className="p-2 text-left">Cat.</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r,idx)=>(
+                <tr key={r.name} className="border-t border-white/10">
+                  <td className="p-2">{idx+1}</td>
+                  <td className="p-2">{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</td>
+                  <td className="p-2 font-semibold">{r.points}</td>
+                  <td className="p-2">{r.exact}</td>
+                  <td className="p-2">{r.qHits}</td>
+                  <td className="p-2">{r.signs}</td>
+                  <td className="p-2">{r.missed}</td>
+                  <td className="p-2">{r.cat}</td>
+                </tr>
+              ))}
+              {rows.length===0 && <tr><td className="p-2 text-sm text-slate-300" colSpan={8}>Sin datos (añade resultados y apuestas).</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-slate-400">Desempate: exactos → preguntas → signos → segunda vuelta → duelo especial → sorteo.</p>
+      </div>
+      {scope!=="all" && (
+        <div className="card p-4 space-y-2">
+          <h3 className="font-semibold">Detalle — {selectedJornada?.name||scope}</h3>
+          {!res && <p className="text-sm text-slate-300">Resultados pendientes.</p>}
+          {res && (
+            <div className="grid gap-2">
+              {rows.map(row=>{
+                const detail=scoreFutbolJornada(db,scope,row.name);
+                return (
+                  <div key={row.name} className="border border-white/10 rounded p-3 bg-neutral-900">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{row.name}</div>
+                      <div className="text-sm">{detail.points} pts {detail.missed && <span className="text-xs text-amber-300 ml-2">(sin apostar)</span>}</div>
+                    </div>
+                    <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                      {detail.items.map((item,idx)=>(<li key={idx} className="flex items-center justify-between border border-white/5 rounded px-2 py-1"><span>{item.label}</span><span className={item.delta>0?"text-emerald-300":item.delta<0?"text-amber-300":"text-slate-400"}>{item.delta>0?`+${item.delta}`:item.delta}</span></li>))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -850,7 +1488,7 @@ function Participante({user,races,db,setDb,drivers}){
 }
 
 function App(){
-  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [showPass,setShowPass]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
+  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
   const userActionRef=useRef(false);
   const setDbUser=useCallback((updater)=>{ userActionRef.current=true; setDb(prev=> typeof updater==="function" ? updater(prev) : updater); },[]);
   const logout=React.useCallback((reason)=>{
@@ -954,16 +1592,37 @@ function App(){
     const labels=qStart?{qLocal:formatDateTime(qStart,timeZone), qMadrid:formatDateTime(qStart,MADRID_TZ), raceLocal:raceStart?formatDateTime(raceStart,timeZone):null, raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null}:{qLocal:"—",qMadrid:"—",raceLocal:raceStart?formatDateTime(raceStart,timeZone):null,raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null};
     return {...item,q_date_local:qDate,race_date_local:raceDate,timeZone,qStart,raceStart,cutoff,showBetsAt,authorCutoff,labels};
   }).filter(r=>r.qStart);
+  const handleModeChange=(newMode)=>{
+    setMode(newMode);
+    localStorage.setItem("porra_mode",newMode);
+    // Resetear vista si la actual no existe en el nuevo modo
+    if(newMode==="f1" && !["participante","ranking","stats","questions","admin"].includes(view)){
+      setView("participante");
+    } else if(newMode==="futbol" && !["participante","ranking","rules","admin"].includes(view)){
+      setView("participante");
+    }
+  };
   return (<div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-4 space-y-6">
-    <section className="hero p-4 text-center md:text-left"><div className="text-xl md:text-2xl font-bold">Porra de F1 de los birreros</div><div className="text-sm md:text-base text-slate-200">Las cervezas están en juego 🍻 — apuesta por la pole, el podio y responde a las preguntas.</div></section>
+    <section className="hero p-4 text-center md:text-left">
+      <div className="text-xl md:text-2xl font-bold">Porra de los birreros</div>
+      <div className="text-sm md:text-base text-slate-200">Las cervezas están en juego 🍻</div>
+    </section>
     <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <h1 className="text-2xl font-bold text-center md:text-left">Porra F1 — Últimas 3 (2025)</h1>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold text-center md:text-left">{mode==="f1"?"Porra F1 — Últimas 3 (2025)":"Porra Fútbol"}</h1>
+        <div className="flex gap-2 justify-center md:justify-start items-center">
+          <span className="text-sm text-slate-300">Modo:</span>
+          <button className={`px-4 py-2 rounded font-medium ${mode==="f1"?"bg-emerald-600 text-white":"bg-neutral-700 text-slate-300 hover:bg-neutral-600"}`} onClick={()=>handleModeChange("f1")}>🏎️ F1</button>
+          <button className={`px-4 py-2 rounded font-medium ${mode==="futbol"?"bg-emerald-600 text-white":"bg-neutral-700 text-slate-300 hover:bg-neutral-600"}`} onClick={()=>handleModeChange("futbol")}>⚽ Fútbol</button>
+        </div>
+      </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
         <nav className="flex flex-wrap gap-2 justify-center md:justify-end">
           <button className={`px-3 py-2 rounded ${view==="participante"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("participante")}>Participante</button>
           <button className={`px-3 py-2 rounded ${view==="ranking"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("ranking")}>Ranking</button>
-          <button className={`px-3 py-2 rounded ${view==="stats"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("stats")}>Estadísticas</button>
-          <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>
+          {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="stats"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("stats")}>Estadísticas</button>}
+          {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>}
+          {mode==="futbol" && <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Reglas</button>}
           <button className={`px-3 py-2 rounded ${view==="admin"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("admin")}>Admin</button>
         </nav>
         {user ? (
@@ -976,12 +1635,52 @@ function App(){
       </div>
     </header>
     {!user ? (<div className="card p-4"><h2 className="font-semibold mb-2">Acceso</h2><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); }} /></div>) : (
-      <div className="md:flex md:gap-4"><aside className="sidebar p-3 w-56 shrink-0 hidden md:flex md:flex-col md:items-center"><Avatar name={user}/><div className="mt-2 text-sm font-medium">{user}</div></aside><main className="flex-1 space-y-6">{view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers}/>}{view==="admin" && <Admin db={db} setDb={setDbUser} races={races} drivers={drivers} calendar={cal}/>}{view==="ranking" && <Ranking db={db} setDb={setDbUser} races={races} currentUser={user}/>}{view==="stats" && <Stats db={db} races={races}/>}{view==="questions" && <QuestionsHistory db={db} races={races}/>}</main></div>
+      <div className="md:flex md:gap-4"><aside className="sidebar p-3 w-56 shrink-0 hidden md:flex md:flex-col md:items-center"><Avatar name={user}/><div className="mt-2 text-sm font-medium">{user}</div></aside><main className="flex-1 space-y-6">
+        {mode==="f1" && (
+          <>
+            {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers}/>}
+            {view==="admin" && <Admin db={db} setDb={setDbUser} races={races} drivers={drivers} calendar={cal}/>}
+            {view==="ranking" && <Ranking db={db} setDb={setDbUser} races={races} currentUser={user}/>}
+            {view==="stats" && <Stats db={db} races={races}/>}
+            {view==="questions" && <QuestionsHistory db={db} races={races}/>}
+          </>
+        )}
+        {mode==="futbol" && (
+          <>
+            {view==="participante" && <FutbolParticipante user={user} db={db} setDb={setDbUser}/>}
+            {view==="admin" && <FutbolAdmin db={db} setDb={setDbUser} currentUser={user}/>}
+            {view==="ranking" && <FutbolRanking db={db}/>}
+            {view==="rules" && <FutbolRules/>}
+          </>
+        )}
+      </main></div>
     )}
     <footer className="text-xs text-slate-400 pt-8">Hecho con ❤️. </footer>
     <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} />
   </div>);
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(React.createElement(App));
+try {
+  if (!document.getElementById("root")) {
+    console.error("[Porra] No se encontró el elemento #root");
+    document.body.innerHTML = '<div style="padding:20px;color:red;background:white;">Error: No se encontró el elemento #root</div>';
+  } else if (typeof React === "undefined" || typeof ReactDOM === "undefined") {
+    console.error("[Porra] React o ReactDOM no están cargados");
+    document.getElementById("root").innerHTML = '<div style="padding:20px;color:red;background:white;">Error: React no está cargado. Verifica que los archivos vendor se carguen correctamente.</div>';
+  } else {
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(React.createElement(App));
+    console.info("[Porra] Aplicación renderizada correctamente");
+  }
+} catch (error) {
+  console.error("[Porra] Error al renderizar:", error);
+  const rootEl = document.getElementById("root");
+  if (rootEl) {
+    rootEl.innerHTML = `<div style="padding:20px;color:red;background:white;font-family:monospace;">
+      <h2>Error al cargar la aplicación</h2>
+      <p>${error.message}</p>
+      <pre>${error.stack}</pre>
+      <p>Por favor, abre la consola del navegador (F12) para más detalles.</p>
+    </div>`;
+  }
+}
