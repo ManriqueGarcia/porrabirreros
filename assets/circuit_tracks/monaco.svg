@@ -1,33 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
   <defs>
-    <filter id="glow-monaco" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="gl" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="200" height="120" fill="rgba(0,0,0,0.4)"/>
-  <g filter="url(#glow-monaco)">
-    <!-- Monaco: Sainte Devote, Casino Square, Tunnel, Swimming Pool, Rascasse - tight D-shaped harbor -->
-    <path d="M 100 95
-             L 100 78
-             Q 100 58 82 48
-             L 45 32
-             Q 22 22 22 42
-             L 22 58
-             Q 22 72 42 82
-             L 78 92
-             Q 100 98 122 92
-             L 168 78
-             Q 188 68 188 48
-             L 188 32
-             Q 188 18 168 15
-             L 115 22
-             Q 100 28 82 48
-             L 100 78
-             Z" fill="none" stroke="#E10600" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <line x1="100" y1="93" x2="100" y2="97" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+  <g filter="url(#gl)">
+    <!-- Monaco - tight harbor circuit: Ste Devote, Casino, Tunnel, Pool, Rascasse -->
+    <path d="M 85 118 C 72 118 60 115 50 108 C 40 100 32 90 28 78 C 24 66 25 55 30 45 C 35 35 42 28 52 22 C 62 16 75 14 88 14 L 125 14 C 138 14 148 18 155 26 C 162 34 165 45 162 58 C 160 68 152 76 142 82 C 132 88 125 94 122 102 C 120 108 115 115 105 118 L 85 118 Z" fill="none" stroke="#E10600" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Rascasse detail -->
+    <path d="M 50 108 C 42 102 38 95 40 88" fill="none" stroke="#E10600" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="85" y1="115" x2="85" y2="121" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="65,115 60,111 65,110" fill="#fff" opacity=".5"/>
   </g>
 </svg>

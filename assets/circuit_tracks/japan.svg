@@ -1,34 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
   <defs>
-    <filter id="glow-japan" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="gl" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="200" height="120" fill="rgba(0,0,0,0.4)"/>
-  <g filter="url(#glow-japan)">
-    <!-- Figure-8 layout: top loop clockwise, bottom loop counter-clockwise, crossover at center -->
-    <path d="M 100 60
-             L 100 25
-             Q 100 10 115 10
-             L 175 10
-             Q 190 10 190 35
-             L 190 55
-             Q 190 60 185 60
-             L 115 60
-             Q 100 60 100 45
-             L 100 75
-             Q 100 110 85 110
-             L 25 110
-             Q 10 110 10 85
-             L 10 65
-             Q 10 60 15 60
-             L 85 60
-             Q 100 60 100 75
-             Z" fill="none" stroke="#E10600" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <line x1="98" y1="58" x2="102" y2="62" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+  <g filter="url(#gl)">
+    <!-- Suzuka - figure-8, S-curves, 130R, Spoon -->
+    <!-- Top loop (S-curves, hairpin, Dunlop) -->
+    <path d="M 100 95 L 60 95 C 38 95 22 85 22 70 C 22 55 30 45 42 38 C 52 32 58 26 65 20 C 72 14 82 12 95 12 C 108 12 118 16 128 22 C 135 27 140 34 145 42" fill="none" stroke="#E10600" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Crossover section + bottom loop (Degner, back straight, Spoon, 130R, chicane) -->
+    <path d="M 145 42 C 150 52 148 62 140 70 C 132 78 122 82 115 90 C 110 96 112 100 120 105 C 130 110 142 112 155 108 C 165 104 175 95 180 82 C 184 70 182 58 175 48 C 168 38 158 34 145 42" fill="none" stroke="#E10600" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Chicane to start -->
+    <path d="M 120 105 C 115 110 108 118 100 120 L 100 95" fill="none" stroke="#E10600" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="100" y1="92" x2="100" y2="98" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="75,92 70,88 75,87" fill="#fff" opacity=".5"/>
   </g>
 </svg>

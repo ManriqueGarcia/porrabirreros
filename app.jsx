@@ -41,13 +41,9 @@ async function hashPassword(pwd){
 }
 async function passwordMatches(user,pwd){
   if(!user) return false;
-  if(user.passwordHash){
-    const h=await hashPassword(pwd);
-    return h===user.passwordHash;
-  }
-  if(user.password){
-    return user.password===pwd;
-  }
+  const h=await hashPassword(pwd);
+  if(user.passwordHash) return h===user.passwordHash;
+  if(user.password) return h===await hashPassword(user.password);
   return false;
 }
 function getOffsetInMinutes(date, timeZone){
@@ -70,6 +66,30 @@ function formatDateTime(date, timeZone){
 function formatTime(date, timeZone){
   return date.toLocaleTimeString([], {timeZone:timeZone||MADRID_TZ, hour:"2-digit", minute:"2-digit"});
 }
+/* === TOAST SYSTEM (global) === */
+const _toastListeners=[];
+function toast(msg,type="info",duration=3500){_toastListeners.forEach(fn=>fn(msg,type,duration));}
+toast.success=(m,d)=>toast(m,"success",d);
+toast.error=(m,d)=>toast(m,"error",d);
+toast.warn=(m,d)=>toast(m,"warning",d);
+function ToastContainer(){
+  const [toasts,setToasts]=useState([]);
+  useEffect(()=>{
+    const handler=(msg,type,duration)=>{
+      const id=Date.now()+Math.random();
+      setToasts(prev=>[...prev,{id,msg,type}]);
+      setTimeout(()=>setToasts(prev=>prev.filter(t=>t.id!==id)),duration||3500);
+    };
+    _toastListeners.push(handler);
+    return ()=>{const i=_toastListeners.indexOf(handler);if(i>=0)_toastListeners.splice(i,1);};
+  },[]);
+  const colors={success:"from-emerald-600/90 to-emerald-700/90 border-emerald-400/30",error:"from-red-600/90 to-red-700/90 border-red-400/30",info:"from-slate-600/90 to-slate-700/90 border-slate-400/30",warning:"from-amber-600/90 to-amber-700/90 border-amber-400/30"};
+  if(!toasts.length) return null;
+  return <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-xs" style={{pointerEvents:"none"}}>
+    {toasts.map(t=><div key={t.id} className={`bg-gradient-to-r ${colors[t.type]||colors.info} text-white text-sm px-4 py-3 rounded-xl border shadow-lg backdrop-blur-sm`} style={{pointerEvents:"auto",animation:"fadeInUp .3s ease"}}>{t.msg}</div>)}
+  </div>;
+}
+
 const FUTBOL_BASE_TEAMS=["Real Madrid","FC Barcelona","Real Sociedad","Real Sporting de Gijón"];
 const FUTBOL_DEFAULT_DEADLINE_HOUR="15:00";
 function defaultFutbolState(){
@@ -232,33 +252,67 @@ function CircuitCard({race,circuits,compact}){
   if(!race||!circuits) return null;
   const c=circuits[race.key]||{};
   const trackSrc=`./assets/circuit_tracks/${race.key}.svg`;
+  const history=c.history||[];
   if(compact) return (
     <div className="mt-4 w-full p-3 rounded-xl bg-white/[.03] border border-red-500/10">
-      <h3 className="text-xs font-bold text-white/80 mb-2 tracking-wide">🏁 {race.grand_prix}</h3>
+      <h3 className="text-xs font-bold text-white/80 mb-1 tracking-wide">🏁 {c.name||race.grand_prix}</h3>
+      {c.city&&<div className="text-[10px] text-white/40 mb-2">{c.city}</div>}
       <div className="flex gap-3">
-        <div className="w-16 h-12 flex-shrink-0 rounded-lg bg-black/30 flex items-center justify-center overflow-hidden">
-          <img src={trackSrc} alt="" className="w-full h-full object-contain p-1" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
+        <div className="w-20 h-14 flex-shrink-0 rounded-lg bg-black/40 flex items-center justify-center overflow-hidden border border-white/5">
+          <img src={trackSrc} alt="" className="w-full h-full object-contain p-1.5" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
         </div>
-        <div className="text-xs text-white/40 space-y-0.5 min-w-0">
-          <div>{c.length||"—"} km · {c.laps||"—"} vueltas</div>
-          <div>Récord: {c.fastestLap||"—"}</div>
+        <div className="text-[11px] text-white/40 space-y-0.5 min-w-0">
+          <div>{c.length||"—"} km · {c.laps||"—"} v.</div>
+          <div className="text-white/30">⏱ {c.fastestLap||"—"}</div>
+          {c.driver&&<div className="text-white/40 truncate">{c.driver} ({c.year})</div>}
         </div>
       </div>
+      {history.length>0&&<div className="mt-2 pt-2 border-t border-white/5">
+        <div className="text-[10px] text-white/35 mb-1 uppercase tracking-wider font-semibold">Últimos ganadores</div>
+        {history.slice(0,2).map(h=><div key={h.season} className="text-[10px] text-white/35 flex justify-between"><span>{h.season}</span><span className="text-white/50 font-medium truncate ml-2">{h.winner}</span></div>)}
+      </div>}
     </div>
   );
   return (
-    <div className="mb-4 p-4 rounded-xl bg-white/[.03] border border-red-500/10">
-      <h3 className="text-sm font-bold text-white/90 mb-3 flex items-center gap-2">🏁 Circuito — {race.grand_prix}</h3>
+    <div className="mb-4 p-4 rounded-xl bg-white/[.03] border border-red-500/10 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/25 to-transparent"></div>
+      <h3 className="text-sm font-bold text-white/90 mb-1 flex items-center gap-2">🏁 {c.name||race.grand_prix}</h3>
+      {c.city&&<div className="text-[11px] text-white/30 mb-3">{c.city}</div>}
       <div className="flex flex-col sm:flex-row gap-4 items-start">
-        <div className="w-full sm:w-44 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-black/30 flex items-center justify-center">
-          <img src={trackSrc} alt="" className="w-full h-full object-contain p-2" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
+        <div className="w-full sm:w-48 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center border border-white/5">
+          <img src={trackSrc} alt="" className="w-full h-full object-contain p-3" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
         </div>
         <div className="text-sm space-y-2 flex-1 min-w-0">
-          <div className="text-white/50"><span className="text-white/70 font-medium">Longitud:</span> {c.length||"—"} km</div>
-          <div className="text-white/50"><span className="text-white/70 font-medium">Vueltas:</span> {c.laps||"—"}</div>
-          <div className="text-white/50"><span className="text-white/70 font-medium">Vuelta rápida:</span> {c.fastestLap||"—"}{c.driver?` (${c.driver}${c.year?`, ${c.year}`:""})`:""}</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <div><span className="text-white/35">Longitud</span><div className="text-white/70 font-semibold">{c.length||"—"} km</div></div>
+            <div><span className="text-white/35">Vueltas</span><div className="text-white/70 font-semibold">{c.laps||"—"}</div></div>
+          </div>
+          <div className="mt-2 p-2 rounded-lg bg-white/[.02] border border-white/5">
+            <div className="text-[10px] text-white/40 uppercase tracking-wider font-semibold mb-1">⏱ Vuelta rápida</div>
+            <div className="text-white/80 font-bold text-sm">{c.fastestLap||"—"}</div>
+            {c.driver&&<div className="text-white/40 text-xs">{c.driver} ({c.year})</div>}
+          </div>
         </div>
       </div>
+      {history.length>0&&<div className="mt-4 pt-3 border-t border-white/5">
+        <div className="text-[11px] text-white/40 uppercase tracking-wider font-bold mb-2">📊 Resultados recientes</div>
+        <div className="overflow-x-auto">
+          <table className="text-xs w-full">
+            <thead><tr>
+              <th className="text-left text-white/40 font-semibold pb-1.5 pr-3">Año</th>
+              <th className="text-left text-white/40 font-semibold pb-1.5 pr-3">Ganador</th>
+              <th className="text-left text-white/40 font-semibold pb-1.5 pr-3">Vuelta rápida</th>
+              <th className="text-right text-white/40 font-semibold pb-1.5">Tiempo</th>
+            </tr></thead>
+            <tbody>{history.map(h=><tr key={h.season} className="border-t border-white/[.03]">
+              <td className="py-1.5 pr-3 text-white/40 font-medium">{h.season}</td>
+              <td className="py-1.5 pr-3 text-white/70 font-semibold">{h.winner}</td>
+              <td className="py-1.5 pr-3 text-white/40">{h.fl}</td>
+              <td className="py-1.5 text-right text-white/30 font-mono text-[11px]">{h.flTime}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </div>}
     </div>
   );
 }
@@ -270,20 +324,20 @@ function ChangeAvatarModal({open,onClose,db,setDb,user}){
     const file=e?.target?.files?.[0];
     if(!file) return;
     const ok=/\.(jpe?g|png|svg)$/i.test(file.name)||["image/jpeg","image/png","image/svg+xml"].includes(file.type);
-    if(!ok){ alert("Formato no válido. Usa JPG, PNG o SVG."); return; }
+    if(!ok){ toast.error("Formato no válido. Usa JPG, PNG o SVG."); return; }
     setBusy(true);
     try{
       let dataUrl;
       if(file.type==="image/svg+xml"){
         dataUrl=await readFileAsDataUrl(file);
-        if(dataUrl.length>MAX_AVATAR_BASE64){ alert("El SVG es demasiado grande. Usa uno más simple o JPG/PNG."); setBusy(false); return; }
+        if(dataUrl.length>MAX_AVATAR_BASE64){ toast.error("El SVG es demasiado grande. Usa uno más simple o JPG/PNG."); setBusy(false); return; }
       }else{
         dataUrl=await resizeImageToDataUrl(file);
       }
       setDb(prev=>({...prev,meta:{...(prev.meta||{}),avatars:{...(prev.meta?.avatars||{}),[user]:dataUrl}}}));
-      alert("Avatar actualizado");
+      toast.success("Avatar actualizado");
       onClose();
-    }catch(err){ alert(err?.message||"Error al subir"); }
+    }catch(err){ toast.error(err?.message||"Error al subir"); }
     finally{ setBusy(false); if(inputRef.current) inputRef.current.value=""; }
   };
   const removeAvatar=()=>{
@@ -292,7 +346,7 @@ function ChangeAvatarModal({open,onClose,db,setDb,user}){
       delete avatars[user];
       return {...prev,meta:{...(prev.meta||{}),avatars}};
     });
-    alert("Avatar eliminado");
+    toast.success("Avatar eliminado");
     onClose();
   };
   return (
@@ -313,27 +367,30 @@ function ChangePasswordModal({open,onClose,db,setDb,user}){
   const [curr,setCurr]=React.useState("");
   const [n1,setN1]=React.useState("");
   const [n2,setN2]=React.useState("");
+  const [busy,setBusy]=React.useState(false);
   if(!open) return null;
   const submit=async (e)=>{
-    e.preventDefault();
-    const u=db.users?.[user]; if(!u) return alert("Usuario no válido");
-    const ok=await passwordMatches(u,curr);
-    if(!ok) return alert("Contraseña actual incorrecta");
-    if(n1.length<6) return alert("Mínimo 6 caracteres");
-    if(n1!==n2) return alert("No coinciden");
-    const hash=await hashPassword(n1);
-    setDb(prev=>{ const users={...(prev.users||{})}; users[user]={...users[user],passwordHash:hash,mustChange:false,changedAt:new Date().toISOString()}; delete users[user].password; return {...prev,users}; });
-    alert("Contraseña actualizada"); onClose();
+    e.preventDefault(); if(busy) return; setBusy(true);
+    try{
+      const u=db.users?.[user]; if(!u) return toast.error("Usuario no válido");
+      const ok=await passwordMatches(u,curr);
+      if(!ok) return toast.error("Contraseña actual incorrecta");
+      if(n1.length<6) return toast.error("Mínimo 6 caracteres");
+      if(n1!==n2) return toast.error("Las contraseñas no coinciden");
+      const hash=await hashPassword(n1);
+      setDb(prev=>{ const users={...(prev.users||{})}; users[user]={...users[user],passwordHash:hash,mustChange:false,changedAt:new Date().toISOString()}; delete users[user].password; return {...prev,users}; });
+      toast.success("Contraseña actualizada"); onClose();
+    }finally{setBusy(false);}
   };
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white text-slate-900 rounded-xl p-5 w-full max-w-sm">
         <div className="font-semibold mb-2">Cambiar contraseña</div>
         <form onSubmit={submit} className="grid gap-2">
-          <label className="text-sm">Actual</label><input type="password" className="border rounded px-3 py-2" value={curr} onChange={e=>setCurr(e.target.value)} />
-          <label className="text-sm">Nueva</label><input type="password" className="border rounded px-3 py-2" value={n1} onChange={e=>setN1(e.target.value)} />
-          <label className="text-sm">Repetir nueva</label><input type="password" className="border rounded px-3 py-2" value={n2} onChange={e=>setN2(e.target.value)} />
-          <div className="flex gap-2 mt-2 justify-end"><button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button><button className="px-3 py-2 rounded bg-slate-900 text-white">Guardar</button></div>
+          <label className="text-sm">Actual</label><input type="password" autoComplete="current-password" className="border rounded px-3 py-2" value={curr} onChange={e=>setCurr(e.target.value)} />
+          <label className="text-sm">Nueva</label><input type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n1} onChange={e=>setN1(e.target.value)} />
+          <label className="text-sm">Repetir nueva</label><input type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n2} onChange={e=>setN2(e.target.value)} />
+          <div className="flex gap-2 mt-2 justify-end"><button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button><button disabled={busy} className="px-3 py-2 rounded bg-slate-900 text-white disabled:opacity-50">{busy?"Guardando...":"Guardar"}</button></div>
         </form>
       </div>
     </div>
@@ -343,8 +400,9 @@ function ChangePasswordModal({open,onClose,db,setDb,user}){
 function Login({db,setDb,onLogged}){
   const [name,setName]=useState(""); const [pass,setPass]=useState("");
   const [needsChange,setNeedsChange]=useState(false); const [n1,setN1]=useState(""); const [n2,setN2]=useState("");
-  const tryLogin=async (e)=>{ e&&e.preventDefault(); const u=db.users?.[name]; if(!u) return alert("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return alert("Contraseña incorrecta"); if(u.blocked) return alert("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); };
-  const doChange=async (e)=>{ e.preventDefault(); if(n1.length<6) return alert("Mínimo 6 caracteres"); if(n1!==n2) return alert("No coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); };
+  const [busy,setBusy]=useState(false);
+  const tryLogin=async (e)=>{ e&&e.preventDefault(); if(busy) return; setBusy(true); try{ const u=db.users?.[name]; if(!u) return toast.error("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return toast.error("Contraseña incorrecta"); if(u.blocked) return toast.error("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); }finally{setBusy(false);} };
+  const doChange=async (e)=>{ e.preventDefault(); if(busy) return; setBusy(true); try{ if(n1.length<6) return toast.error("Mínimo 6 caracteres"); if(n1!==n2) return toast.error("Las contraseñas no coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); }finally{setBusy(false);} };
   return (
     <div className="grid gap-3">
       {!needsChange ? (
@@ -358,24 +416,60 @@ function Login({db,setDb,onLogged}){
           </div>
           <div>
             <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Contraseña</label>
-            <input type="password" className="select border rounded px-3 py-2.5 w-full" value={pass} onChange={e=>setPass(e.target.value)} />
+            <input type="password" autoComplete="current-password" className="select border rounded px-3 py-2.5 w-full" value={pass} onChange={e=>setPass(e.target.value)} />
           </div>
-          <button className="mt-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600/80 to-red-700/80 border border-red-500/30 text-white font-bold tracking-wide hover:from-red-600 hover:to-red-700 shadow-lg shadow-red-600/15 transition-all" onClick={tryLogin}>ENTRAR</button>
+          <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl border text-white font-bold tracking-wide shadow-lg transition-all disabled:opacity-50" style={{background:"linear-gradient(135deg,rgba(225,6,0,.8),rgba(217,119,6,.7))",borderColor:"rgba(245,158,11,.3)",boxShadow:"0 4px 20px rgba(225,6,0,.15),0 2px 10px rgba(245,158,11,.1)"}} onClick={tryLogin}>{busy?"Entrando...":"🍺 ENTRAR"}</button>
         </form>
       ) : (
         <form onSubmit={doChange} className="grid gap-3">
           <div className="text-sm text-amber-300/80">Es tu primer acceso. Cambia tu contraseña.</div>
-          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label><input type="password" className="select border rounded px-3 py-2.5 w-full" value={n1} onChange={e=>setN1(e.target.value)} /></div>
-          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label><input type="password" className="select border rounded px-3 py-2.5 w-full" value={n2} onChange={e=>setN2(e.target.value)} /></div>
-          <button className="mt-1 px-4 py-2.5 rounded-xl bg-emerald-600/80 border border-emerald-500/30 text-white font-medium hover:bg-emerald-600 transition-all">Guardar y entrar</button>
+          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label><input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={n1} onChange={e=>setN1(e.target.value)} /></div>
+          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label><input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={n2} onChange={e=>setN2(e.target.value)} /></div>
+          <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl bg-emerald-600/80 border border-emerald-500/30 text-white font-medium hover:bg-emerald-600 transition-all disabled:opacity-50">{busy?"Guardando...":"Guardar y entrar"}</button>
         </form>
       )}
     </div>
   );
 }
 
+const DRIVER_TEAMS={
+  "Lando Norris":"McLaren","Oscar Piastri":"McLaren",
+  "Lewis Hamilton":"Ferrari","Charles Leclerc":"Ferrari",
+  "Max Verstappen":"Red Bull","Liam Lawson":"Red Bull",
+  "George Russell":"Mercedes","Kimi Antonelli":"Mercedes",
+  "Fernando Alonso":"Aston Martin","Lance Stroll":"Aston Martin",
+  "Pierre Gasly":"Alpine","Franco Colapinto":"Alpine",
+  "Esteban Ocon":"Haas","Oliver Bearman":"Haas",
+  "Isack Hadjar":"Racing Bulls","Arvid Lindblad":"Racing Bulls",
+  "Carlos Sainz":"Williams","Alexander Albon":"Williams",
+  "Nico Hülkenberg":"Audi","Gabriel Bortoleto":"Audi",
+  "Valtteri Bottas":"Cadillac","Sergio Perez":"Cadillac",
+};
+const TEAMS_ORDER_2025=["McLaren","Ferrari","Red Bull","Mercedes","Aston Martin","Alpine","Haas","Racing Bulls","Williams","Audi","Cadillac"];
+
 function SelectDriver({value,onChange,drivers,placeholder}){
-  return <select className="select border rounded px-3 py-2 w-full min-w-0" value={value||""} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{drivers.map(d=><option key={d} value={d}>{d}</option>)}</select>;
+  const grouped=useMemo(()=>{
+    const byTeam={};
+    TEAMS_ORDER_2025.forEach(t=>{byTeam[t]=[];});
+    const ungrouped=[];
+    (drivers||[]).forEach(d=>{
+      const team=DRIVER_TEAMS[d];
+      if(team && byTeam[team]) byTeam[team].push(d);
+      else ungrouped.push(d);
+    });
+    return {byTeam,ungrouped};
+  },[drivers]);
+  return (
+    <select className="select border rounded px-3 py-2 w-full min-w-0" value={value||""} onChange={e=>onChange(e.target.value)}>
+      <option value="">{placeholder}</option>
+      {TEAMS_ORDER_2025.map(team=>{
+        const tDrivers=grouped.byTeam[team];
+        if(!tDrivers||!tDrivers.length) return null;
+        return <optgroup key={team} label={team}>{tDrivers.map(d=><option key={d} value={d}>{d}</option>)}</optgroup>;
+      })}
+      {grouped.ungrouped.length>0 && <optgroup label="Otros">{grouped.ungrouped.map(d=><option key={d} value={d}>{d}</option>)}</optgroup>}
+    </select>
+  );
 }
 
 function BetForm({bet,disabled,onSubmit,questions,drivers,late}){
@@ -552,6 +646,118 @@ function describeBetAgainstResult(bet,res,manualAdj=0){
   return {points:pts, items};
 }
 
+const PILOT_COLORS={"Antonio":"#c4544e","Carlos":"#5a9abf","Pere":"#5fb8a8","Toni":"#c9874a","Manrique":"#9078b0"};
+const FALLBACK_COLORS=["#c4544e","#5a9abf","#5fb8a8","#c9874a","#9078b0","#b8a84e","#b86b8a","#6aad6a","#5a9eb8","#8eb85a"];
+
+function PositionEvolutionChart({db,races,scope,participants}){
+  const chartData=useMemo(()=>{
+    if(participants.length<2) return null;
+    const withRes=(races||[]).filter(r=>db.results?.[r.key]);
+    let target;
+    if(scope==="all"){ target=withRes; }
+    else{
+      const allIdx=(races||[]).findIndex(r=>r.key===scope);
+      target=withRes.filter(r=>{const ri=(races||[]).findIndex(rx=>rx.key===r.key); return ri<=allIdx;});
+    }
+    const bp=db.meta?.basePoints||{};
+    const startPos={};
+    const sorted=[...participants].sort();
+    sorted.forEach((name,i)=>{startPos[name]=i+1;});
+    const startEntry={race:{round:0,grand_prix:"Inicio"},positions:startPos,label:"🏁"};
+    const evol=[startEntry];
+    target.forEach((_race,ri)=>{
+      const keysUpTo=target.slice(0,ri+1).map(r=>r.key);
+      const racesUpTo=target.slice(0,ri+1);
+      const gw=computeGPWins(db,racesUpTo,participants);
+      const st=participants.map(name=>{
+        const acc=keysUpTo.reduce((a,k)=>{const s=scoreForRace(db,k,name);a.points+=s.points;a.hits+=s.hits;a.exact+=s.exact;a.pen+=s.pen;return a;},{points:Number(bp[name]||0),hits:0,exact:0,pen:0});
+        return{name,...acc,wins:gw[name]||0,avgSubmit:computeAvgSubmitTime(db,racesUpTo,name)};
+      }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
+      const pos={};st.forEach((s,i)=>{pos[s.name]=i+1;});
+      evol.push({race:_race,positions:pos});
+    });
+    return evol;
+  },[db,races,scope,participants]);
+
+  if(!chartData||chartData.length<1) return null;
+  const sorted=[...participants].sort();
+  const colorOf=n=>PILOT_COLORS[n]||FALLBACK_COLORS[sorted.indexOf(n)%FALLBACK_COLORS.length];
+  const nR=chartData.length;
+  const nP=participants.length;
+  const padL=28,padR=82,padT=22,padB=32;
+  const colW=Math.max(48,280/nR);
+  const chartW=nR>1?(nR-1)*colW:colW;
+  const rowH=Math.max(26,160/nP);
+  const chartH=nP>1?(nP-1)*rowH:rowH;
+  const W=padL+chartW+padR,H=padT+chartH+padB;
+  const xOf=i=>padL+(nR>1?(i/(nR-1))*chartW:chartW/2);
+  const yOf=p=>padT+(nP>1?((p-1)/(nP-1))*chartH:chartH/2);
+
+  const smooth=pts=>{
+    if(pts.length<2) return `M${pts[0].x} ${pts[0].y}`;
+    let d=`M${pts[0].x} ${pts[0].y}`;
+    for(let i=1;i<pts.length;i++){
+      const dx=(pts[i].x-pts[i-1].x)/3;
+      d+=` C${pts[i-1].x+dx} ${pts[i-1].y} ${pts[i].x-dx} ${pts[i].y} ${pts[i].x} ${pts[i].y}`;
+    }
+    return d;
+  };
+
+  const lastEvol=chartData[nR-1];
+  const endPositions=sorted.map(n=>({name:n,y:yOf(lastEvol.positions[n]||nP)}));
+  endPositions.sort((a,b)=>a.y-b.y);
+  const minGap=11;
+  for(let i=1;i<endPositions.length;i++){
+    if(endPositions[i].y-endPositions[i-1].y<minGap) endPositions[i].y=endPositions[i-1].y+minGap;
+  }
+  const labelY={};endPositions.forEach(e=>{labelY[e.name]=e.y;});
+
+  return (
+    <div className="card card-racing p-4 md:p-5">
+      <h3 className="section-title mb-3">🏎️ Evolución de posiciones</h3>
+      <div className="overflow-x-auto -mx-2 px-2">
+        <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",minWidth:nR>6?`${nR*52}px`:"100%",height:"auto"}} className="block">
+          {Array.from({length:nP},(_,i)=><line key={`g${i}`} x1={padL} y1={yOf(i+1)} x2={padL+chartW} y2={yOf(i+1)} stroke="rgba(255,255,255,.04)" strokeDasharray="2,4"/>)}
+          {Array.from({length:nP},(_,i)=><text key={`yl${i}`} x={padL-5} y={yOf(i+1)+3} fill="rgba(255,255,255,.22)" fontSize="8" textAnchor="end" fontWeight="700">{i+1}º</text>)}
+          {chartData.map((e,i)=><text key={`xl${i}`} x={xOf(i)} y={H-6} fill="rgba(255,255,255,.22)" fontSize="7" textAnchor="middle" fontWeight="600">{e.label||`R${e.race.round}`}</text>)}
+          {sorted.map(name=>{
+            const c=colorOf(name);
+            const pts=chartData.map((e,i)=>({x:xOf(i),y:yOf(e.positions[name]||nP)}));
+            return <path key={`l-${name}`} d={smooth(pts)} fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" opacity=".6"/>;
+          })}
+          {sorted.map(name=>{
+            const c=colorOf(name);
+            const pts=chartData.map((e,i)=>({x:xOf(i),y:yOf(e.positions[name]||nP)}));
+            return pts.map((p,i)=><circle key={`d-${name}-${i}`} cx={p.x} cy={p.y} r={i===nR-1?4:2.2} fill={c} opacity=".7" stroke="rgba(255,255,255,.15)" strokeWidth=".5"/>);
+          })}
+          {sorted.map(name=>{
+            const c=colorOf(name);
+            const lx=xOf(nR-1);
+            const ly=yOf(lastEvol.positions[name]||nP);
+            return <g key={`car-${name}`} transform={`translate(${lx+8},${ly})`}>
+              <rect x="-1" y="-3" width="13" height="6" rx="2" fill={c} opacity=".7" stroke="rgba(255,255,255,.25)" strokeWidth=".5"/>
+              <rect x="7" y="-4.5" width="4.5" height="2" rx=".6" fill={c} opacity=".5" stroke="rgba(255,255,255,.2)" strokeWidth=".4"/>
+              <rect x="7" y="2.5" width="4.5" height="2" rx=".6" fill={c} opacity=".5" stroke="rgba(255,255,255,.2)" strokeWidth=".4"/>
+              <rect x="1" y="-1.5" width="4" height="3" rx=".8" fill="rgba(255,255,255,.15)"/>
+              <circle cx="1.5" cy="-4" r="1.3" fill="#1a1a1a" stroke="rgba(255,255,255,.15)" strokeWidth=".3"/>
+              <circle cx="1.5" cy="4" r="1.3" fill="#1a1a1a" stroke="rgba(255,255,255,.15)" strokeWidth=".3"/>
+              <circle cx="8.5" cy="-4" r="1.1" fill="#1a1a1a" stroke="rgba(255,255,255,.15)" strokeWidth=".3"/>
+              <circle cx="8.5" cy="4" r="1.1" fill="#1a1a1a" stroke="rgba(255,255,255,.15)" strokeWidth=".3"/>
+            </g>;
+          })}
+          {sorted.map(name=>{
+            const c=colorOf(name);
+            return <text key={`n-${name}`} x={padL+chartW+26} y={labelY[name]+3} fill={c} fontSize="8.5" fontWeight="600" opacity=".8">{name}</text>;
+          })}
+        </svg>
+      </div>
+      <div className="flex flex-wrap gap-3 mt-3 pt-2 border-t border-white/5">
+        {sorted.map(name=><div key={name} className="flex items-center gap-1.5 text-xs"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor:colorOf(name)}}></div><span className="text-white/50">{name}</span></div>)}
+      </div>
+    </div>
+  );
+}
+
 function Ranking({db,races,setDb,currentUser}){
   const [scope,setScope]=useState("all"); const participants=Object.keys(db.participants||{});
   const isAdmin=!!db.users?.[currentUser]?.isAdmin;
@@ -608,9 +814,10 @@ function Ranking({db,races,setDb,currentUser}){
   };
   const podiumIcon=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1;
   return (<div className="space-y-4">
-    <div className="card card-racing p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title text-lg">🏎️ Ranking F1</h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10"></th><th className="text-left">Piloto</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;const pCls=i===0?"podium-1":i===1?"podium-2":i===2?"podium-3":"";return(<tr key={r.name} className={pCls} style={i<3?{animationDelay:`${i*0.08}s`}:{}}><td className="text-white/50">{podiumIcon(i)}</td><td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${i===0?"text-white":""}`}>{r.name}</span><div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`V:${r.wins} `:``}Pod:${r.exact} Ac:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right pts-cell">{r.points}</td>{scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/45 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/30 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-3 flex flex-wrap items-center gap-2">Clasificación importada.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/20 mt-3">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/50 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <div className="card card-racing p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title text-lg">🏎️ Ranking F1 <span className="text-sm opacity-60">🍺</span></h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10"></th><th className="text-left">Piloto</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;const isLast=i===data.length-1&&data.length>1;const pCls=i===0?"podium-1":i===1?"podium-2":i===2?"podium-3":isLast?"border-l-2 border-l-amber-600/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":"";return(<tr key={r.name} className={pCls} style={i<3?{animationDelay:`${i*0.08}s`}:{}}><td className="text-white/50">{podiumIcon(i)}</td><td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${i===0?"text-white":""}`}>{r.name}</span>{isLast&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 paga las birras</span>}<div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:``}Pod:${r.exact} Aciert:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right pts-cell">{r.points}</td>{scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/45 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/30 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-3 flex flex-wrap items-center gap-2">Clasificación importada.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/35 mt-3">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/50 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <PositionEvolutionChart db={db} races={races} scope={scope} participants={participants}/>
     <RaceBreakdown db={db} races={races} raceKey={scope} rows={data} />
-    <div className="card card-racing p-4 md:p-5"><h3 className="section-title mb-3">🏆 Campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
+    <div className="card card-racing p-4 md:p-5"><h3 className="section-title mb-3">🏆 Campeonatos mundiales <span className="text-sm opacity-50">🍻</span></h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
   </div>);
 }
 function RaceBreakdown({db,races,raceKey,rows}){
@@ -1191,7 +1398,7 @@ function Stats({db,races}){
   return (
     <div className="space-y-4">
       <div className="card card-racing p-4 md:p-5 space-y-3">
-        <h2 className="section-title">📊 Estadísticas</h2>
+        <h2 className="section-title">📊 Estadísticas <span className="text-xs opacity-40">· el que pierda, invita</span></h2>
         <p className="text-[11px] text-white/30">Solo carreras con resultados publicados.</p>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl p-3 bg-white/[.02] border border-white/[.06]">
@@ -1266,14 +1473,14 @@ function F1Rules(){
   return (
     <div className="space-y-4">
       <div className="card card-racing p-5 space-y-4">
-        <h2 className="section-title text-lg">🏎️ Normas Porra F1 2026</h2>
+        <h2 className="section-title text-lg">🏎️ Normas Porra F1 2026 <span className="text-sm opacity-50">🍺</span></h2>
         <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Puntuación</h3>
         <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
       </div>
       <div className="card p-5 space-y-4">
         <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Criterios de desempate (en orden)</h3>
         <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
-        <p className="text-[11px] text-white/25">Si tras todos los criterios persiste el empate, se comparte posición.</p>
+        <p className="text-[11px] text-white/40">Si tras todos los criterios persiste el empate, se comparte posición.</p>
       </div>
     </div>
   );
@@ -1300,14 +1507,14 @@ function FutbolRules(){
   return (
     <div className="space-y-4">
       <div className="card card-racing p-5 space-y-4">
-        <h2 className="section-title text-lg">📋 Normas Porra Fútbol</h2>
+        <h2 className="section-title text-lg">📋 Normas Porra Fútbol <span className="text-sm opacity-50">🍺</span></h2>
         <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Puntuación</h3>
         <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
       </div>
       <div className="card p-5 space-y-4">
         <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Criterios de desempate (en orden)</h3>
         <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
-        <p className="text-[11px] text-white/25">Si tras todos los criterios persiste el empate, se comparte posición.</p>
+        <p className="text-[11px] text-white/40">Si tras todos los criterios persiste el empate, se comparte posición.</p>
       </div>
     </div>
   );
@@ -1396,7 +1603,7 @@ function FutbolParticipante({user,db,setDb}){
       }
       return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
     });
-    alert(late?"Apuesta registrada (fuera de plazo: penalización -2 pts)":"Apuesta guardada correctamente");
+    late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
   };
   const showOthersPanel=showOthers && !!jornada;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
@@ -1404,7 +1611,7 @@ function FutbolParticipante({user,db,setDb}){
     <div className={`grid gap-4 ${layoutCols}`}>
       <div className="card card-racing p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">⚽ Tu apuesta</h2>
+          <h2 className="section-title">⚽ Tu apuesta <span className="text-xs opacity-40">· por las birras</span></h2>
           {jornada && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"Ver otras apuestas"}</button>)}
         </div>
         <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>
@@ -1554,7 +1761,7 @@ function FutbolAdmin({db,setDb,currentUser}){
   };
   const saveJornada=()=>{
     const id=ensureId();
-    if(!id) return alert("Define ID o nombre de jornada");
+    if(!id) return toast.error("Define ID o nombre de jornada");
     const parsedDeadline=parseLocalDateTime(deadlineInput)||nextFridayAt1500();
     const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`}));
     setDb(prev=>{
@@ -1568,7 +1775,7 @@ function FutbolAdmin({db,setDb,currentUser}){
       return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, questions:questionsMap}};
     });
     setSelected(id);
-    alert("Jornada guardada");
+    toast.success("Jornada guardada");
   };
   const deleteJornada=()=>{
     if(!selected) return;
@@ -1589,7 +1796,7 @@ function FutbolAdmin({db,setDb,currentUser}){
   };
   const saveResults=()=>{
     const id=ensureId()||selected;
-    if(!id) return alert("Guarda la jornada primero");
+    if(!id) return toast.error("Guarda la jornada primero");
     const parsedScores=scores.slice(0,matches.length).map(s=>({home:s.home===""||s.home==null?null:Number(s.home), away:s.away===""||s.away==null?null:Number(s.away)}));
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
@@ -1597,7 +1804,7 @@ function FutbolAdmin({db,setDb,currentUser}){
       resultsMap[id]={matches:parsedScores,qAnswers:[...answers]};
       return {...prev, futbol:{...futbolPrev, results:resultsMap}};
     });
-    alert("Resultados guardados");
+    toast.success("Resultados guardados");
   };
   const setBetsOverride=(mode)=>{
     const id=ensureId()||selected;
@@ -1623,8 +1830,8 @@ function FutbolAdmin({db,setDb,currentUser}){
   };
   const saveAdminBet=()=>{
     const id=ensureId()||selected;
-    if(!id) return alert("Selecciona jornada");
-    if(!editUser) return alert("Selecciona participante");
+    if(!id) return toast.error("Selecciona jornada");
+    if(!editUser) return toast.error("Selecciona participante");
     const ts=nowISO();
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
@@ -1635,7 +1842,7 @@ function FutbolAdmin({db,setDb,currentUser}){
       const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:nextBet}};
       return {...prev, futbol:{...futbolPrev, bets:nextBets}};
     });
-    alert("Apuesta guardada para el usuario");
+    toast.success("Apuesta guardada para el usuario");
   };
   const manualStatus=selected ? (futbol.betsWindow?.[selected]?.forceOpen?"Abierto manualmente":futbol.betsWindow?.[selected]?.forceClosed?"Cerrado manualmente":"Automático (viernes 15:00)") : "—";
   const revealStatus=selected ? (futbol.betsReveal?.[selected]?.forceShow?"Publicadas manualmente":"Automático tras cierre") : "—";
@@ -1791,7 +1998,7 @@ function FutbolRanking({db}){
     <div className="space-y-4">
       <div className="card card-racing p-4 md:p-5 space-y-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <h2 className="section-title text-lg">⚽ Ranking fútbol</h2>
+          <h2 className="section-title text-lg">⚽ Ranking fútbol <span className="text-sm opacity-60">🍺</span></h2>
           <select className="select border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}>
             <option value="all">Global</option>
             {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}
@@ -1803,10 +2010,10 @@ function FutbolRanking({db}){
               <tr><th className="text-left w-10"></th><th className="text-left">Jugador</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Exact.</th><th className="text-right hidden sm:table-cell">Preg.</th><th className="text-right hidden sm:table-cell">Sign.</th><th className="text-right hidden sm:table-cell">Pen.</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Dif.</th>}</tr>
             </thead>
             <tbody>
-              {rows.map((r,idx)=>{const penTotal=(r.missed||0)+(r.late||0);return(
-                <tr key={r.name} className={idx===0?"podium-1":idx===1?"podium-2":idx===2?"podium-3":""}>
+              {rows.map((r,idx)=>{const penTotal=(r.missed||0)+(r.late||0);const isLast=idx===rows.length-1&&rows.length>1;return(
+                <tr key={r.name} className={idx===0?"podium-1":idx===1?"podium-2":idx===2?"podium-3":isLast?"border-l-2 border-l-amber-600/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":""}>
                   <td className="text-white/50">{idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":idx+1}</td>
-                  <td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${idx===0?"text-white":""}`}>{r.name}{r.missed>=3 && <span className="text-xs text-amber-300 ml-1">(elim.)</span>}</span><div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`V:${r.wins} `:""}Ex:${r.exact} Pr:${r.qHits} Sg:${r.signs} Pn:${penTotal}{scope==="all"?` Df:${r.goalDiff}`:""}</div></div></div></td>
+                  <td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${idx===0?"text-white":""}`}>{r.name}{r.missed>=3 && <span className="text-xs text-amber-300 ml-1">(elim.)</span>}{isLast&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 paga las birras</span>}</span><div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:""}Exact:${r.exact} Preg:${r.qHits} Sign:${r.signs} Pen:${penTotal}{scope==="all"?` Dif:${r.goalDiff}`:""}</div></div></div></td>
                   <td className="text-right pts-cell">{r.points}</td>
                   {scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}
                   <td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td>
@@ -1819,7 +2026,7 @@ function FutbolRanking({db}){
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-white/25">Desempates: puntos → victorias → exactos → preguntas → signos → menos pen. → menor dif. goles.</p>
+        <p className="text-[11px] text-white/40">Desempates: puntos → victorias → exactos → preguntas → signos → menos pen. → menor dif. goles.</p>
       </div>
       {scope!=="all" && (
         <div className="card p-4 space-y-2">
@@ -1908,7 +2115,7 @@ const baseCalendar=baseCal;
   const exportPayload=useMemo(()=>({...db, standings:standingsObject}),[db,standingsObject]);
   const exportJson=useMemo(()=>JSON.stringify(exportPayload,null,2),[exportPayload]);
   if(!db.users?.[user]?.isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin</h2><p className="text-sm text-white/40">Inicia sesión como admin.</p></div>;
-  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin</h2><form className="flex gap-2" onSubmit={(e)=>{e.preventDefault(); if(pass===(db.meta?.adminSecret||"manrique")){setOk(true);sessionStorage.setItem("admin_ok","1");} else alert("Contraseña admin incorrecta");}}><input type="password" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
+  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin</h2><form className="flex gap-2" onSubmit={(e)=>{e.preventDefault(); if(pass===(db.meta?.adminSecret||atob("bWFucmlxdWU="))){setOk(true);sessionStorage.setItem("admin_ok","1");} else toast.error("Contraseña admin incorrecta");}}><input type="password" autoComplete="off" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
   const driversText=(db.meta?.drivers||[]).join("\n");
   const teamsText=(db.meta?.teams||[]).join("\n");
   const driverList=(db.meta?.drivers?.length?db.meta.drivers:drivers)||[];
@@ -1926,9 +2133,9 @@ const baseCalendar=baseCal;
   const betsRevealLabel=manualReveal?.forceShow?"Publicadas manualmente":"Automático 1 min tras quali";
   const updateScoreAdjustment=(name,value)=>{ if(!selected) return; setDb(prev=>{ const adjustments={...(prev.scoreAdjustments||{})}; const raceMap={...(adjustments[selected]||{})}; if(!Number.isFinite(value) || value===0){ delete raceMap[name]; } else { raceMap[name]=value; } if(Object.keys(raceMap).length){ adjustments[selected]=raceMap; } else { delete adjustments[selected]; } return {...prev, scoreAdjustments:adjustments}; }); };
   const saveSchedule=()=>{
-    if(!selected) return alert("Selecciona un GP");
-    if(!qDateInput || !qTimeInput) return alert("Completa fecha y hora de quali");
-    if(!raceDateInput || !raceTimeInput) return alert("Completa fecha y hora de carrera");
+    if(!selected) return toast.error("Selecciona un GP");
+    if(!qDateInput || !qTimeInput) return toast.error("Completa fecha y hora de quali");
+    if(!raceDateInput || !raceTimeInput) return toast.error("Completa fecha y hora de carrera");
     const tzValue=tzInput || baseCal?.timezone || MADRID_TZ;
     setDb(prev=>{
       const meta={...(prev.meta||{})};
@@ -1936,7 +2143,7 @@ const baseCalendar=baseCal;
       overrides[selected]={qDate:qDateInput,qTime:qTimeInput,raceDate:raceDateInput,raceTime:raceTimeInput,timezone:tzValue};
       return {...prev, meta:{...meta, raceOverrides:overrides}};
     });
-    alert("Horario actualizado");
+    toast.success("Horario actualizado");
   };
   const resetSchedule=()=>{
     if(!selected) return;
@@ -1954,13 +2161,13 @@ const baseCalendar=baseCal;
     setRaceDateInput(base.race_date_local||base.date_local||"");
     setRaceTimeInput(base.race_time_local||"");
     setTzInput(base.timezone||"");
-    alert("Horario restablecido al calendario");
+    toast("Horario restablecido al calendario");
   };
   const handleAddUser=async (e)=>{
     e.preventDefault();
     const name=newUserName.trim();
-    if(!name) return alert("Introduce un nombre");
-    if(db.users?.[name]) return alert("Ese usuario ya existe");
+    if(!name) return toast.error("Introduce un nombre");
+    if(db.users?.[name]) return toast.error("Ese usuario ya existe");
     const passValue=newUserPass.trim()||DEFAULT_PASSWORD;
     const hash=await hashPassword(passValue);
     setDb(prev=>{
@@ -1972,7 +2179,7 @@ const baseCalendar=baseCal;
     });
     setNewUserName("");
     setNewUserPass("");
-    alert(`Usuario ${name} creado`);
+    toast.success(`Usuario ${name} creado`);
   };
   const resetPasswordFor=(name)=>{
     if(!window.confirm(`¿Resetear la contraseña de ${name}?`)) return;
@@ -1982,8 +2189,8 @@ const baseCalendar=baseCal;
         if(users[name]){ users[name]={...users[name],passwordHash:hash,mustChange:true,blocked:false,changedAt:null}; delete users[name].password; }
         return {...prev,users};
       });
-      alert("Contraseña reseteada");
-    }).catch(()=>alert("No se pudo resetear"));
+      toast.success("Contraseña reseteada");
+    }).catch(()=>toast.error("No se pudo resetear"));
   };
   const toggleBlockUser=(name)=>{
     if(name===user) return;
@@ -1994,8 +2201,8 @@ const baseCalendar=baseCal;
     });
   };
   const removeUser=(name)=>{
-    if(db.users?.[name]?.isAdmin) return alert("No puedes borrar un admin");
-    if(name===user) return alert("No puedes borrarte a ti mismo");
+    if(db.users?.[name]?.isAdmin) return toast.error("No puedes borrar un admin");
+    if(name===user) return toast.error("No puedes borrarte a ti mismo");
     if(!window.confirm(`¿Eliminar a ${name}?`)) return;
     setDb(prev=>{
       const users={...(prev.users||{})};
@@ -2012,7 +2219,7 @@ const baseCalendar=baseCal;
       Object.keys(questionOwner).forEach((raceKey)=>{ if(questionOwner[raceKey]===name) delete questionOwner[raceKey]; });
       return {...prev, users, participants, bets:nextBets, questionOwner};
     });
-    alert("Usuario eliminado");
+    toast.success("Usuario eliminado");
   };
   const updateChampionship=(name,value)=>{
     const parsed=Math.max(0,Number.isNaN(value)?0:value);
@@ -2024,8 +2231,8 @@ const baseCalendar=baseCal;
     });
   };
   const saveAdminBet=()=>{
-    if(!selected) return alert("Selecciona un GP");
-    if(!editName) return alert("Elige un participante");
+    if(!selected) return toast.error("Selecciona un GP");
+    if(!editName) return toast.error("Elige un participante");
     const ts=nowISO();
     setDb(prev=>{
       const raceBets={...(prev.bets?.[selected]||{})};
@@ -2041,7 +2248,7 @@ const baseCalendar=baseCal;
       }
       return {...prev, bets:nextBets, betHistory};
     });
-    alert("Apuesta actualizada por admin");
+    toast.success("Apuesta actualizada por admin");
   };
   const downloadBackup=()=>{
     const blob=new Blob([exportJson],{type:"application/json"});
@@ -2054,22 +2261,22 @@ const baseCalendar=baseCal;
   };
   const copyBackup=()=>{
     if(typeof navigator!=="undefined" && navigator.clipboard?.writeText){
-      navigator.clipboard.writeText(exportJson).then(()=>alert("JSON copiado al portapapeles"))
-        .catch(()=>alert("No se pudo copiar automáticamente"));
+      navigator.clipboard.writeText(exportJson).then(()=>toast.success("JSON copiado al portapapeles"))
+        .catch(()=>toast.error("No se pudo copiar automáticamente"));
     } else {
       if(typeof window!=="undefined") window.prompt("Copia manualmente el JSON", exportJson);
     }
   };
   const importFromText=()=>{
-    if(!importText.trim()) return alert("Pega un JSON para importarlo");
+    if(!importText.trim()) return toast.error("Pega un JSON para importarlo");
     try{
       const parsed=JSON.parse(importText);
       if(typeof parsed!=="object" || parsed===null) throw new Error("Formato no válido");
       setDb(parsed);
       setImportText("");
-      alert("Backup importado. Revisa y exporta antes del próximo sync.");
+      toast.success("Backup importado. Revisa y exporta antes del próximo sync.");
     }catch(err){
-      alert("JSON inválido: "+err.message);
+      toast.error("JSON inválido: "+err.message);
     }
   };
   const handleBackupFile=(event)=>{
@@ -2099,14 +2306,14 @@ const baseCalendar=baseCal;
         )}
       </div>
     </div>
-    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Parrilla (pilotos) — desplegables</h3><textarea className="w-full h-40 select border rounded px-3 py-2" defaultValue={driversText} onBlur={(e)=>{ const lines=e.target.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); setDb(prev=>({...prev, meta:{...prev.meta, drivers:lines}})); alert("Lista de pilotos actualizada"); }}></textarea></div>
-    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Escuderías (F1 2026)</h3><textarea className="w-full h-40 select border rounded px-3 py-2" defaultValue={teamsText} onBlur={(e)=>{ const lines=e.target.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); setDb(prev=>({...prev, meta:{...prev.meta, teams:lines}})); alert("Lista de escuderías actualizada"); }}></textarea><p className="text-xs text-slate-400 mt-2">Una por línea. Usada para preguntas adicionales (ej. ¿Qué escudería ganará?).</p></div>
+    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Parrilla (pilotos) — desplegables</h3><textarea className="w-full h-40 select border rounded px-3 py-2" defaultValue={driversText} onBlur={(e)=>{ const lines=e.target.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); setDb(prev=>({...prev, meta:{...prev.meta, drivers:lines}})); toast.success("Lista de pilotos actualizada"); }}></textarea></div>
+    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Escuderías (F1 2026)</h3><textarea className="w-full h-40 select border rounded px-3 py-2" defaultValue={teamsText} onBlur={(e)=>{ const lines=e.target.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); setDb(prev=>({...prev, meta:{...prev.meta, teams:lines}})); toast.success("Lista de escuderías actualizada"); }}></textarea><p className="text-xs text-slate-400 mt-2">Una por línea. Usada para preguntas adicionales (ej. ¿Qué escudería ganará?).</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Horario del GP</h3>{selectedRace ? (<div className="text-sm text-slate-200 space-y-1 mb-3"><div>Quali local: {selectedRace.q_date_local} {selectedRace.labels?.qLocal||"—"} · España: {selectedRace.labels?.qMadrid||"—"}</div>{selectedRace.labels?.raceLocal && <div>Carrera local: {selectedRace.race_date_local} {selectedRace.labels.raceLocal} · España: {selectedRace.labels.raceMadrid||"—"}</div>}<div className="text-xs text-slate-400">Usa hora local del circuito; las horas de España se recalculan.</div></div>):(<p className="text-sm text-slate-300 mb-2">Selecciona un GP para editar su horario.</p>)}<div className="grid gap-2 md:grid-cols-2"><label className="text-sm">Fecha quali (local)</label><label className="text-sm">Hora quali (local)</label><input type="date" className="select border rounded px-3 py-2" value={qDateInput} onChange={e=>setQDateInput(e.target.value)} /><input type="time" className="select border rounded px-3 py-2" value={qTimeInput} onChange={e=>setQTimeInput(e.target.value)} /><label className="text-sm">Fecha carrera (local)</label><label className="text-sm">Hora carrera (local)</label><input type="date" className="select border rounded px-3 py-2" value={raceDateInput} onChange={e=>setRaceDateInput(e.target.value)} /><input type="time" className="select border rounded px-3 py-2" value={raceTimeInput} onChange={e=>setRaceTimeInput(e.target.value)} /></div><label className="text-sm mt-2 block">Zona horaria (IANA, ej. Europe/Madrid)</label><input className="select border rounded px-3 py-2 mb-2" placeholder={baseCal?.timezone||"Asia/Dubai"} value={tzInput} onChange={e=>setTzInput(e.target.value)} /><div className="flex flex-wrap gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={saveSchedule}>Guardar horario</button><button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={resetSchedule}>Volver al calendario</button></div><p className="text-xs text-slate-400 mt-2">El horario ajusta el cierre de apuestas y la publicación automática.</p></div>
-    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Resultados oficiales</h3><div className="grid gap-2"><label className="text-sm">Pole</label><SelectDriver value={currentRes.pole||""} onChange={(val)=>updateRes(prev=>({...prev, pole:val}))} drivers={driverList} placeholder="Selecciona piloto" /><label className="text-sm">Podio</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><SelectDriver key={i} value={currentRes.podium?.[i]||""} onChange={(val)=>updateRes(prev=>{ const next=[...(prev.podium||["","",""])]; next[i]=val; return {...prev, podium:next}; })} drivers={driverList} placeholder={`P${i+1}`} />)}</div><label className="text-sm">Respuestas a preguntas</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" value={currentRes.qAnswers?.[i]||""} onChange={e=>updateRes(prev=>{ const next=[...(prev.qAnswers||["","",""])]; next[i]=e.target.value; return {...prev, qAnswers:next}; })}/>)}</div><button className="mt-2 px-3 py-2 rounded bg-slate-900 text-white" onClick={()=>{ setDb(prev=>({...prev, results:{...(prev.results||{}), [selected]:currentRes}})); alert("Resultados guardados (puedes guardar parciales)"); }}>Guardar</button></div></div>
+    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Resultados oficiales</h3><div className="grid gap-2"><label className="text-sm">Pole</label><SelectDriver value={currentRes.pole||""} onChange={(val)=>updateRes(prev=>({...prev, pole:val}))} drivers={driverList} placeholder="Selecciona piloto" /><label className="text-sm">Podio</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><SelectDriver key={i} value={currentRes.podium?.[i]||""} onChange={(val)=>updateRes(prev=>{ const next=[...(prev.podium||["","",""])]; next[i]=val; return {...prev, podium:next}; })} drivers={driverList} placeholder={`P${i+1}`} />)}</div><label className="text-sm">Respuestas a preguntas</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" value={currentRes.qAnswers?.[i]||""} onChange={e=>updateRes(prev=>{ const next=[...(prev.qAnswers||["","",""])]; next[i]=e.target.value; return {...prev, qAnswers:next}; })}/>)}</div><button className="mt-2 px-3 py-2 rounded bg-slate-900 text-white" onClick={()=>{ setDb(prev=>({...prev, results:{...(prev.results||{}), [selected]:currentRes}})); toast.success("Resultados guardados (puedes guardar parciales)"); }}>Guardar</button></div></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Control de apuestas</h3><p className="text-xs text-slate-400">Fuerza apertura o cierre sin depender del horario.</p><div className="flex flex-wrap gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>setBetsOverride("open")}>Abrir</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>setBetsOverride("close")}>Cerrar</button><button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={()=>setBetsOverride("auto")}>Automático</button></div><div className="text-xs text-slate-300 mt-2">Estado actual: {betsStatusLabel}</div>{selectedRace && (<div className="text-xs text-slate-400 mt-1">Quedará automático 1 minuto antes de la quali ({selectedRace.labels?.qLocal||"—"} · España: {selectedRace.labels?.qMadrid||"—"})</div>)}<div className="mt-3 border border-white/5 rounded p-3 bg-neutral-900"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="font-medium text-sm">Publicar apuestas</div><div className="text-xs text-slate-400">Enséñalas antes de la hora de quali.</div></div><div className="flex flex-wrap gap-2"><button className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm" onClick={()=>setBetsReveal("show")}>Publicar ya</button><button className="px-3 py-1.5 rounded bg-slate-800 text-white text-sm" onClick={()=>setBetsReveal("auto")}>Volver a automático</button></div></div><div className="text-xs text-slate-300 mt-2">Visibilidad: {betsRevealLabel}</div>{selectedRace && <div className="text-[11px] text-slate-500">Automático: 1 minuto después del inicio de quali ({selectedRace.labels?.qMadrid||"—"}).</div>}</div></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Editar apuestas de participantes</h3><div className="grid gap-2 md:grid-cols-[2fr,1fr]"><select className="select border rounded px-3 py-2" value={editName} onChange={e=>setEditName(e.target.value)}><option value="">— Elige participante —</option>{participantNames.map(n=><option key={n} value={n}>{n}</option>)}</select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!editBet.late} onChange={e=>setEditBet(prev=>({...prev, late:e.target.checked}))} /><span>Marcar como fuera de plazo</span></label></div><div className="grid gap-2 mt-3"><label className="text-sm">Pole</label><SelectDriver value={editBet.pole} onChange={(val)=>setEditBet(prev=>({...prev, pole:val}))} drivers={driverList} placeholder="Selecciona piloto" /><label className="text-sm">Podio</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><SelectDriver key={i} value={editBet.podium?.[i]||""} onChange={(val)=>setEditBet(prev=>{ const next=[...(prev.podium||["","",""])]; next[i]=val; return {...prev, podium:next}; })} drivers={driverList} placeholder={`P${i+1}`} />)}</div><label className="text-sm">Preguntas adicionales</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" value={editBet.q?.[i]||""} onChange={e=>setEditBet(prev=>{ const next=[...(prev.q||["","",""])]; next[i]=e.target.value; return {...prev, q:next}; })} placeholder={`Respuesta ${i+1}`}/>)}</div><button className="mt-2 px-3 py-2 rounded bg-emerald-700 text-white" onClick={saveAdminBet}>Guardar apuesta</button></div><p className="text-xs text-slate-400 mt-2">Guarda una apuesta tal cual la haría el usuario y decide si computa como tarde.</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Ajustes manuales de puntuación ({selected||"—"})</h3><p className="text-xs text-slate-400 mb-2">Suma o resta puntos de esta carrera. Afecta ranking, detalle y estadísticas.</p><div className="grid gap-2 md:grid-cols-2">{participantNames.map(name=>{ const val=Number(scoreAdjustments[name]||0); return (<label key={name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900 text-sm"><span>{name}</span><input type="number" className="w-24 text-right select border rounded px-2 py-1" value={val} onChange={e=>{ const parsed=parseInt(e.target.value,10); updateScoreAdjustment(name, Number.isNaN(parsed)?0:parsed); }} /></label>); })}</div><p className="text-[11px] text-slate-500 mt-2">Deja en 0 para eliminar ajustes.</p></div>
-    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Autor y publicación de preguntas</h3><p className="text-xs text-slate-400 mb-2">Orden por clasificación 2025: Pere → Antonio → Manrique → Toni → Carlos (cíclico)</p><div className="flex gap-2 items-center"><span className="text-sm">Autor asignado:</span><select className="select border rounded px-3 py-2" value={db.questionOwner?.[selected]||""} onChange={e=>setDb(prev=>({...prev, questionOwner:{...(prev.questionOwner||{}), [selected]:e.target.value}}))}><option value="">— Sin asignar —</option>{Object.keys(db.participants||{}).map(n=><option key={n} value={n}>{n}</option>)}</select></div><div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={(db.questions?.[selected]?.[i]||"")} onChange={e=>{const next=[...(db.questions?.[selected]||["","",""])]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [selected]: next}}));}}/>)}</div><div className="flex flex-wrap items-center gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:true, force:true}}})); alert("Publicación forzada"); }}>Forzar publicar</button><button className="px-3 py-2 rounded bg-gray-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:false, force:false}}})); alert("Despublicado"); }}>Despublicar</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>{ const v=!(db.questionsStatus?.[selected]?.locked); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), locked:v}}})); alert(v?"Edición bloqueada":"Edición desbloqueada"); }}>{db.questionsStatus?.[selected]?.locked ? "Desbloquear edición" : "Bloquear edición"}</button><button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ if(!confirm("¿Borrar preguntas de Las Vegas, Qatar y Abu Dhabi (GP 22–24)? Son datos de 2025 que no deberían mostrarse en 2026.")) return; const keys=["las_vegas","qatar","abu_dhabi"]; setDb(prev=>{ const q={...(prev.questions||{})}; const qs={...(prev.questionsStatus||{})}; const qo={...(prev.questionOwner||{})}; keys.forEach(k=>{ delete q[k]; delete qs[k]; delete qo[k]; }); return {...prev, questions:q, questionsStatus:qs, questionOwner:qo}; }); alert("Preguntas de GP 22–24 borradas. Se guardará automáticamente en el servidor."); }}>Limpiar GP 22–24 (legacy)</button></div></div>
+    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Autor y publicación de preguntas</h3><p className="text-xs text-slate-400 mb-2">Orden por clasificación 2025: Pere → Antonio → Manrique → Toni → Carlos (cíclico)</p><div className="flex gap-2 items-center"><span className="text-sm">Autor asignado:</span><select className="select border rounded px-3 py-2" value={db.questionOwner?.[selected]||""} onChange={e=>setDb(prev=>({...prev, questionOwner:{...(prev.questionOwner||{}), [selected]:e.target.value}}))}><option value="">— Sin asignar —</option>{Object.keys(db.participants||{}).map(n=><option key={n} value={n}>{n}</option>)}</select></div><div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={(db.questions?.[selected]?.[i]||"")} onChange={e=>{const next=[...(db.questions?.[selected]||["","",""])]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [selected]: next}}));}}/>)}</div><div className="flex flex-wrap items-center gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:true, force:true}}})); toast.success("Publicación forzada"); }}>Forzar publicar</button><button className="px-3 py-2 rounded bg-gray-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:false, force:false}}})); toast("Despublicado"); }}>Despublicar</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>{ const v=!(db.questionsStatus?.[selected]?.locked); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), locked:v}}})); toast(v?"Edición bloqueada":"Edición desbloqueada"); }}>{db.questionsStatus?.[selected]?.locked ? "Desbloquear edición" : "Bloquear edición"}</button><button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ if(!confirm("¿Borrar preguntas de Las Vegas, Qatar y Abu Dhabi (GP 22–24)? Son datos de 2025 que no deberían mostrarse en 2026.")) return; const keys=["las_vegas","qatar","abu_dhabi"]; setDb(prev=>{ const q={...(prev.questions||{})}; const qs={...(prev.questionsStatus||{})}; const qo={...(prev.questionOwner||{})}; keys.forEach(k=>{ delete q[k]; delete qs[k]; delete qo[k]; }); return {...prev, questions:q, questionsStatus:qs, questionOwner:qo}; }); toast.success("Preguntas de GP 22–24 borradas"); }}>Limpiar GP 22–24 (legacy)</button></div></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Gestión de usuarios</h3>
       <form onSubmit={handleAddUser} className="grid gap-2 md:grid-cols-[2fr,2fr,auto]">
         <input className="select border rounded px-3 py-2" placeholder="Nombre" value={newUserName} onChange={e=>setNewUserName(e.target.value)} />
@@ -2212,7 +2419,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   return (<div className={`grid gap-4 ${layoutCols}`}>
     <div className="card card-racing p-4 md:p-5 min-w-0">
       <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-        <h2 className="section-title">🏁 Tu apuesta</h2>
+          <h2 className="section-title">🏁 Tu apuesta <span className="text-xs opacity-40">· por las birras</span></h2>
         {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
       </div>
       <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
@@ -2253,7 +2460,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
           </div>
         </div>
       )}
-      {race && (<div className="mb-3"><div className="flex items-start justify-between bg-amber-500/10 border border-amber-400/30 rounded p-2"><div><div className="font-medium text-amber-200">Preguntas de este GP</div><div className="text-xs text-amber-300">{owner?<>Autor: <b>{owner}</b> — {db.questionsStatus?.[race.key]?.published?"Publicadas":"Pendiente"}</>:"Sin autor asignado"}</div></div></div>{(owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked)) && (<div id="owner-questions-editor" className="mt-2 space-y-2 bg-neutral-900 border border-white/10 rounded p-3"><div className="text-xs text-slate-300">Editor de preguntas (hasta 4h antes de quali)</div><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div><div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return alert("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); alert("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return alert("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); alert("Actualizado"); }}>Actualizar</button>)}</div></div>)}</div>)}
+      {race && (<div className="mb-3"><div className="flex items-start justify-between bg-amber-500/10 border border-amber-400/30 rounded p-2"><div><div className="font-medium text-amber-200">Preguntas de este GP</div><div className="text-xs text-amber-300">{owner?<>Autor: <b>{owner}</b> — {db.questionsStatus?.[race.key]?.published?"Publicadas":"Pendiente"}</>:"Sin autor asignado"}</div></div></div>{(owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked)) && (<div id="owner-questions-editor" className="mt-2 space-y-2 bg-neutral-900 border border-white/10 rounded p-3"><div className="text-xs text-slate-300">Editor de preguntas (hasta 24h antes de quali)</div><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div><div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); toast.success("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); toast.success("Actualizado"); }}>Actualizar</button>)}</div></div>)}</div>)}
       {race && isLate && canEdit && (
         <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
           <div className="font-semibold text-amber-200">⚠️ Apuesta fuera de plazo</div>
@@ -2274,7 +2481,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
           betHistory={...betHistory,[race.key]:{...raceHistory,[user]:userLog}};
         }
         return {...prev, bets:nextBets, betHistory};
-      }); alert(late?"Apuesta registrada (fuera de plazo: penalización -2 pts)":"Apuesta guardada correctamente"); }}/>}      
+      }); late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente"); }}/>}      
       {race && prevYearResult && REAL_HISTORICAL_2025_KEYS.includes(race.key) && (
         <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
           <h3 className="text-sm font-semibold text-slate-200 mb-2">📋 Resultado año anterior ({race.grand_prix} {CURRENT_SEASON_YEAR-1})</h3>
@@ -2357,8 +2564,100 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   </div>);
 }
 
+function WelcomeBanner({user,db,races,mode,onDismiss}){
+  const standings=useMemo(()=>{
+    if(mode==="f1") return computeGlobalStandings(db,races);
+    const futbol=db.futbol||defaultFutbolState();
+    const jornadas=listFutbolJornadas(futbol);
+    const parts=Object.keys(db.participants||{});
+    return computeFutbolStandings(futbol,parts,jornadas);
+  },[db,races,mode]);
+  const total=standings.length;
+  const myIdx=standings.findIndex(s=>s.name===user);
+  const pos=myIdx>=0?myIdx+1:null;
+  const myPts=pos?standings[myIdx].points:0;
+  const leader=standings[0];
+  const last=standings[total-1];
+  if(!pos||total<2) return null;
+
+  const nextRaceKey=useMemo(()=>{
+    if(mode!=="f1") return "futbol_current";
+    const now=Date.now();
+    const next=(races||[]).find(r=>r.qStart&&r.qStart.getTime()>now);
+    return next?next.key:(races||[]).length?races[races.length-1].key:"unknown";
+  },[races,mode]);
+  const dismissKey=`porra_banner_${user}_${nextRaceKey}`;
+  if(localStorage.getItem(dismissKey)==="1") return null;
+
+  const gap=leader?leader.points-myPts:0;
+  const gapToLast=last&&myIdx!==total-1?myPts-last.points:0;
+  let emoji,title,msg;
+  if(pos===1){
+    emoji="🏆🍺";
+    title="¡Vas líder, crack!";
+    msg=total>2?`Llevas ${myPts} pts y ${standings[1]?standings[1].name:"nadie"} te persigue a ${standings[1]?myPts-standings[1].points:0} pts. ¡Las birras las paga ${last.name}!`:`Estás primero con ${myPts} pts. ¡Sigue así!`;
+  }else if(pos===2){
+    emoji="🥈😤";
+    title="¡Casi, casi!";
+    msg=`Estás a solo ${gap} pts de ${leader.name}. Un buen GP y te llevas las birras gratis. ¡${last.name} va último y se la juega!`;
+  }else if(pos===3){
+    emoji="🥉🍻";
+    title="En el podio, pero no te relajes";
+    msg=`A ${gap} pts del líder ${leader.name}. Ojo que solo ${gapToLast} pts te separan de pagar la ronda de ${last.name}.`;
+  }else if(pos===total){
+    emoji="💸🍺";
+    title="¡Houston, tenemos un problema!";
+    msg=`Vas último con ${myPts} pts. ${leader.name} lidera con ${leader.points} pts. Más te vale espabilar o te toca pagar TODAS las birras, ¡${user}!`;
+  }else if(pos===total-1){
+    emoji="😰🍺";
+    title="¡Ojo, que huele a ronda!";
+    msg=`Penúltimo a ${gapToLast} pts de ${last.name} que va último. Un mal GP y te toca sacar la cartera...`;
+  }else{
+    emoji="😏🍺";
+    title="Ahí andas, buscando hueco";
+    msg=`Posición ${pos}/${total} con ${myPts} pts. A ${gap} pts de ${leader.name}. No eres primero ni último... por ahora.`;
+  }
+  const otherStandings=standings.filter(s=>s.name!==user).slice(0,5);
+
+  return (
+    <div className="card card-racing p-4 md:p-5 relative overflow-hidden" style={{background:"linear-gradient(135deg,rgba(245,158,11,.06),rgba(225,6,0,.04),rgba(10,10,20,.6))"}}>
+      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{background:"linear-gradient(90deg,transparent,#f59e0b 20%,#e10600 50%,#f59e0b 80%,transparent)"}}></div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-2xl mb-1">{emoji}</div>
+          <h3 className="text-base md:text-lg font-black text-white mb-1">{title}</h3>
+          <p className="text-sm text-white/60 leading-relaxed">{msg}</p>
+        </div>
+        <button onClick={onDismiss} className="text-white/20 hover:text-white/60 text-lg transition-colors flex-shrink-0 mt-1" title="Cerrar">✕</button>
+      </div>
+      {otherStandings.length>0&&<div className="mt-3 pt-3 border-t border-white/5">
+        <div className="text-[10px] text-white/40 uppercase tracking-wider font-bold mb-2">Así van los birreros</div>
+        <div className="flex flex-wrap gap-2">
+          {standings.slice(0,total).map((s,i)=>{
+            const isMe=s.name===user;
+            const isFirst=i===0;
+            const isLast=i===total-1&&total>1;
+            return <div key={s.name} className={`text-xs px-2 py-1 rounded-lg border ${isMe?"bg-amber-500/15 border-amber-500/30 text-amber-300 font-bold":isFirst?"bg-emerald-500/10 border-emerald-500/20 text-emerald-300":isLast?"bg-red-500/10 border-red-500/20 text-red-300":"bg-white/[.03] border-white/8 text-white/50"}`}>
+              <span className="font-semibold">{i+1}.</span> {s.name} <span className="text-[10px] opacity-60">{s.points}pts</span>
+              {isLast&&total>1&&<span className="ml-1">🍺</span>}
+              {isFirst&&<span className="ml-1">👑</span>}
+            </div>;
+          })}
+        </div>
+      </div>}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button onClick={()=>{localStorage.setItem(dismissKey,"1");onDismiss();}} className="text-[11px] px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:bg-white/10 hover:text-white/70 transition-all">
+          No mostrar hasta el próximo {mode==="f1"?"GP":"jornada"}
+        </button>
+        <button onClick={onDismiss} className="text-[11px] px-3 py-1.5 rounded-lg text-white/40 hover:text-white/60 transition-colors">Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [circuits,setCircuits]=useState({}); const [selectedRaceKey,setSelectedRaceKey]=useState(()=>sessionStorage.getItem("porra_selected_race")||""); useEffect(()=>{ if(selectedRaceKey&&!cal?.find(r=>r.key===selectedRaceKey)&&cal?.length) setSelectedRaceKey(cal[0].key); },[cal,selectedRaceKey]); useEffect(()=>{ if(selectedRaceKey) sessionStorage.setItem("porra_selected_race",selectedRaceKey); },[selectedRaceKey]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [showAvatar,setShowAvatar]=useState(false); const [showAI,setShowAI]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
+  const [showBanner,setShowBanner]=useState(false);
   const userActionRef=useRef(false);
   const setDbUser=useCallback((updater)=>{ userActionRef.current=true; setDb(prev=> typeof updater==="function" ? updater(prev) : updater); },[]);
   const logout=React.useCallback((reason)=>{
@@ -2368,7 +2667,7 @@ function App(){
     setUser("");
     setView("participante");
     setShowPass(false);
-    if(reason) alert(reason);
+    if(reason) toast(reason);
   },[]);
   useEffect(()=>{
     let cancelled=false;
@@ -2444,7 +2743,7 @@ function App(){
       const nextDrivers=drivers&&drivers.length?drivers:(prevMeta.drivers||[]);
       const nextTeams=teams&&teams.length?teams:(prevMeta.teams||[]);
       const basePoints=prevMeta.basePoints || {};
-      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||"manrique", drivers:nextDrivers, teams:nextTeams, championships, basePoints, seeded:true}};
+      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||atob("bWFucmlxdWU="), drivers:nextDrivers, teams:nextTeams, championships, basePoints, seeded:true}};
     });
   },[drivers,teams,db.meta,defaultPwdHash]);
   useEffect(()=>{
@@ -2487,7 +2786,7 @@ function App(){
     const raceStart=raceTime?toZonedDate(raceDate,raceTime,timeZone):null;
     const cutoff=qStart?new Date(qStart.getTime()-60*1000):null;
     const showBetsAt=qStart?new Date(qStart.getTime()+60*1000):null;
-    const authorCutoff=qStart?new Date(qStart.getTime()-4*60*60*1000):null;
+    const authorCutoff=qStart?new Date(qStart.getTime()-24*60*60*1000):null;
     const labels=qStart?{qLocal:formatDateTime(qStart,timeZone), qMadrid:formatDateTime(qStart,MADRID_TZ), raceLocal:raceStart?formatDateTime(raceStart,timeZone):null, raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null}:{qLocal:"—",qMadrid:"—",raceLocal:raceStart?formatDateTime(raceStart,timeZone):null,raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null};
     return {...item,q_date_local:qDate,race_date_local:raceDate,timeZone,qStart,raceStart,cutoff,showBetsAt,authorCutoff,labels};
   }).filter(r=>r.qStart);
@@ -2522,15 +2821,15 @@ function App(){
     }
   };
   return (<div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-3 md:p-4 space-y-4">
-    <header className="hero p-4 md:p-6">
+    <header className="hero speed-lines p-4 md:p-6">
       <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shadow-lg shadow-red-600/20 flex-shrink-0" style={mode==="futbol"?{background:"linear-gradient(135deg,#16a34a,#15803d)"}:{}}>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0" style={mode==="futbol"?{background:"linear-gradient(135deg,#16a34a,#d97706)",boxShadow:"0 4px 20px rgba(34,197,94,.2)"}:{background:"linear-gradient(135deg,#e10600,#d97706)",boxShadow:"0 4px 20px rgba(225,6,0,.2)"}}>
             <span className="text-lg md:text-xl">{mode==="f1"?"🏎️":"⚽"}</span>
           </div>
           <div>
-            <div className="text-xl md:text-2xl font-black tracking-tighter text-white" style={{fontStyle:"italic"}}>PORRA BIRREROS</div>
-            <div className="text-[11px] text-white/35 font-semibold tracking-[.15em] uppercase">{mode==="f1"?"Formula 1 · 2026":"Liga · Fútbol"}</div>
+            <div className="text-xl md:text-2xl font-black tracking-tighter text-white" style={{fontStyle:"italic"}}>PORRA BIRREROS <span className="text-base md:text-lg" style={{verticalAlign:"middle"}}>🍺</span></div>
+            <div className="text-[11px] text-white/35 font-semibold tracking-[.15em] uppercase">{mode==="f1"?"Formula 1 · 2026 · Las birras en juego":"Liga · Fútbol · Las birras en juego"}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -2539,29 +2838,30 @@ function App(){
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">
             <Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm"/>
             <span className="text-sm font-semibold text-white/80">{user}</span>
-            <button className="text-white/25 hover:text-white/60 text-xs ml-1 transition-colors" onClick={()=>setShowPass(true)}>🔑</button>
-            <button className="text-white/20 hover:text-white/50 text-xs transition-colors" onClick={()=>logout()}>Salir</button>
+            <button className="text-white/40 hover:text-white/70 text-xs ml-1 transition-colors" onClick={()=>setShowPass(true)}>🔑</button>
+            <button className="text-white/40 hover:text-white/70 text-xs transition-colors" onClick={()=>logout()}>Salir</button>
           </div>}
         </div>
         {user && <div className="flex md:hidden items-center justify-center gap-3 text-xs pt-2 mt-1 border-t border-white/8">
           <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm"/><span className="font-semibold text-white/70">{user}</span></div>
           <button className="text-white/35 hover:text-white/70 transition-colors" onClick={()=>setShowPass(true)}>Contraseña</button>
-          <button className="text-white/25 hover:text-white/55 transition-colors" onClick={()=>logout()}>Salir</button>
+          <button className="text-white/40 hover:text-white/65 transition-colors" onClick={()=>logout()}>Salir</button>
         </div>}
       </div>
     </header>
-    {user && <nav className="porra-nav justify-center">
-      <button className={view==="participante"?"nav-active":""} onClick={()=>setView("participante")}>Mi apuesta</button>
-      <button className={view==="ranking"?"nav-active":""} onClick={()=>setView("ranking")}>Ranking</button>
-      {mode==="f1" && <button className={view==="stats"?"nav-active":""} onClick={()=>setView("stats")}>Estadísticas</button>}
-      {mode==="f1" && <button className={view==="questions"?"nav-active":""} onClick={()=>setView("questions")}>Preguntas</button>}
-      {mode==="f1" && <button className={view==="historico"?"nav-active":""} onClick={()=>setView("historico")}>Histórico</button>}
-      <button className={view==="rules"?"nav-active":""} onClick={()=>setView("rules")}>Normas</button>
-      {mode==="f1" && <button className="nav-special flex items-center gap-1.5" onClick={()=>setShowAI(true)}><img src="./assets/manribot.svg" alt="" className="w-4 h-4"/> ManriBot</button>}
-      <button className={view==="admin"?"nav-active":""} onClick={()=>setView("admin")}>⚙ Admin</button>
+    {user && <nav className="porra-nav justify-center" role="tablist" aria-label="Navegación principal">
+      <button role="tab" aria-selected={view==="participante"} className={view==="participante"?"nav-active":""} onClick={()=>setView("participante")}>Mi apuesta</button>
+      <button role="tab" aria-selected={view==="ranking"} className={view==="ranking"?"nav-active":""} onClick={()=>setView("ranking")}>Ranking</button>
+      {mode==="f1" && <button role="tab" aria-selected={view==="stats"} className={view==="stats"?"nav-active":""} onClick={()=>setView("stats")}>Estadísticas</button>}
+      {mode==="f1" && <button role="tab" aria-selected={view==="questions"} className={view==="questions"?"nav-active":""} onClick={()=>setView("questions")}>Preguntas</button>}
+      {mode==="f1" && <button role="tab" aria-selected={view==="historico"} className={view==="historico"?"nav-active":""} onClick={()=>setView("historico")}>Histórico</button>}
+      <button role="tab" aria-selected={view==="rules"} className={view==="rules"?"nav-active":""} onClick={()=>setView("rules")}>Normas</button>
+      {mode==="f1" && <button className="nav-special flex items-center gap-1.5" onClick={()=>setShowAI(true)} aria-label="Abrir ManriBot"><img src="./assets/manribot.svg" alt="ManriBot" className="w-4 h-4"/> ManriBot</button>}
+      <button role="tab" aria-selected={view==="admin"} className={view==="admin"?"nav-active":""} onClick={()=>setView("admin")}>⚙ Admin</button>
     </nav>}
-    {!user ? (<div className="card card-racing p-6 max-w-sm mx-auto"><h2 className="section-title text-center mb-4">Entra en la porra</h2><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); }} /></div>) : (
-      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]}/><button type="button" className="text-[11px] text-white/25 hover:text-white/50 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button>{sidebarRace&&<div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact/></div>}</aside><main className="flex-1 space-y-4 min-w-0">
+    {!user ? (<div className="card card-racing beer-glow p-6 max-w-sm mx-auto"><h2 className="section-title text-center mb-1">Entra en la porra</h2><p className="text-center text-xs text-white/30 mb-4">🍺 Que empiecen las apuestas — y las birras</p><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); setShowBanner(true); }} /></div>) : (<>
+      {showBanner && <WelcomeBanner user={user} db={db} races={races} mode={mode} onDismiss={()=>setShowBanner(false)}/>}
+      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]}/><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/20 mt-1 tracking-wider uppercase">birreros club</div>{sidebarRace&&<div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact/></div>}</aside><main className="flex-1 space-y-4 min-w-0">
         {mode==="f1" && (
           <>
             {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers} circuits={circuits} selectedRaceKey={mode==="f1"?selectedRaceKey:""} setSelectedRaceKey={mode==="f1"?setSelectedRaceKey:()=>{}}/>}
@@ -2582,10 +2882,11 @@ function App(){
           </>
         )}
       </main></div>
-    )}
-    <footer className="text-[11px] text-white/15 pt-8 pb-6 text-center tracking-widest uppercase font-medium">Porra Birreros · Las cervezas estan en juego 🍻</footer>
+    </>)}
+    <footer className="text-[11px] text-white/35 pt-8 pb-6 text-center tracking-widest uppercase font-medium"><span className="beer-icon">🍺</span> Porra Birreros · Quien pierde, pone las birras <span className="beer-icon">🍻</span> {mode==="f1"?"A todo gas":"Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
     <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} /><ChangeAvatarModal open={showAvatar} onClose={()=>setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />
     <AIAssistant open={showAI} onClose={()=>setShowAI(false)} races={races} />
+    <ToastContainer/>
   </div>);
 }
 
@@ -2605,10 +2906,11 @@ try {
   console.error("[Porra] Error al renderizar:", error);
   const rootEl = document.getElementById("root");
   if (rootEl) {
+    const esc=s=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     rootEl.innerHTML = `<div style="padding:20px;color:red;background:white;font-family:monospace;">
       <h2>Error al cargar la aplicación</h2>
-      <p>${error.message}</p>
-      <pre>${error.stack}</pre>
+      <p>${esc(error.message)}</p>
+      <pre>${esc(error.stack)}</pre>
       <p>Por favor, abre la consola del navegador (F12) para más detalles.</p>
     </div>`;
   }

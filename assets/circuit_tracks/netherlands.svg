@@ -1,26 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
   <defs>
-    <filter id="glow-netherlands" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="gl" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="200" height="120" fill="rgba(0,0,0,0.4)"/>
-  <g filter="url(#glow-netherlands)">
-    <!-- Zandvoort: seaside, banked corners, flowing medium-speed turns -->
-    <path d="M 50 95
-             L 50 70
-             Q 50 50 70 45
-             L 130 40
-             Q 155 38 170 55
-             L 180 75
-             Q 185 95 165 105
-             L 100 112
-             Q 70 115 50 95
-             Z" fill="none" stroke="#E10600" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <line x1="50" y1="93" x2="50" y2="97" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+  <g filter="url(#gl)">
+    <!-- Zandvoort - compact D-shaped, banked turns, dunes -->
+    <path d="M 55 115 L 35 85 C 22 65 20 45 28 30 C 35 18 48 12 65 12 L 125 12 C 142 12 155 18 162 30 C 170 42 172 58 168 75 L 160 100 C 155 112 142 120 125 122 L 75 122 C 62 122 55 120 55 115 Z" fill="none" stroke="#E10600" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="55" y1="112" x2="55" y2="118" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="38,92 33,88 38,87" fill="#fff" opacity=".5"/>
   </g>
 </svg>
