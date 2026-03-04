@@ -557,26 +557,35 @@ function SelectDriver({value,onChange,drivers,placeholder}){
 function BetForm({bet,disabled,onSubmit,questions,drivers,late}){
   const [pole,setPole]=useState(bet.pole||""); const [p1,setP1]=useState(bet.podium?.[0]||""); const [p2,setP2]=useState(bet.podium?.[1]||""); const [p3,setP3]=useState(bet.podium?.[2]||"");
   const [q1,setQ1]=useState(bet.q?.[0]||""); const [q2,setQ2]=useState(bet.q?.[1]||""); const [q3,setQ3]=useState(bet.q?.[2]||"");
+  const betFingerprint=JSON.stringify([bet.pole,bet.podium,bet.q]);
   useEffect(()=>{
     setPole(bet.pole||"");
     setP1(bet.podium?.[0]||""); setP2(bet.podium?.[1]||""); setP3(bet.podium?.[2]||"");
     setQ1(bet.q?.[0]||""); setQ2(bet.q?.[1]||""); setQ3(bet.q?.[2]||"");
-  },[bet]);
+  },[betFingerprint]);
+  const hasQuestions=questions.some(q=>q&&q.trim());
   return (
     <form className="grid gap-2" onSubmit={(e)=>{e.preventDefault();onSubmit({pole,podium:[p1,p2,p3],q:[q1,q2,q3]});}}>
-      <label className="text-sm">Pole</label><SelectDriver value={pole} onChange={setPole} drivers={drivers} placeholder="Selecciona piloto" />
-      <label className="text-sm mt-2">Podio</label>
+      <label className="text-sm font-semibold">Pole</label><SelectDriver value={pole} onChange={setPole} drivers={drivers} placeholder="Selecciona piloto" />
+      <label className="text-sm font-semibold mt-2">Podio</label>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <SelectDriver value={p1} onChange={setP1} drivers={drivers} placeholder="1º" />
-        <SelectDriver value={p2} onChange={setP2} drivers={drivers} placeholder="2º" />
-        <SelectDriver value={p3} onChange={setP3} drivers={drivers} placeholder="3º" />
+        <div><div className="text-[11px] text-white/40 mb-1">🥇 1º</div><SelectDriver value={p1} onChange={setP1} drivers={drivers} placeholder="1º" /></div>
+        <div><div className="text-[11px] text-white/40 mb-1">🥈 2º</div><SelectDriver value={p2} onChange={setP2} drivers={drivers} placeholder="2º" /></div>
+        <div><div className="text-[11px] text-white/40 mb-1">🥉 3º</div><SelectDriver value={p3} onChange={setP3} drivers={drivers} placeholder="3º" /></div>
       </div>
-      <label className="text-sm mt-2">Preguntas adicionales</label>
-      <div className="grid gap-2">
-        <input disabled={disabled} className="select border rounded px-3 py-2 w-full" value={q1} onChange={e=>setQ1(e.target.value)} placeholder="Respuesta 1"/>
-        <input disabled={disabled} className="select border rounded px-3 py-2 w-full" value={q2} onChange={e=>setQ2(e.target.value)} placeholder="Respuesta 2"/>
-        <input disabled={disabled} className="select border rounded px-3 py-2 w-full" value={q3} onChange={e=>setQ3(e.target.value)} placeholder="Respuesta 3"/>
-      </div>
+      <label className="text-sm font-semibold mt-3">Preguntas adicionales</label>
+      {hasQuestions ? (
+        <div className="grid gap-3">
+          {[0,1,2].map(i=>{const qText=questions[i]; const val=[q1,q2,q3][i]; const setter=[setQ1,setQ2,setQ3][i]; return (
+            <div key={i}>
+              <div className="text-xs text-amber-300/80 mb-1 flex items-start gap-1"><span className="text-amber-400/60 font-bold">{i+1}.</span> {qText||<span className="text-white/30 italic">Pregunta pendiente</span>}</div>
+              <input disabled={disabled} className="select border rounded px-3 py-2 w-full" value={val} onChange={e=>setter(e.target.value)} placeholder={`Tu respuesta a la pregunta ${i+1}`}/>
+            </div>
+          );})}
+        </div>
+      ) : (
+        <div className="text-xs text-white/30 italic p-2 border border-white/5 rounded bg-white/[.02]">Las preguntas aún no han sido publicadas por el autor.</div>
+      )}
       <button disabled={disabled} className={`mt-3 px-4 py-2 rounded ${disabled?"bg-slate-200 text-slate-500":late?"bg-amber-600 text-white":"bg-emerald-600 text-white"}`}>{disabled?"Cerrado por admin":late?"Guardar apuesta (fuera de plazo, -2 pts)":"Guardar apuesta"}</button>
     </form>
   );
