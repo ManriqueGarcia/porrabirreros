@@ -2633,8 +2633,11 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
             )}
             {authorDeadline && (
               <div className="flex flex-wrap items-baseline gap-2 text-slate-300">
-                <span className="text-slate-400">Cierre preguntas (autor):</span>
+                <span className="text-slate-400">Preguntas{owner?` (${owner})`:""} — cierre:</span>
                 <span className="text-amber-200 font-medium">{formatDateTime(authorDeadline,MADRID_TZ)} España</span>
+                {db.questionsStatus?.[race.key]?.published
+                  ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Publicadas</span>
+                  : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">Pendientes</span>}
               </div>
             )}
             <div className="mt-2 pt-2 border-t border-slate-600/50">
@@ -2652,7 +2655,13 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
           </div>
         </div>
       )}
-      {race && (<div className="mb-3"><div className="flex items-start justify-between bg-amber-500/10 border border-amber-400/30 rounded p-2"><div><div className="font-medium text-amber-200">Preguntas de este GP</div><div className="text-xs text-amber-300">{owner?<>Autor: <b>{owner}</b> — {db.questionsStatus?.[race.key]?.published?"Publicadas":"Pendiente"}</>:"Sin autor asignado"}</div></div></div>{(owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked)) && (<div id="owner-questions-editor" className="mt-2 space-y-2 bg-neutral-900 border border-white/10 rounded p-3"><div className="text-xs text-slate-300">Editor de preguntas (hasta 24h antes de quali)</div><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div><div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); toast.success("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); toast.success("Actualizado"); }}>Actualizar</button>)}</div></div>)}</div>)}
+      {race && owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked) && (
+        <div className="mb-3 space-y-2 bg-neutral-900 border border-white/10 rounded p-3">
+          <div className="text-xs text-slate-300">✏️ Editor de preguntas (hasta 24h antes de quali)</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div>
+          <div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); toast.success("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); toast.success("Actualizado"); }}>Actualizar</button>)}</div>
+        </div>
+      )}
       {race && isLate && canEdit && (
         <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
           <div className="font-semibold text-amber-200">⚠️ Apuesta fuera de plazo</div>
