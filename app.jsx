@@ -735,49 +735,403 @@ function Historico(){
   );
 }
 
+// ===== F1 DATA ASSISTANT (Jolpica/Ergast API — datos desde 1950) =====
+const JOLPICA="https://api.jolpi.ca/ergast/f1";
+const _f1c={};
+async function f1get(path){
+  if(_f1c[path]) return _f1c[path];
+  try{ const r=await fetch(`${JOLPICA}${path}`); if(!r.ok) return null; const d=await r.json(); _f1c[path]=d.MRData; return d.MRData; }catch{ return null; }
+}
+function nrm(s){return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();}
+function xYear(q){const m=q.match(/\b(19[5-9]\d|20[0-3]\d)\b/);return m?parseInt(m[1]):null;}
+
+const DRV={
+  "hamilton":"hamilton","lewis hamilton":"hamilton","lewis":"hamilton",
+  "verstappen":"max_verstappen","max verstappen":"max_verstappen",
+  "alonso":"alonso","fernando alonso":"alonso","fernando":"alonso","nano":"alonso",
+  "leclerc":"leclerc","charles leclerc":"leclerc","charles":"leclerc",
+  "sainz":"sainz","carlos sainz":"sainz",
+  "norris":"norris","lando norris":"norris","lando":"norris",
+  "piastri":"piastri","oscar piastri":"piastri",
+  "russell":"russell","george russell":"russell",
+  "perez":"perez","checo":"perez","sergio perez":"perez",
+  "ricciardo":"ricciardo","daniel ricciardo":"ricciardo",
+  "stroll":"stroll","lance stroll":"stroll",
+  "gasly":"gasly","pierre gasly":"gasly",
+  "ocon":"ocon","esteban ocon":"ocon",
+  "bottas":"bottas","valtteri bottas":"bottas",
+  "tsunoda":"tsunoda","yuki tsunoda":"tsunoda",
+  "hulkenberg":"hulkenberg","hulk":"hulkenberg",
+  "magnussen":"kevin_magnussen","kevin magnussen":"kevin_magnussen",
+  "lawson":"lawson","liam lawson":"lawson",
+  "bearman":"bearman","oliver bearman":"bearman",
+  "colapinto":"colapinto","franco colapinto":"colapinto",
+  "antonelli":"antonelli","kimi antonelli":"antonelli",
+  "hadjar":"hadjar","isack hadjar":"hadjar",
+  "doohan":"doohan","jack doohan":"doohan",
+  "bortoleto":"bortoleto","gabriel bortoleto":"bortoleto",
+  "albon":"albon","alex albon":"albon",
+  "zhou":"zhou","guanyu zhou":"zhou",
+  "vettel":"vettel","sebastian vettel":"vettel",
+  "schumacher":"michael_schumacher","michael schumacher":"michael_schumacher",
+  "raikkonen":"raikkonen","kimi raikkonen":"raikkonen",
+  "prost":"prost","alain prost":"prost",
+  "senna":"senna","ayrton senna":"senna",
+  "lauda":"lauda","niki lauda":"lauda",
+  "fangio":"fangio","juan manuel fangio":"fangio",
+  "piquet":"piquet","nelson piquet":"piquet",
+  "mansell":"mansell","nigel mansell":"mansell",
+  "hakkinen":"hakkinen","mika hakkinen":"hakkinen",
+  "damon hill":"damon_hill",
+  "villeneuve":"jacques_villeneuve","jacques villeneuve":"jacques_villeneuve",
+  "rosberg":"rosberg","nico rosberg":"rosberg",
+  "button":"button","jenson button":"button",
+  "massa":"massa","felipe massa":"massa",
+  "webber":"webber","mark webber":"webber",
+  "barrichello":"barrichello","rubens barrichello":"barrichello",
+  "montoya":"montoya","juan pablo montoya":"montoya",
+  "clark":"clark","jim clark":"clark",
+  "stewart":"stewart","jackie stewart":"stewart",
+  "hunt":"hunt","james hunt":"hunt",
+  "kubica":"kubica","robert kubica":"kubica",
+  "mick schumacher":"mick_schumacher",
+  "grosjean":"grosjean","romain grosjean":"grosjean",
+};
+function mDrv(q){const e=Object.entries(DRV).sort((a,b)=>b[0].length-a[0].length);for(const[n,id] of e){if(q.includes(nrm(n))) return id;}return null;}
+
+const CMAP={
+  "espana":"spain","belgica":"belgium","hungria":"hungary","paises bajos":"netherlands","holanda":"netherlands",
+  "japon":"japan","bahrein":"bahrain","gran bretana":"great britain","reino unido":"great britain",
+  "alemania":"germany","francia":"france","italia":"italy","brasil":"brazil","canada":"canada","mexico":"mexico",
+  "china":"china","australia":"australia","austria":"austria","turquia":"turkey","singapur":"singapore",
+  "catar":"qatar","arabia saudi":"saudi arabia","arabia saudita":"saudi arabia",
+  "azerbaiyan":"azerbaijan","abu dhabi":"abu dhabi","abu dabi":"abu dhabi",
+  "estados unidos":"united states","eeuu":"united states","malasia":"malaysia",
+  "corea":"korea","india":"india","sudafrica":"south africa",
+};
+
+async function fRace(year,gpText){
+  const data=await f1get(`/${year}.json?limit=30`);
+  if(!data?.RaceTable?.Races) return null;
+  const races=data.RaceTable.Races, q=nrm(gpText);
+  const terms=[q];
+  for(const[es,en] of Object.entries(CMAP)){if(q.includes(nrm(es))) terms.push(nrm(en));}
+  let best=null,bs=0;
+  for(const race of races){
+    const fs=[nrm(race.raceName),nrm(race.Circuit?.circuitName||""),nrm(race.Circuit?.Location?.country||""),nrm(race.Circuit?.Location?.locality||""),nrm(race.Circuit?.circuitId||"").replace(/_/g," ")];
+    for(const t of terms){if(t.length<2) continue;for(const f of fs){
+      if(f===t) return race;
+      if(f.includes(t)&&t.length>=3){const s=t.length*2;if(s>bs){best=race;bs=s;}}
+      if(t.includes(f)&&f.length>=3){const s=f.length;if(s>bs){best=race;bs=s;}}
+    }}
+  }
+  return bs>=4?best:null;
+}
+
+function xGP(q){
+  let m,c;
+  if(/\bcalendario\b|\btemporada\b/.test(q)&&!/\bgp\b|gran\s*premio/.test(q)) return null;
+  m=q.match(/(?:gp|gran\s*premio)\s+(?:de\s+)?(?:la\s+)?(.+?)(?:\s+\d{4}|\s*\?|$)/);
+  if(m&&(c=m[1].replace(/\s+(en|de|del)\s*$/,"").trim())&&c.length>1) return c;
+  m=q.match(/\ben\s+(?:el\s+)?(?:circuito\s+(?:de\s+)?)?(.+?)(?:\s+en\s+\d{4}|\s+\d{4}|\s*\?|$)/);
+  if(m&&(c=m[1].trim())&&c.length>2&&!mDrv(c)) return c;
+  if(/resultado|podio|acabaron|terminaron|abandonos|vuelta\s*rapida|ganado.*mas|clasificacion|pole|qualy/.test(q)){
+    m=q.match(/\bde\s+(.+?)(?:\s+\d{4}|\s*\?|$)/);
+    if(m&&(c=m[1].trim())&&c.length>2&&!mDrv(c)) return c;
+  }
+  return null;
+}
+
+async function hResults(year,gpQ){
+  if(!year) year=new Date().getFullYear();
+  const race=await fRace(year,gpQ);
+  if(!race) return `No encontré "${gpQ}" en ${year}. Usa el nombre del país o ciudad.`;
+  const d=await f1get(`/${year}/${race.round}/results.json?limit=30`);
+  const res=d?.RaceTable?.Races?.[0]?.Results;
+  if(!res?.length) return `No hay resultados para ${race.raceName} ${year}. Quizás aún no se ha corrido.`;
+  const med={"1":"🥇","2":"🥈","3":"🥉"};
+  let t=`🏁 ${race.raceName} ${year}\n📍 ${race.Circuit?.circuitName}, ${race.Circuit?.Location?.locality}\n\n`;
+  res.slice(0,10).forEach(r=>{t+=`${med[r.position]||"  "} ${r.position}. ${r.Driver.givenName} ${r.Driver.familyName} (${r.Constructor.name}) — ${r.Time?.time||r.status}\n`;});
+  const dnfs=res.filter(r=>r.status!=="Finished"&&!r.status.startsWith("+"));
+  if(dnfs.length) t+=`\n❌ Abandonos (${dnfs.length}): ${dnfs.map(r=>`${r.Driver.familyName} (${r.status})`).join(", ")}`;
+  const fl=res.find(r=>r.FastestLap?.rank==="1");
+  if(fl) t+=`\n\n🟣 Vuelta rápida: ${fl.Driver.familyName} (${fl.FastestLap.Time?.time||"—"})`;
+  return t;
+}
+
+async function hChampion(year,constr){
+  if(!year) return "¿De qué año? Ej: '¿Quién fue campeón en 2023?'";
+  const path=constr?`/${year}/constructorStandings.json?limit=30`:`/${year}/driverStandings.json?limit=30`;
+  const d=await f1get(path);
+  const list=constr?d?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings:d?.StandingsTable?.StandingsLists?.[0]?.DriverStandings;
+  if(!list?.length) return `No hay datos del campeonato ${year}.`;
+  const type=constr?"constructores":"pilotos";
+  const med={"1":"🥇","2":"🥈","3":"🥉"};
+  let t=`🏆 Campeonato de ${type} ${year}\n\n`;
+  list.forEach(s=>{
+    const n=constr?s.Constructor.name:`${s.Driver.givenName} ${s.Driver.familyName}`;
+    const team=constr?"":` (${(s.Constructors||[]).map(c=>c.name).join(", ")})`;
+    t+=`${med[s.position]||"  "} ${s.position}. ${n}${team} — ${s.points} pts`;
+    if(s.wins!=="0") t+=` (${s.wins} victorias)`;
+    t+="\n";
+  });
+  return t;
+}
+
+async function hCalendar(year){
+  if(!year) year=new Date().getFullYear();
+  const d=await f1get(`/${year}.json?limit=30`);
+  const races=d?.RaceTable?.Races;
+  if(!races?.length) return `No hay calendario para ${year}.`;
+  let t=`📅 Calendario F1 ${year} (${races.length} carreras)\n\n`;
+  races.forEach(r=>{t+=`${r.round}. ${r.raceName} — ${r.date}\n   📍 ${r.Circuit?.circuitName}, ${r.Circuit?.Location?.country}\n`;});
+  return t;
+}
+
+async function hDriverStats(driverId){
+  const info=await f1get(`/drivers/${driverId}.json`);
+  const driver=info?.DriverTable?.Drivers?.[0];
+  if(!driver) return "No encontré ese piloto en la base de datos.";
+  const [wD,cD,sD,pD]=await Promise.all([
+    f1get(`/drivers/${driverId}/results/1.json?limit=500`),
+    f1get(`/drivers/${driverId}/driverStandings/1.json?limit=50`),
+    f1get(`/drivers/${driverId}/seasons.json?limit=50`),
+    f1get(`/drivers/${driverId}/qualifying/1.json?limit=500`),
+  ]);
+  const wins=wD?.RaceTable?.Races||[],champs=cD?.StandingsTable?.StandingsLists||[],seasons=sD?.SeasonTable?.Seasons||[],poles=pD?.RaceTable?.Races||[];
+  let t=`🏎️ ${driver.givenName} ${driver.familyName}\n🌍 ${driver.nationality||"—"} | 🗓️ ${driver.dateOfBirth||"—"}`;
+  if(driver.permanentNumber) t+=` | #${driver.permanentNumber}`;
+  t+=`\n\n📊 Estadísticas:\n• Temporadas: ${seasons.length}`;
+  if(seasons.length) t+=` (${seasons[0].season}–${seasons[seasons.length-1].season})`;
+  t+=`\n• Victorias: ${wins.length}\n• Poles: ${poles.length}\n• Campeonatos: ${champs.length}`;
+  if(champs.length) t+=` (${champs.map(s=>s.season).join(", ")})`;
+  t+="\n";
+  if(wins.length>0){t+=`\n🏆 Últimas 5 victorias:\n`;wins.slice(-5).reverse().forEach(r=>{t+=`• ${r.season} — ${r.raceName}\n`;});}
+  return t;
+}
+
+async function hDriverSeason(year,driverId){
+  if(!year) return "¿De qué año?";
+  const d=await f1get(`/${year}/drivers/${driverId}/results.json?limit=30`);
+  const races=d?.RaceTable?.Races||[];
+  if(!races.length) return `No hay datos de este piloto en ${year}.`;
+  const wins=races.filter(r=>r.Results?.[0]?.position==="1");
+  const podiums=races.filter(r=>parseInt(r.Results?.[0]?.position)<=3);
+  const drv=races[0].Results[0].Driver, team=races[0].Results[0].Constructor?.name||"—";
+  let t=`🏎️ ${drv.givenName} ${drv.familyName} — Temporada ${year}\n🏁 Equipo: ${team}\n\n`;
+  t+=`📊 ${races.length} carreras disputadas\n🏆 Victorias: ${wins.length}\n🥇🥈🥉 Podios: ${podiums.length}\n`;
+  if(wins.length){t+=`\nVictorias:\n`;wins.forEach(r=>t+=`• ${r.raceName}\n`);}
+  const st=await f1get(`/${year}/drivers/${driverId}/driverStandings.json`);
+  const standing=st?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0];
+  if(standing) t+=`\n📊 Clasificación final: ${standing.position}º — ${standing.points} pts`;
+  return t;
+}
+
+async function hFinishers(year,gpQ){
+  if(!year) year=new Date().getFullYear();
+  const race=await fRace(year,gpQ);
+  if(!race) return `No encontré "${gpQ}" en ${year}.`;
+  const d=await f1get(`/${year}/${race.round}/results.json?limit=30`);
+  const res=d?.RaceTable?.Races?.[0]?.Results;
+  if(!res?.length) return `No hay resultados para ${race.raceName} ${year}.`;
+  const fin=res.filter(r=>r.status==="Finished"||r.status.startsWith("+")),dnfs=res.filter(r=>r.status!=="Finished"&&!r.status.startsWith("+"));
+  let t=`🏁 ${race.raceName} ${year}\n\n✅ Acabaron: ${fin.length} de ${res.length}\n❌ No acabaron: ${dnfs.length}\n`;
+  if(dnfs.length){t+=`\nAbandonos:\n`;dnfs.forEach(r=>t+=`• ${r.Driver.givenName} ${r.Driver.familyName} (${r.Constructor.name}) — ${r.status}\n`);}
+  return t;
+}
+
+async function hQualifying(year,gpQ){
+  if(!year) year=new Date().getFullYear();
+  const race=await fRace(year,gpQ);
+  if(!race) return `No encontré "${gpQ}" en ${year}.`;
+  const d=await f1get(`/${year}/${race.round}/qualifying.json?limit=30`);
+  const res=d?.RaceTable?.Races?.[0]?.QualifyingResults;
+  if(!res?.length) return `No hay datos de clasificación para ${race.raceName} ${year}.`;
+  let t=`⏱️ Clasificación — ${race.raceName} ${year}\n\n`;
+  res.slice(0,20).forEach(r=>{t+=`${r.position}. ${r.Driver.givenName} ${r.Driver.familyName} (${r.Constructor.name}) — ${r.Q3||r.Q2||r.Q1||"—"}\n`;});
+  t+=`\n🟡 Pole: ${res[0].Driver.givenName} ${res[0].Driver.familyName}`;
+  return t;
+}
+
+async function hFastestLap(year,gpQ){
+  if(!year) year=new Date().getFullYear();
+  const race=await fRace(year,gpQ);
+  if(!race) return `No encontré "${gpQ}" en ${year}.`;
+  const d=await f1get(`/${year}/${race.round}/results.json?limit=30`);
+  const res=d?.RaceTable?.Races?.[0]?.Results;
+  if(!res?.length) return `No hay datos para ${race.raceName} ${year}.`;
+  const fl=res.find(r=>r.FastestLap?.rank==="1");
+  if(!fl?.FastestLap) return `No hay datos de vuelta rápida para ${race.raceName} ${year}.`;
+  let t=`🟣 Vuelta rápida — ${race.raceName} ${year}\n\n`;
+  t+=`Piloto: ${fl.Driver.givenName} ${fl.Driver.familyName} (${fl.Constructor.name})\n`;
+  t+=`Tiempo: ${fl.FastestLap.Time?.time||"—"}\nVuelta: ${fl.FastestLap.lap||"—"}\n`;
+  if(fl.FastestLap.AverageSpeed) t+=`Velocidad media: ${fl.FastestLap.AverageSpeed.speed} ${fl.FastestLap.AverageSpeed.units}`;
+  return t;
+}
+
+async function hGPHistory(gpQ){
+  const cy=new Date().getFullYear();let circuitId=null;
+  for(let y=cy;y>=cy-10;y--){const race=await fRace(y,gpQ);if(race){circuitId=race.Circuit.circuitId;break;}}
+  if(!circuitId) return `No encontré el circuito "${gpQ}".`;
+  const d=await f1get(`/circuits/${circuitId}/results/1.json?limit=200`);
+  const races=d?.RaceTable?.Races;
+  if(!races?.length) return `No hay historial para "${gpQ}".`;
+  const wbd={};races.forEach(r=>{const w=r.Results?.[0];if(w){const n=`${w.Driver.givenName} ${w.Driver.familyName}`;wbd[n]=(wbd[n]||0)+1;}});
+  const sorted=Object.entries(wbd).sort((a,b)=>b[1]-a[1]);
+  let t=`🏆 Historial — ${races[0]?.raceName||gpQ}\n📊 ${races.length} ediciones (${races[0]?.season}–${races[races.length-1]?.season})\n\n`;
+  t+=`Más victorias:\n`;sorted.slice(0,10).forEach(([n,c],i)=>t+=`${i+1}. ${n} — ${c} victoria${c>1?"s":""}\n`);
+  t+=`\n📋 Últimos 5 ganadores:\n`;races.slice(-5).reverse().forEach(r=>{const w=r.Results?.[0];t+=`• ${r.season}: ${w?`${w.Driver.givenName} ${w.Driver.familyName}`:"—"}\n`;});
+  return t;
+}
+
+async function hDriverAtGP(driverId,gpQ){
+  const cy=new Date().getFullYear();let circuitId=null;
+  for(let y=cy;y>=cy-10;y--){const race=await fRace(y,gpQ);if(race){circuitId=race.Circuit.circuitId;break;}}
+  if(!circuitId) return `No encontré "${gpQ}".`;
+  const d=await f1get(`/drivers/${driverId}/circuits/${circuitId}/results.json?limit=50`);
+  const races=d?.RaceTable?.Races||[];
+  if(!races.length) return `No hay resultados de este piloto en ${gpQ}.`;
+  const info=await f1get(`/drivers/${driverId}.json`);
+  const drv=info?.DriverTable?.Drivers?.[0];
+  const name=drv?`${drv.givenName} ${drv.familyName}`:driverId;
+  const wins=races.filter(r=>r.Results?.[0]?.position==="1").length;
+  const pods=races.filter(r=>parseInt(r.Results?.[0]?.position)<=3).length;
+  let t=`🏎️ ${name} en ${races[0]?.raceName||gpQ}\n📊 ${races.length} participaciones | 🏆 ${wins} victorias | 🥇🥈🥉 ${pods} podios\n\n`;
+  t+=`Últimas 5:\n`;
+  races.slice(-5).reverse().forEach(r=>{const rs=r.Results?.[0];t+=`• ${r.season}: P${rs?.position||"—"} (${rs?.Constructor?.name||"—"}) — ${rs?.Time?.time||rs?.status||"—"}\n`;});
+  return t;
+}
+
+async function hTeammates(year,driverId){
+  if(!year) year=new Date().getFullYear();
+  const d=await f1get(`/${year}/drivers/${driverId}/results.json?limit=30`);
+  const races=d?.RaceTable?.Races||[];
+  if(!races.length) return `No hay datos de este piloto en ${year}.`;
+  const team=races[0].Results[0].Constructor;
+  const td=await f1get(`/${year}/constructors/${team.constructorId}/drivers.json`);
+  const drivers=td?.DriverTable?.Drivers||[];
+  const drv=races[0].Results[0].Driver;
+  const teammates=drivers.filter(d=>d.driverId!==driverId);
+  let t=`🏎️ ${drv.givenName} ${drv.familyName} — ${team.name} ${year}\n\n`;
+  if(teammates.length){t+=`Compañero${teammates.length>1?"s":""} de equipo:\n`;teammates.forEach(tm=>t+=`• ${tm.givenName} ${tm.familyName}\n`);}
+  else t+=`No se encontraron compañeros de equipo.`;
+  return t;
+}
+
+const F1_HELP=`Pregúntame lo que quieras sobre F1. Ejemplos:\n\n🏆 "¿Quién fue campeón en 2023?"\n🏁 "Resultados GP Mónaco 2024"\n📊 "Clasificación mundial 2024"\n🏎️ "Victorias de Alonso"\n📅 "Calendario 2025"\n❓ "¿Cuántos coches acabaron en Australia 2024?"\n⏱️ "Clasificación GP Bahréin 2024"\n🟣 "Vuelta rápida Monza 2023"\n🏆 "¿Quién ha ganado más en Silverstone?"\n👥 "Compañero de Hamilton en 2019"\n🗓️ "Hamilton en 2020"\n📍 "Alonso en Mónaco"`;
+
+async function processF1Query(question){
+  const q=nrm(question),year=xYear(q),drv=mDrv(q),gp=xGP(q);
+
+  if(/\bcalendario\b/.test(q)||(/\btemporada\b/.test(q)&&!drv&&!gp)) return hCalendar(year);
+
+  if(/\bproxim[ao]\b.*\bcarrera\b|\bsiguiente\b.*\bcarrera\b|\bnext\b.*\brace\b/.test(q)){
+    const cy=year||new Date().getFullYear();const d=await f1get(`/${cy}.json?limit=30`);
+    const races=d?.RaceTable?.Races||[],today=new Date().toISOString().split("T")[0];
+    const next=races.find(r=>r.date>=today);
+    if(!next) return `No quedan carreras en ${cy}.`;
+    return `📅 Próxima carrera:\n\n${next.round}. ${next.raceName}\n📍 ${next.Circuit?.circuitName}, ${next.Circuit?.Location?.country}\n🗓️ ${next.date}`;
+  }
+
+  if(/\bultim[ao]\b.*\bcarrera\b|\blast\b.*\brace\b/.test(q)){
+    const cy=year||new Date().getFullYear();const d=await f1get(`/${cy}.json?limit=30`);
+    const races=d?.RaceTable?.Races||[],today=new Date().toISOString().split("T")[0];
+    const past=races.filter(r=>r.date<today);
+    if(!past.length) return `Aún no hay carreras en ${cy}.`;
+    return hResults(cy,nrm(past[past.length-1].raceName));
+  }
+
+  if(/\bconstructor/.test(q)&&/\bcampeon|\bmundial|\bclasificacion|\branking|\bstanding/.test(q)) return hChampion(year,true);
+  if(!drv&&/\bcampeon|\bmundial\b|\bwdc\b|\btitulo\b/.test(q)) return hChampion(year,false);
+  if(/\bclasificacion\b.*\b(mundial|general|piloto)|\branking\b.*\b(mundial|general)\b/.test(q)&&!gp) return hChampion(year,false);
+
+  if(gp&&/\bcuantos\b.*\bcoches\b|\bacabaron\b|\bterminaron\b|\babandonos?\b|\bdnf\b|\bretir/.test(q)) return hFinishers(year,gp);
+  if(gp&&(/\bqualy\b|\bqualifying\b/.test(q)||(/\bclasificacion\b/.test(q)&&!/\bmundial|\bgeneral|\bpiloto|\bconstructor/.test(q)))) return hQualifying(year,gp);
+  if(gp&&/\bpole\b/.test(q)) return hQualifying(year,gp);
+  if(gp&&/\bvuelta\b.*\brapida\b|\bfastest\b.*\blap\b/.test(q)) return hFastestLap(year,gp);
+  if(gp&&(/\bhistoria|\bhistorial|\bmas\s+veces|\bganadores/.test(q)||/\bquien\b.*\bha\b.*\bganado\b.*\bmas\b/.test(q))) return hGPHistory(gp);
+  if(gp&&/\bquien\b.*\bgano\b|\bganador|\bresultado|\bpodio/.test(q)) return hResults(year,gp);
+
+  if(drv&&/\bcompaner|\bteammate/.test(q)) return hTeammates(year,drv);
+  if(drv&&gp) return hDriverAtGP(drv,gp);
+  if(drv&&year&&/\bvictoria|\bganado|\bganar|\bwin|\bcarrera|\btemporada/.test(q)) return hDriverSeason(year,drv);
+  if(drv&&/\bvictoria|\bganado|\bganar|\bwin|\bpalmares|\bstats|\bestadistic/.test(q)) return hDriverStats(drv);
+  if(drv&&/\bcampeon|\bmundial|\btitulo/.test(q)) return hDriverStats(drv);
+  if(drv&&year) return hDriverSeason(year,drv);
+  if(drv) return hDriverStats(drv);
+
+  if(gp&&year) return hResults(year,gp);
+  if(gp) return hGPHistory(gp);
+
+  return F1_HELP;
+}
+
+const F1_SUGG=[
+  "¿Quién fue campeón en 2024?","Resultados GP Mónaco 2024","Clasificación mundial 2023",
+  "Victorias de Alonso","Calendario 2026","¿Cuántos coches acabaron en Australia 2024?",
+  "Clasificación GP Bahréin 2024","Vuelta rápida Monza 2023","¿Quién ha ganado más en Silverstone?",
+  "Hamilton temporada 2020","Constructores 2023","Próxima carrera",
+  "Alonso en Mónaco","Compañero de Leclerc en 2024",
+];
+
 function AIAssistant({open,onClose,races}){
   const [input,setInput]=useState("");
   const [messages,setMessages]=useState([]);
   const [loading,setLoading]=useState(false);
-  const apiBase=(window.PORRA_API_BASE||"").replace(/\/$/,"");
-  const aiUrl=window.PORRA_AI_URL||(apiBase?`${apiBase}/assistant`:"");
-  const apiSecret=window.PORRA_API_SECRET||"";
-  const headers=apiSecret?{"Content-Type":"application/json","x-porra-secret":apiSecret}:{"Content-Type":"application/json"};
-  const ask=async()=>{
-    const q=(input||"").trim();
-    if(!q||loading||!aiUrl) return;
-    setInput("");
-    setMessages(prev=>[...prev,{role:"user",text:q}]);
-    setLoading(true);
-    try{
-      const res=await fetch(aiUrl,{method:"POST",headers,body:JSON.stringify({question:q})});
-      const data=await res.json().catch(()=>({}));
-      const answer=data.answer||data.error||"No se pudo obtener respuesta.";
-      setMessages(prev=>[...prev,{role:"assistant",text:answer}]);
-    }catch(err){
-      setMessages(prev=>[...prev,{role:"assistant",text:"Error de conexión. ¿Está configurado el endpoint /assistant?"}]);
-    }finally{ setLoading(false); }
+  const chatRef=useRef(null);
+  useEffect(()=>{if(chatRef.current) chatRef.current.scrollTop=chatRef.current.scrollHeight;},[messages,loading]);
+  const ask=async(text)=>{
+    const q=(text||input||"").trim();if(!q||loading) return;
+    setInput("");setMessages(prev=>[...prev,{role:"user",text:q}]);setLoading(true);
+    try{const answer=await processF1Query(q);setMessages(prev=>[...prev,{role:"assistant",text:answer}]);}
+    catch(err){setMessages(prev=>[...prev,{role:"assistant",text:"Error al consultar datos. Inténtalo de nuevo."}]);}
+    finally{setLoading(false);}
   };
   if(!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
-      <div className="relative w-full max-w-md max-h-[80vh] flex flex-col bg-[#12141b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col bg-[#12141b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h2 className="font-semibold flex items-center gap-2">🤖 Asistente F1</h2>
-          <button className="text-slate-400 hover:text-white p-1" onClick={onClose}>✕</button>
+          <div className="flex items-center gap-2">
+            <button className="text-xs text-slate-500 hover:text-slate-300" onClick={()=>setMessages([])}>Limpiar</button>
+            <button className="text-slate-400 hover:text-white p-1" onClick={onClose}>✕</button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
-          <p className="text-xs text-slate-400">Pregunta sobre datos históricos de F1. Ej: &quot;¿Cuántos coches han acabado la carrera en Mónaco históricamente?&quot;</p>
-          {messages.map((m,i)=>(<div key={i} className={`rounded-lg p-3 ${m.role==="user"?"bg-slate-800 ml-8":"bg-emerald-900/30 mr-8"}`}><p className="text-sm whitespace-pre-wrap">{m.text}</p></div>))}
-          {loading && <div className="rounded-lg p-3 bg-emerald-900/30 mr-8"><p className="text-sm text-slate-300">Pensando...</p></div>}
+        <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+          {messages.length===0 && (
+            <div>
+              <p className="text-sm text-slate-300 mb-3">Pregúntame cualquier cosa sobre F1: resultados, campeonatos, pilotos, circuitos, récords...</p>
+              <p className="text-xs text-slate-500 mb-3">Datos desde 1950 hasta hoy (Jolpica/Ergast API)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {F1_SUGG.slice(0,8).map((s,i)=>(
+                  <button key={i} className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {messages.map((m,i)=>(
+            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-8":"bg-emerald-900/20 border border-emerald-500/10 mr-4"}`}>
+              <p className="text-sm whitespace-pre-wrap">{m.text}</p>
+            </div>
+          ))}
+          {loading && <div className="rounded-xl p-3 bg-emerald-900/20 border border-emerald-500/10 mr-4"><p className="text-sm text-slate-300 animate-pulse">Consultando datos de F1...</p></div>}
         </div>
+        {messages.length>0 && (
+          <div className="px-4 pb-1">
+            <div className="flex flex-wrap gap-1">
+              {F1_SUGG.slice(0,4).map((s,i)=>(
+                <button key={i} className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="p-4 border-t border-white/10">
           <div className="flex gap-2">
-            <input className="flex-1 select border border-white/20 rounded-lg px-3 py-2 bg-neutral-900 text-sm" placeholder="Escribe tu pregunta..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&ask()}/>
-            <button className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-sm disabled:opacity-50" onClick={ask} disabled={loading||!input.trim()}>Enviar</button>
+            <input className="flex-1 select border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-sm" placeholder="Pregunta sobre F1..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
+            <button className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm disabled:opacity-50" onClick={()=>ask()} disabled={loading||!input.trim()}>Enviar</button>
           </div>
-          {!aiUrl && <p className="text-xs text-amber-400 mt-2">Configura PORRA_AI_URL o PORRA_API_BASE/assistant para usar el asistente.</p>}
         </div>
       </div>
     </div>
