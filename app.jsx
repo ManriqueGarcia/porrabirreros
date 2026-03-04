@@ -2520,19 +2520,34 @@ const REAL_HISTORICAL_2025_ROUNDS = [22,23,24];
 function CountdownBadge({target,now}){
   if(!target||!now) return null;
   const diff=target.getTime()-now.getTime();
-  if(diff<=0) return <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 font-semibold">Cerrado</span>;
+  if(diff<=0) return (
+    <div className="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+      <div className="text-red-400 text-lg font-bold">🔒 Apuestas cerradas</div>
+      <div className="text-xs text-red-300/60 mt-1">El plazo de apuestas ha finalizado</div>
+    </div>
+  );
   const totalMin=Math.floor(diff/60000);
   const days=Math.floor(totalMin/1440);
   const hours=Math.floor((totalMin%1440)/60);
   const mins=totalMin%60;
-  let text="";
-  if(days>0) text=`${days}d ${hours}h ${mins}m`;
-  else if(hours>0) text=`${hours}h ${mins}m`;
-  else text=`${mins}m`;
   const urgent=totalMin<120;
   const warn=totalMin<720 && !urgent;
-  const cls=urgent?"bg-red-500/15 text-red-300 border-red-500/25 animate-pulse":warn?"bg-amber-500/15 text-amber-300 border-amber-500/20":"bg-emerald-500/10 text-emerald-300 border-emerald-500/15";
-  return <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${cls}`}>⏱ {text}</span>;
+  const bgCls=urgent?"bg-red-500/10 border-red-500/25":"bg-amber-500/8 border-amber-500/20";
+  const timeCls=urgent?"text-red-300":warn?"text-amber-300":"text-emerald-300";
+  const labelCls=urgent?"text-red-400/60":warn?"text-amber-400/50":"text-emerald-400/50";
+  const msgCls=urgent?"text-red-300/70":warn?"text-amber-300/60":"text-white/40";
+  const msg=urgent?"¡Queda poco! Date prisa para apostar":(warn?"Todavía tienes tiempo, pero no te duermas":"Tienes tiempo de sobra para apostar");
+  return (
+    <div className={`mt-3 p-3 rounded-xl border ${bgCls} ${urgent?"animate-pulse":""}`}>
+      <div className={`text-[10px] uppercase tracking-widest font-semibold mb-1.5 ${labelCls}`}>⏱ Tiempo restante para apostar</div>
+      <div className="flex items-baseline gap-1.5 justify-center">
+        {days>0 && <><span className={`text-2xl font-black tabular-nums ${timeCls}`}>{days}</span><span className={`text-xs font-medium mr-2 ${labelCls}`}>días</span></>}
+        <span className={`text-2xl font-black tabular-nums ${timeCls}`}>{String(hours).padStart(2,"0")}</span><span className={`text-xs font-medium ${labelCls}`}>h</span>
+        <span className={`text-2xl font-black tabular-nums ${timeCls}`}>{String(mins).padStart(2,"0")}</span><span className={`text-xs font-medium ${labelCls}`}>min</span>
+      </div>
+      <div className={`text-xs mt-1.5 text-center ${msgCls}`}>{msg}</div>
+    </div>
+  );
 }
 
 function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setSelectedRaceKey}){
@@ -2612,16 +2627,16 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
               </div>
             )}
             <div className="mt-2 pt-2 border-t border-slate-600/50">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-slate-400">Cierre apuestas:</span>
                 <span className="text-amber-300 font-bold text-base">{formatTime(race.cutoff,MADRID_TZ)}</span>
                 <span className="text-amber-100 text-xs">(España)</span>
-                <CountdownBadge target={race.cutoff} now={now}/>
               </div>
               <div className="flex flex-wrap gap-3 mt-1 text-xs">
                 <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
                 <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
               </div>
+              <CountdownBadge target={race.cutoff} now={now}/>
             </div>
           </div>
         </div>
