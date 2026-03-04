@@ -401,8 +401,88 @@ function Login({db,setDb,onLogged}){
   const [name,setName]=useState(""); const [pass,setPass]=useState("");
   const [needsChange,setNeedsChange]=useState(false); const [n1,setN1]=useState(""); const [n2,setN2]=useState("");
   const [busy,setBusy]=useState(false);
+  const [showRecover,setShowRecover]=useState(false);
+  const [recoverUser,setRecoverUser]=useState("");
+  const [recoverCode,setRecoverCode]=useState("");
+  const [recoverN1,setRecoverN1]=useState("");
+  const [recoverN2,setRecoverN2]=useState("");
+  const [recoverStep,setRecoverStep]=useState(1);
+
   const tryLogin=async (e)=>{ e&&e.preventDefault(); if(busy) return; setBusy(true); try{ const u=db.users?.[name]; if(!u) return toast.error("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return toast.error("Contraseña incorrecta"); if(u.blocked) return toast.error("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); }finally{setBusy(false);} };
   const doChange=async (e)=>{ e.preventDefault(); if(busy) return; setBusy(true); try{ if(n1.length<6) return toast.error("Mínimo 6 caracteres"); if(n1!==n2) return toast.error("Las contraseñas no coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); }finally{setBusy(false);} };
+
+  const verifyRecoverCode=(e)=>{
+    e.preventDefault();
+    if(!recoverUser) return toast.error("Selecciona tu usuario");
+    if(!db.users?.[recoverUser]) return toast.error("Usuario no encontrado");
+    const secret=db.meta?.adminSecret||atob("bWFucmlxdWU=");
+    if(recoverCode!==secret) return toast.error("Código de recuperación incorrecto");
+    setRecoverStep(2);
+  };
+
+  const doRecover=async (e)=>{
+    e.preventDefault();
+    if(busy) return; setBusy(true);
+    try{
+      if(recoverN1.length<6) return toast.error("Mínimo 6 caracteres");
+      if(recoverN1!==recoverN2) return toast.error("Las contraseñas no coinciden");
+      const hash=await hashPassword(recoverN1);
+      setDb(prev=>{
+        const users={...(prev.users||{})};
+        users[recoverUser]={...users[recoverUser],passwordHash:hash,mustChange:false,blocked:false,changedAt:nowISO()};
+        delete users[recoverUser].password;
+        return {...prev,users};
+      });
+      toast.success("Contraseña actualizada. Ya puedes entrar.");
+      setShowRecover(false); setRecoverStep(1); setRecoverUser(""); setRecoverCode(""); setRecoverN1(""); setRecoverN2("");
+    }finally{setBusy(false);}
+  };
+
+  const resetRecover=()=>{ setShowRecover(false); setRecoverStep(1); setRecoverUser(""); setRecoverCode(""); setRecoverN1(""); setRecoverN2(""); };
+
+  if(showRecover){
+    return (
+      <div className="grid gap-3">
+        <div className="flex items-center gap-2 mb-1">
+          <button type="button" onClick={resetRecover} className="text-white/40 hover:text-white/70 transition-colors text-lg" aria-label="Volver">←</button>
+          <span className="text-sm font-semibold text-white/70">Recuperar contraseña</span>
+        </div>
+        {recoverStep===1 ? (
+          <form onSubmit={verifyRecoverCode} className="grid gap-3">
+            <div className="text-xs text-amber-300/70 bg-amber-500/10 border border-amber-400/20 rounded-lg p-2.5">
+              🔑 Pide el código de recuperación al administrador de la porra.
+            </div>
+            <div>
+              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Tu usuario</label>
+              <select className="select border rounded px-3 py-2.5 text-base w-full" value={recoverUser} onChange={e=>setRecoverUser(e.target.value)}>
+                <option value="">— elige —</option>
+                {Object.keys(db.users||{}).sort().map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Código de recuperación</label>
+              <input type="password" autoComplete="off" className="select border rounded px-3 py-2.5 w-full" placeholder="Código que te dio el admin" value={recoverCode} onChange={e=>setRecoverCode(e.target.value)} />
+            </div>
+            <button className="mt-1 px-4 py-2.5 rounded-xl bg-amber-600/80 border border-amber-500/30 text-white font-medium hover:bg-amber-600 transition-all">Verificar código</button>
+          </form>
+        ) : (
+          <form onSubmit={doRecover} className="grid gap-3">
+            <div className="text-sm text-emerald-300/80">✅ Código correcto. Elige tu nueva contraseña, <b>{recoverUser}</b>.</div>
+            <div>
+              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label>
+              <input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN1} onChange={e=>setRecoverN1(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label>
+              <input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN2} onChange={e=>setRecoverN2(e.target.value)} />
+            </div>
+            <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl bg-emerald-600/80 border border-emerald-500/30 text-white font-medium hover:bg-emerald-600 transition-all disabled:opacity-50">{busy?"Guardando...":"Guardar nueva contraseña"}</button>
+          </form>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3">
       {!needsChange ? (
@@ -419,6 +499,7 @@ function Login({db,setDb,onLogged}){
             <input type="password" autoComplete="current-password" className="select border rounded px-3 py-2.5 w-full" value={pass} onChange={e=>setPass(e.target.value)} />
           </div>
           <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl border text-white font-bold tracking-wide shadow-lg transition-all disabled:opacity-50" style={{background:"linear-gradient(135deg,rgba(225,6,0,.8),rgba(217,119,6,.7))",borderColor:"rgba(245,158,11,.3)",boxShadow:"0 4px 20px rgba(225,6,0,.15),0 2px 10px rgba(245,158,11,.1)"}} onClick={tryLogin}>{busy?"Entrando...":"🍺 ENTRAR"}</button>
+          <button type="button" onClick={()=>setShowRecover(true)} className="text-xs text-white/40 hover:text-amber-300/70 transition-colors mt-0.5">🔑 ¿Olvidaste tu contraseña?</button>
         </form>
       ) : (
         <form onSubmit={doChange} className="grid gap-3">
