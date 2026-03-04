@@ -830,20 +830,23 @@ async function fRace(year,gpText){
 
 function xGP(q){
   let m,c;
+  const TAIL=/(?:\s+(?:en\s+)?(?:los\s+)?ultimos?\b|\s+desde\s|\s+entre\s|\s+durante\s|\s+historicamente\b|\s+a\s+lo\s+largo\b|\s+en\s+los\s+(?:ultimos|anos)|\s+\d{4}|\s*\?|$)/;
+  const clean=s=>(s||"").replace(/\s+(en|de|del)\s*$/,"").trim();
   if(/\bcalendario\b|\btemporada\b/.test(q)&&!/\bgp\b|gran\s*premio/.test(q)) return null;
-  m=q.match(/(?:gp|gran\s*premio)\s+(?:de\s+)?(?:la\s+)?(.+?)(?:\s+\d{4}|\s*\?|$)/);
-  if(m&&(c=m[1].replace(/\s+(en|de|del)\s*$/,"").trim())&&c.length>1) return c;
-  m=q.match(/\ben\s+(?:el\s+)?(?:circuito\s+(?:de\s+)?)?(.+?)(?:\s+en\s+\d{4}|\s+\d{4}|\s*\?|$)/);
-  if(m&&(c=m[1].trim())&&c.length>2&&!mDrv(c)) return c;
-  if(/resultado|podio|acabaron|terminaron|abandonos|vuelta\s*rapida|ganado.*mas|clasificacion|pole|qualy/.test(q)){
-    m=q.match(/\bde\s+(.+?)(?:\s+\d{4}|\s*\?|$)/);
-    if(m&&(c=m[1].trim())&&c.length>2&&!mDrv(c)) return c;
+  m=q.match(new RegExp("(?:gp|gran\\s*premio)\\s+(?:de\\s+)?(?:la\\s+)?(.+?)"+TAIL.source));
+  if(m&&(c=clean(m[1]))&&c.length>1) return c;
+  m=q.match(new RegExp("\\ben\\s+(?:el\\s+)?(?:circuito\\s+(?:de\\s+)?)?(.+?)"+TAIL.source));
+  if(m&&(c=clean(m[1]))&&c.length>2&&!mDrv(c)) return c;
+  if(/resultado|podio|acabaron|terminaron|abandonos|vuelta\s*rapida|ganado.*mas|clasificacion|pole|qualy|coches/.test(q)){
+    m=q.match(new RegExp("\\bde\\s+(.+?)"+TAIL.source));
+    if(m&&(c=clean(m[1]))&&c.length>2&&!mDrv(c)) return c;
   }
   return null;
 }
 
 async function hResults(year,gpQ){
   if(!year) year=new Date().getFullYear();
+  if(year>new Date().getFullYear()) return `La temporada ${year} aún no ha comenzado o no tiene resultados disponibles.`;
   const race=await fRace(year,gpQ);
   if(!race) return `No encontré "${gpQ}" en ${year}. Usa el nombre del país o ciudad.`;
   const d=await f1get(`/${year}/${race.round}/results.json?limit=30`);
@@ -929,14 +932,64 @@ async function hDriverSeason(year,driverId){
 
 async function hFinishers(year,gpQ){
   if(!year) year=new Date().getFullYear();
+  if(year>new Date().getFullYear()) return `La temporada ${year} aún no ha comenzado o no tiene resultados.`;
   const race=await fRace(year,gpQ);
   if(!race) return `No encontré "${gpQ}" en ${year}.`;
   const d=await f1get(`/${year}/${race.round}/results.json?limit=30`);
   const res=d?.RaceTable?.Races?.[0]?.Results;
-  if(!res?.length) return `No hay resultados para ${race.raceName} ${year}.`;
+  if(!res?.length) return `No hay resultados para ${race.raceName} ${year}. Quizás aún no se ha corrido.`;
   const fin=res.filter(r=>r.status==="Finished"||r.status.startsWith("+")),dnfs=res.filter(r=>r.status!=="Finished"&&!r.status.startsWith("+"));
   let t=`🏁 ${race.raceName} ${year}\n\n✅ Acabaron: ${fin.length} de ${res.length}\n❌ No acabaron: ${dnfs.length}\n`;
   if(dnfs.length){t+=`\nAbandonos:\n`;dnfs.forEach(r=>t+=`• ${r.Driver.givenName} ${r.Driver.familyName} (${r.Constructor.name}) — ${r.status}\n`);}
+  return t;
+}
+
+async function hFinishersMulti(gpQ,numYears){
+  const cy=new Date().getFullYear();
+  let circuitId=null,raceName=gpQ;
+  for(let y=cy;y>=cy-10;y--){const race=await fRace(y,gpQ);if(race){circuitId=race.Circuit.circuitId;raceName=race.raceName;break;}}
+  if(!circuitId) return `No encontré el circuito "${gpQ}".`;
+  let t=`🏁 ${raceName} — Últimos ${numYears} años\n\n`;
+  let found=0;
+  for(let y=cy;y>=1950&&found<numYears;y--){
+    const race=await fRace(y,gpQ);
+    if(!race) continue;
+    const d=await f1get(`/${y}/${race.round}/results.json?limit=30`);
+    const res=d?.RaceTable?.Races?.[0]?.Results;
+    if(!res?.length) continue;
+    found++;
+    const fin=res.filter(r=>r.status==="Finished"||r.status.startsWith("+"));
+    const dnfs=res.filter(r=>r.status!=="Finished"&&!r.status.startsWith("+"));
+    const winner=res[0];
+    t+=`${y}: ✅ ${fin.length}/${res.length} acabaron, ❌ ${dnfs.length} abandonos`;
+    if(winner) t+=` | 🏆 ${winner.Driver.familyName}`;
+    t+="\n";
+  }
+  if(!found) return `No hay resultados históricos para "${gpQ}".`;
+  return t;
+}
+
+async function hResultsMulti(gpQ,numYears){
+  const cy=new Date().getFullYear();
+  let circuitId=null,raceName=gpQ;
+  for(let y=cy;y>=cy-10;y--){const race=await fRace(y,gpQ);if(race){circuitId=race.Circuit.circuitId;raceName=race.raceName;break;}}
+  if(!circuitId) return `No encontré el circuito "${gpQ}".`;
+  let t=`🏁 ${raceName} — Últimos ${numYears} años\n\n`;
+  let found=0;
+  for(let y=cy;y>=1950&&found<numYears;y--){
+    const race=await fRace(y,gpQ);
+    if(!race) continue;
+    const d=await f1get(`/${y}/${race.round}/results.json?limit=30`);
+    const res=d?.RaceTable?.Races?.[0]?.Results;
+    if(!res?.length) continue;
+    found++;
+    const top3=res.slice(0,3);
+    t+=`${y}: ${top3.map((r,i)=>["🥇","🥈","🥉"][i]+` ${r.Driver.familyName}`).join(" ")}`;
+    const fl=res.find(r=>r.FastestLap?.rank==="1");
+    if(fl) t+=` | 🟣 ${fl.Driver.familyName}`;
+    t+="\n";
+  }
+  if(!found) return `No hay resultados históricos para "${gpQ}".`;
   return t;
 }
 
@@ -1018,10 +1071,20 @@ async function hTeammates(year,driverId){
   return t;
 }
 
-const F1_HELP=`Pregúntame lo que quieras sobre F1. Ejemplos:\n\n🏆 "¿Quién fue campeón en 2023?"\n🏁 "Resultados GP Mónaco 2024"\n📊 "Clasificación mundial 2024"\n🏎️ "Victorias de Alonso"\n📅 "Calendario 2025"\n❓ "¿Cuántos coches acabaron en Australia 2024?"\n⏱️ "Clasificación GP Bahréin 2024"\n🟣 "Vuelta rápida Monza 2023"\n🏆 "¿Quién ha ganado más en Silverstone?"\n👥 "Compañero de Hamilton en 2019"\n🗓️ "Hamilton en 2020"\n📍 "Alonso en Mónaco"`;
+const F1_HELP=`Pregúntame lo que quieras sobre F1. Ejemplos:\n\n🏆 "¿Quién fue campeón en 2023?"\n🏁 "Resultados GP Mónaco 2024"\n📊 "Clasificación mundial 2024"\n🏎️ "Victorias de Alonso"\n📅 "Calendario 2025"\n❓ "Coches que acabaron en Australia últimos 5 años"\n⏱️ "Clasificación GP Bahréin 2024"\n🟣 "Vuelta rápida Monza 2023"\n🏆 "¿Quién ha ganado más en Silverstone?"\n👥 "Compañero de Hamilton en 2019"\n🗓️ "Hamilton en 2020"\n📍 "Alonso en Mónaco"\n📊 "Resultados en Mónaco últimos 10 años"`;
+
+function xMultiYear(q){
+  let m;
+  m=q.match(/ultimos?\s+(\d+)\s+anos/);if(m) return parseInt(m[1]);
+  m=q.match(/(\d+)\s+ultimos?\s+anos/);if(m) return parseInt(m[1]);
+  if(/ultimos?\s+anos|los\s+anos|historicamente|a\s+lo\s+largo/.test(q)) return 10;
+  m=q.match(/desde\s+(19[5-9]\d|20[0-2]\d)/);if(m) return new Date().getFullYear()-parseInt(m[1])+1;
+  m=q.match(/entre\s+(19[5-9]\d|20[0-2]\d)\s+y\s+(19[5-9]\d|20[0-2]\d)/);if(m) return parseInt(m[2])-parseInt(m[1])+1;
+  return 0;
+}
 
 async function processF1Query(question){
-  const q=nrm(question),year=xYear(q),drv=mDrv(q),gp=xGP(q);
+  const q=nrm(question),year=xYear(q),drv=mDrv(q),gp=xGP(q),multi=xMultiYear(q);
 
   if(/\bcalendario\b/.test(q)||(/\btemporada\b/.test(q)&&!drv&&!gp)) return hCalendar(year);
 
@@ -1044,6 +1107,10 @@ async function processF1Query(question){
   if(/\bconstructor/.test(q)&&/\bcampeon|\bmundial|\bclasificacion|\branking|\bstanding/.test(q)) return hChampion(year,true);
   if(!drv&&/\bcampeon|\bmundial\b|\bwdc\b|\btitulo\b/.test(q)) return hChampion(year,false);
   if(/\bclasificacion\b.*\b(mundial|general|piloto)|\branking\b.*\b(mundial|general)\b/.test(q)&&!gp) return hChampion(year,false);
+
+  if(gp&&multi>1&&/\bcuantos\b.*\bcoches\b|\bacabaron\b|\bterminaron\b|\babandonos?\b|\bdnf\b|\bretir/.test(q)) return hFinishersMulti(gp,multi);
+  if(gp&&multi>1&&/\bquien\b.*\bgano\b|\bganador|\bresultado|\bpodio/.test(q)) return hResultsMulti(gp,multi);
+  if(gp&&multi>1) return hFinishersMulti(gp,multi);
 
   if(gp&&/\bcuantos\b.*\bcoches\b|\bacabaron\b|\bterminaron\b|\babandonos?\b|\bdnf\b|\bretir/.test(q)) return hFinishers(year,gp);
   if(gp&&(/\bqualy\b|\bqualifying\b/.test(q)||(/\bclasificacion\b/.test(q)&&!/\bmundial|\bgeneral|\bpiloto|\bconstructor/.test(q)))) return hQualifying(year,gp);
@@ -1068,7 +1135,7 @@ async function processF1Query(question){
 
 const F1_SUGG=[
   "¿Quién fue campeón en 2024?","Resultados GP Mónaco 2024","Clasificación mundial 2023",
-  "Victorias de Alonso","Calendario 2026","¿Cuántos coches acabaron en Australia 2024?",
+  "Victorias de Alonso","Calendario 2026","Coches que acabaron en Australia últimos 5 años",
   "Clasificación GP Bahréin 2024","Vuelta rápida Monza 2023","¿Quién ha ganado más en Silverstone?",
   "Hamilton temporada 2020","Constructores 2023","Próxima carrera",
   "Alonso en Mónaco","Compañero de Leclerc en 2024",
@@ -1129,7 +1196,7 @@ function AIAssistant({open,onClose,races}){
         )}
         <div className="p-4 border-t border-white/10">
           <div className="flex gap-2">
-            <input className="flex-1 select border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-sm" placeholder="Pregunta sobre F1..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
+            <input className="flex-1 border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-white text-sm placeholder:text-slate-500" style={{color:"#f0f0f5"}} placeholder="Pregunta sobre F1..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
             <button className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm disabled:opacity-50" onClick={()=>ask()} disabled={loading||!input.trim()}>Enviar</button>
           </div>
         </div>
