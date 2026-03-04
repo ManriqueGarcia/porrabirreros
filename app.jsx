@@ -2633,7 +2633,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
             )}
             {authorDeadline && (
               <div className="flex flex-wrap items-baseline gap-2 text-slate-300">
-                <span className="text-slate-400">Preguntas{owner?` (${owner})`:""} — cierre:</span>
+                <span className="text-slate-400">Preguntas{owner?<> (<span className="text-amber-200 font-semibold">{owner}</span>)</>:""} — cierre:</span>
                 <span className="text-amber-200 font-medium">{formatDateTime(authorDeadline,MADRID_TZ)} España</span>
                 {db.questionsStatus?.[race.key]?.published
                   ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Publicadas</span>
@@ -2651,6 +2651,19 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
                 <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
               </div>
               <CountdownBadge target={race.cutoff}/>
+            </div>
+          </div>
+        </div>
+      )}
+      {race && owner===user && !db.questionsStatus?.[race.key]?.published && (
+        <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-red-500/[.06] border border-amber-400/25 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400/40 via-red-400/30 to-transparent"></div>
+          <div className="flex items-start gap-2.5">
+            <span className="text-2xl mt-0.5">📝</span>
+            <div>
+              <div className="font-bold text-amber-200">¡Te toca poner las preguntas!</div>
+              <div className="text-sm text-amber-300/70 mt-0.5">Eres el autor de las preguntas del <b className="text-amber-200">{race.grand_prix}</b>. Escríbelas y publícalas antes del cierre.</div>
+              {authorDeadline && <div className="text-xs text-white/35 mt-1">Límite: {formatDateTime(authorDeadline,MADRID_TZ)} (España)</div>}
             </div>
           </div>
         </div>
