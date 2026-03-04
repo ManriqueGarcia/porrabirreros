@@ -239,7 +239,7 @@ function CircuitCard({race,circuits,compact}){
         <div className="w-16 h-12 flex-shrink-0 rounded-lg bg-black/30 flex items-center justify-center overflow-hidden">
           <img src={trackSrc} alt="" className="w-full h-full object-contain p-1" onError={e=>{ e.target.onerror=null; e.target.src="./assets/circuit_tracks/default.svg"; }} />
         </div>
-        <div className="text-[11px] text-white/40 space-y-0.5 min-w-0">
+        <div className="text-xs text-white/40 space-y-0.5 min-w-0">
           <div>{c.length||"—"} km · {c.laps||"—"} vueltas</div>
           <div>Récord: {c.fastestLap||"—"}</div>
         </div>
@@ -296,8 +296,8 @@ function ChangeAvatarModal({open,onClose,db,setDb,user}){
     onClose();
   };
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-white text-slate-900 rounded-xl p-5 w-96">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white text-slate-900 rounded-xl p-5 w-full max-w-sm">
         <div className="font-semibold mb-3">Cambiar avatar</div>
         <p className="text-sm text-slate-600 mb-3">JPG, PNG o SVG. Máx. ~100KB.</p>
         <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml" onChange={handleFile} className="block w-full text-sm mb-3" disabled={busy} />
@@ -326,8 +326,8 @@ function ChangePasswordModal({open,onClose,db,setDb,user}){
     alert("Contraseña actualizada"); onClose();
   };
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-white text-slate-900 rounded-xl p-5 w-96">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white text-slate-900 rounded-xl p-5 w-full max-w-sm">
         <div className="font-semibold mb-2">Cambiar contraseña</div>
         <form onSubmit={submit} className="grid gap-2">
           <label className="text-sm">Actual</label><input type="password" className="border rounded px-3 py-2" value={curr} onChange={e=>setCurr(e.target.value)} />
@@ -375,7 +375,7 @@ function Login({db,setDb,onLogged}){
 }
 
 function SelectDriver({value,onChange,drivers,placeholder}){
-  return <select className="select border rounded px-3 py-2" value={value||""} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{drivers.map(d=><option key={d} value={d}>{d}</option>)}</select>;
+  return <select className="select border rounded px-3 py-2 w-full min-w-0" value={value||""} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{drivers.map(d=><option key={d} value={d}>{d}</option>)}</select>;
 }
 
 function BetForm({bet,disabled,onSubmit,questions,drivers,late}){
@@ -608,7 +608,7 @@ function Ranking({db,races,setDb,currentUser}){
   };
   const podiumIcon=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1;
   return (<div className="space-y-4">
-    <div className="card p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title">🏎️ Ranking F1</h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10">#</th><th className="text-left">Participante</th><th className="text-right">Pts</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Victorias</th>}<th className="text-right hidden sm:table-cell">Podios</th><th className="text-right hidden sm:table-cell">Aciertos</th><th className="text-right">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;return(<tr key={r.name} className={i<3?"border-l-2 "+(i===0?"border-l-yellow-500/60":i===1?"border-l-slate-400/50":"border-l-amber-700/50"):""} style={i===0?{background:"rgba(250,204,21,.04)"}:{}}><td className="font-medium text-white/60">{podiumIcon(i)}</td><td><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span className="font-medium">{r.name}</span></div></td><td className="text-right font-bold tabular-nums">{r.points}</td>{scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/50 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/50 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/40">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/25 mt-2">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/60 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <div className="card p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title">🏎️ Ranking F1</h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10">#</th><th className="text-left">Participante</th><th className="text-right">Pts</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;return(<tr key={r.name} className={i<3?"border-l-2 "+(i===0?"border-l-yellow-500/60":i===1?"border-l-slate-400/50":"border-l-amber-700/50"):""} style={i===0?{background:"rgba(250,204,21,.04)"}:{}}><td className="font-medium text-white/60">{podiumIcon(i)}</td><td><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className="font-medium">{r.name}</span><div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`V:${r.wins} `:``}Pod:${r.exact} Ac:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right font-bold tabular-nums">{r.points}</td>{scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/50 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/50 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/40 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/25 mt-2">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/60 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
     <RaceBreakdown db={db} races={races} raceKey={scope} rows={data} />
     <div className="card p-4 md:p-5"><h3 className="section-title mb-3">Ranking campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
   </div>);
@@ -652,7 +652,7 @@ function RaceBreakdown({db,races,raceKey,rows}){
 }
 
 function QuestionsHistory({db,races}){
-  return (<div className="card p-4 md:p-5 space-y-3"><h2 className="section-title">Histórico de preguntas</h2>{(races||[]).map(r=>{ const qs=db.questions?.[r.key]||["","",""]; const st=db.questionsStatus?.[r.key]; const owner=db.questionOwner?.[r.key]||""; return (<div key={r.key} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="flex items-center justify-between"><div className="font-medium">{r.round}. {r.grand_prix} — <span className="text-slate-300">{r.date_local}</span></div><div>{st?.published?<span className="badge badge-green">Publicado</span>:<span className="badge badge-amber">Pendiente</span>}</div></div><div className="text-xs text-slate-300">Autor: {owner||"—"}</div>{st?.published?<ol className="list-decimal pl-5 text-sm">{qs.map((q,i)=><li key={i}>{q||"—"}</li>)}</ol>:<div className="text-sm text-slate-400">Aún no publicadas.</div>}</div>); })}</div>);
+  return (<div className="card p-4 md:p-5 space-y-3"><h2 className="section-title">Histórico de preguntas</h2>{(races||[]).map(r=>{ const qs=db.questions?.[r.key]||["","",""]; const st=db.questionsStatus?.[r.key]; const owner=db.questionOwner?.[r.key]||""; return (<div key={r.key} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="flex flex-wrap items-center justify-between gap-2"><div className="font-medium min-w-0"><span className="break-words">{r.round}. {r.grand_prix}</span> <span className="text-slate-300 text-sm">— {r.date_local}</span></div><div className="flex-shrink-0">{st?.published?<span className="badge badge-green">Publicado</span>:<span className="badge badge-amber">Pendiente</span>}</div></div><div className="text-xs text-slate-300">Autor: {owner||"—"}</div>{st?.published?<ol className="list-decimal pl-5 text-sm">{qs.map((q,i)=><li key={i}>{q||"—"}</li>)}</ol>:<div className="text-sm text-slate-400">Aún no publicadas.</div>}</div>); })}</div>);
 }
 
 function Historico(){
@@ -679,7 +679,7 @@ function Historico(){
         <div className="card p-4">
           <h3 className="font-semibold mb-2">Clasificación final</h3>
           <div className="overflow-x-auto">
-            <table className="min-w-[400px] text-sm w-full">
+            <table className="text-sm w-full">
               <thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th></tr></thead>
               <tbody>
                 {data.standings.map((row,i)=>(<tr key={row.name} className="border-t border-white/10"><td className="p-2">{row.rank??(i+1)}</td><td className="p-2 font-medium">{row.name}{row.rank===1?" 🏆":""}</td><td className="p-2">{row.points}</td></tr>))}
@@ -1134,9 +1134,9 @@ function AIAssistant({open,onClose,races}){
   };
   if(!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:justify-end p-0 md:p-6">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
-      <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col bg-[#12141b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full md:max-w-lg max-h-[100vh] md:max-h-[85vh] flex flex-col bg-[#12141b] border border-white/10 rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h2 className="font-semibold flex items-center gap-2"><img src="./assets/manribot.svg" alt="" className="w-7 h-7 inline-block"/> ManriBot</h2>
           <div className="flex items-center gap-2">
@@ -1157,7 +1157,7 @@ function AIAssistant({open,onClose,races}){
             </div>
           )}
           {messages.map((m,i)=>(
-            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-8":"bg-emerald-900/20 border border-emerald-500/10 mr-4"}`}>
+            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-4 md:ml-8":"bg-emerald-900/20 border border-emerald-500/10 mr-2 md:mr-4"}`}>
               <p className="text-sm whitespace-pre-wrap">{m.text}</p>
             </div>
           ))}
@@ -1167,7 +1167,7 @@ function AIAssistant({open,onClose,races}){
           <div className="px-4 pb-1">
             <div className="flex flex-wrap gap-1">
               {F1_SUGG.slice(0,4).map((s,i)=>(
-                <button key={i} className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
+                <button key={i} className="text-xs px-2.5 py-1 rounded bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
               ))}
             </div>
           </div>
@@ -1800,21 +1800,21 @@ function FutbolRanking({db}){
         <div className="overflow-x-auto rounded-xl border border-white/5">
           <table className="text-sm w-full">
             <thead>
-              <tr><th className="text-left w-10">#</th><th className="text-left">Participante</th><th className="text-right">Pts</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Victorias</th>}<th className="text-right hidden sm:table-cell">Exactos</th><th className="text-right hidden sm:table-cell">Preg.</th><th className="text-right hidden sm:table-cell">Signos</th><th className="text-right" title="Penalizaciones">Pen.</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Dif.</th>}</tr>
+              <tr><th className="text-left w-10">#</th><th className="text-left">Participante</th><th className="text-right">Pts</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Exact.</th><th className="text-right hidden sm:table-cell">Preg.</th><th className="text-right hidden sm:table-cell">Sign.</th><th className="text-right hidden sm:table-cell">Pen.</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Dif.</th>}</tr>
             </thead>
             <tbody>
-              {rows.map((r,idx)=>(
+              {rows.map((r,idx)=>{const penTotal=(r.missed||0)+(r.late||0);return(
                 <tr key={r.name} className={idx<3?"border-l-2 "+(idx===0?"border-l-yellow-500/60":idx===1?"border-l-slate-400/50":"border-l-amber-700/50"):""} style={idx===0?{background:"rgba(250,204,21,.04)"}:{}}>
                   <td className="font-medium text-white/60">{idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":idx+1}</td>
-                  <td><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span className="font-medium">{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</span></div></td>
+                  <td><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className="font-medium">{r.name}{r.missed>=3 && <span className="text-xs text-amber-300 ml-1">(elim.)</span>}</span><div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`V:${r.wins} `:""}Ex:${r.exact} Pr:${r.qHits} Sg:${r.signs} Pn:${penTotal}{scope==="all"?` Df:${r.goalDiff}`:""}</div></div></div></td>
                   <td className="text-right font-bold tabular-nums">{r.points}</td>
                   {scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.wins}</td>}
                   <td className="text-right text-white/50 hidden sm:table-cell">{r.exact}</td>
                   <td className="text-right text-white/50 hidden sm:table-cell">{r.qHits}</td>
                   <td className="text-right text-white/50 hidden sm:table-cell">{r.signs}</td>
-                  <td className="text-right text-white/40" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{(r.missed||0)+(r.late||0)}</td>
+                  <td className="text-right text-white/40 hidden sm:table-cell" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{penTotal}</td>
                   {scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.goalDiff}</td>}
-                </tr>
+                </tr>);})
               ))}
               {rows.length===0 && <tr><td className="text-sm text-slate-300" colSpan={scope==="all"?9:7}>Sin datos.</td></tr>}
             </tbody>
@@ -2143,7 +2143,7 @@ const baseCalendar=baseCal;
               <div className="font-medium mb-1">{name}</div>
               <ul className="text-xs text-slate-300 space-y-1 max-h-40 overflow-y-auto pr-2">
                 {ordered.map((entry,idx)=>{ const timeLabel=entry?.ts?new Date(entry.ts).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}):"—"; return (<li key={idx} className="border border-white/5 rounded px-2 py-1">
-                  <div className="flex items-center justify-between"><span>{timeLabel}</span>{entry?.late && <span className="text-[10px] uppercase text-amber-300">Tarde</span>}</div>
+                  <div className="flex items-center justify-between"><span>{timeLabel}</span>{entry?.late && <span className="text-xs uppercase text-amber-300">Tarde</span>}</div>
                   <div>Pole: {entry.pole||"—"}</div>
                   <div>Podio: {(entry.podium||["","",""]).join(" · ")}</div>
                   <div>P.Adic.: {(entry.q||["","",""]).join(" · ")}</div>

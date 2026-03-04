@@ -185,9 +185,13 @@
     .card:nth-child(4){animation-delay:.12s;}
 
     /* === RESPONSIVE === */
-    @media(max-width:768px){
-      .porra-nav{gap:3px;padding:3px;}
-      .porra-nav button{padding:7px 10px;font-size:.75rem;}
+    @media(max-width:640px){
+      .porra-nav{
+        flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+        gap:3px;padding:3px;scrollbar-width:none;
+      }
+      .porra-nav::-webkit-scrollbar{display:none;}
+      .porra-nav button{padding:7px 10px;font-size:.73rem;flex-shrink:0;}
     }
   </style>
 </head>
