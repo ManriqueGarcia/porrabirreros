@@ -529,7 +529,8 @@ const DRIVER_TEAMS={
 };
 const TEAMS_ORDER_2025=["McLaren","Ferrari","Red Bull","Mercedes","Aston Martin","Alpine","Haas","Racing Bulls","Williams","Audi","Cadillac"];
 
-function SelectDriver({value,onChange,drivers,placeholder}){
+function SelectDriver({value,onChange,drivers,placeholder,exclude}){
+  const excSet=useMemo(()=>new Set((exclude||[]).filter(Boolean)),[exclude?.join(",")]);
   const grouped=useMemo(()=>{
     const byTeam={};
     TEAMS_ORDER_2025.forEach(t=>{byTeam[t]=[];});
@@ -547,9 +548,9 @@ function SelectDriver({value,onChange,drivers,placeholder}){
       {TEAMS_ORDER_2025.map(team=>{
         const tDrivers=grouped.byTeam[team];
         if(!tDrivers||!tDrivers.length) return null;
-        return <optgroup key={team} label={team}>{tDrivers.map(d=><option key={d} value={d}>{d}</option>)}</optgroup>;
+        return <optgroup key={team} label={team}>{tDrivers.map(d=><option key={d} value={d} disabled={excSet.has(d)}>{d}</option>)}</optgroup>;
       })}
-      {grouped.ungrouped.length>0 && <optgroup label="Otros">{grouped.ungrouped.map(d=><option key={d} value={d}>{d}</option>)}</optgroup>}
+      {grouped.ungrouped.length>0 && <optgroup label="Otros">{grouped.ungrouped.map(d=><option key={d} value={d} disabled={excSet.has(d)}>{d}</option>)}</optgroup>}
     </select>
   );
 }
@@ -565,13 +566,13 @@ function BetForm({bet,disabled,onSubmit,questions,drivers,late}){
   },[betFingerprint]);
   const hasQuestions=questions.some(q=>q&&q.trim());
   return (
-    <form className="grid gap-2" onSubmit={(e)=>{e.preventDefault();onSubmit({pole,podium:[p1,p2,p3],q:[q1,q2,q3]});}}>
+    <form className="grid gap-2" onSubmit={(e)=>{e.preventDefault();const pod=[p1,p2,p3].filter(Boolean);if(pod.length!==new Set(pod).size) return toast.error("No puedes repetir piloto en el podio");onSubmit({pole,podium:[p1,p2,p3],q:[q1,q2,q3]});}}>
       <label className="text-sm font-semibold">Pole</label><SelectDriver value={pole} onChange={setPole} drivers={drivers} placeholder="Selecciona piloto" />
       <label className="text-sm font-semibold mt-2">Podio</label>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div><div className="text-[11px] text-white/40 mb-1">🥇 1º</div><SelectDriver value={p1} onChange={setP1} drivers={drivers} placeholder="1º" /></div>
-        <div><div className="text-[11px] text-white/40 mb-1">🥈 2º</div><SelectDriver value={p2} onChange={setP2} drivers={drivers} placeholder="2º" /></div>
-        <div><div className="text-[11px] text-white/40 mb-1">🥉 3º</div><SelectDriver value={p3} onChange={setP3} drivers={drivers} placeholder="3º" /></div>
+        <div><div className="text-[11px] text-white/40 mb-1">🥇 1º</div><SelectDriver value={p1} onChange={setP1} drivers={drivers} placeholder="1º" exclude={[p2,p3]} /></div>
+        <div><div className="text-[11px] text-white/40 mb-1">🥈 2º</div><SelectDriver value={p2} onChange={setP2} drivers={drivers} placeholder="2º" exclude={[p1,p3]} /></div>
+        <div><div className="text-[11px] text-white/40 mb-1">🥉 3º</div><SelectDriver value={p3} onChange={setP3} drivers={drivers} placeholder="3º" exclude={[p1,p2]} /></div>
       </div>
       <label className="text-sm font-semibold mt-3">Preguntas adicionales</label>
       {hasQuestions ? (
