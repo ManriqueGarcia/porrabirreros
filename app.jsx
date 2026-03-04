@@ -114,10 +114,10 @@ function scoreFutbolJornada(db,jornadaId,name){
   const jornada=futbol.jornadas?.[jornadaId];
   const bet=futbol.bets?.[jornadaId]?.[name];
   const res=futbol.results?.[jornadaId];
-  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,late:!!bet?.late,goalDiff:0,items:[]};
-  const validBet=!!bet && !bet.late;
-  const predictions=validBet?(bet.matches||[]):[];
-  const questions=validBet?(bet.questions||[]):[];
+  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,latePenalty:0,late:!!bet?.late,goalDiff:0,items:[]};
+  const hasBet=!!bet;
+  const predictions=hasBet?(bet.matches||[]):[];
+  const questions=hasBet?(bet.questions||[]):[];
   const late=!!bet?.late;
   let points=0; let exact=0; let signs=0; let qHits=0; let goalDiff=0; const items=[];
   const official=res.matches||[];
@@ -139,12 +139,14 @@ function scoreFutbolJornada(db,jornadaId,name){
     if(ok){ points+=2; qHits++; }
     items.push({label:`Pregunta ${idx+1}: ${sel||"—"} vs ${ans||"—"}`, delta:ok?2:0});
   });
-  const missed=!bet || late;
+  const missed=!bet;
   let missingPenalty=0;
-  if(missed){ missingPenalty=-2; points+=missingPenalty; items.push({label:"Sin apuesta a tiempo", delta:missingPenalty}); goalDiff+=40; }
+  let latePenalty=0;
+  if(missed){ missingPenalty=-3; points+=missingPenalty; items.push({label:"No participó en la apuesta", delta:missingPenalty}); goalDiff+=40; }
+  else if(late){ latePenalty=-2; points+=latePenalty; items.push({label:"Apuesta fuera de plazo", delta:latePenalty}); }
   let catPenalty=0;
-  if(!missed && points===0){ catPenalty=-1; points+=catPenalty; items.push({label:"Apuesta catastrófica", delta:catPenalty}); }
-  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,goalDiff,items};
+  if(!missed && !late && points===0){ catPenalty=-1; points+=catPenalty; items.push({label:"Apuesta catastrófica", delta:catPenalty}); }
+  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,latePenalty,goalDiff,items};
 }
 
 function computeFutbolJornadaWins(dbFutbol, participants, jornadas){
@@ -169,10 +171,10 @@ function computeFutbolStandings(dbFutbol,participants,jornadas){
   return participants.map(name=>{
     const acc=completed.reduce((a,j)=>{
       const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
-      a.points+=s.points; a.exact+=s.exact; a.qHits+=s.qHits; a.signs+=s.signs; a.missed+=s.missed?1:0; a.cat+=s.catPenalty?1:0; a.goalDiff+=s.goalDiff; return a;
-    },{points:0,exact:0,signs:0,qHits:0,missed:0,cat:0,goalDiff:0});
-    return {name,...acc, wins:jornadaWins[name]||0};
-  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.qHits-a.qHits||b.signs-a.signs||a.missed-b.missed||a.goalDiff-b.goalDiff);
+      a.points+=s.points; a.exact+=s.exact; a.qHits+=s.qHits; a.signs+=s.signs; a.missed+=s.missed?1:0; a.late+=s.late?1:0; a.cat+=s.catPenalty?1:0; a.goalDiff+=s.goalDiff; return a;
+    },{points:0,exact:0,signs:0,qHits:0,missed:0,late:0,cat:0,goalDiff:0});
+    return {name,...acc, wins:jornadaWins[name]||0, penCount:acc.missed+acc.late};
+  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.qHits-a.qHits||b.signs-a.signs||a.penCount-b.penCount||a.goalDiff-b.goalDiff);
 }
 function listFutbolJornadas(futbol){
   const entries=Object.values(futbol?.jornadas||{});
@@ -372,7 +374,7 @@ function SelectDriver({value,onChange,drivers,placeholder}){
   return <select className="select border rounded px-3 py-2" value={value||""} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{drivers.map(d=><option key={d} value={d}>{d}</option>)}</select>;
 }
 
-function BetForm({bet,disabled,onSubmit,questions,drivers}){
+function BetForm({bet,disabled,onSubmit,questions,drivers,late}){
   const [pole,setPole]=useState(bet.pole||""); const [p1,setP1]=useState(bet.podium?.[0]||""); const [p2,setP2]=useState(bet.podium?.[1]||""); const [p3,setP3]=useState(bet.podium?.[2]||"");
   const [q1,setQ1]=useState(bet.q?.[0]||""); const [q2,setQ2]=useState(bet.q?.[1]||""); const [q3,setQ3]=useState(bet.q?.[2]||"");
   useEffect(()=>{
@@ -395,7 +397,7 @@ function BetForm({bet,disabled,onSubmit,questions,drivers}){
         <input disabled={disabled} className="select border rounded px-3 py-2 w-full" value={q2} onChange={e=>setQ2(e.target.value)} placeholder="Respuesta 2"/>
         <input disabled={disabled} className="select border rounded px-3 py-2 w-full" value={q3} onChange={e=>setQ3(e.target.value)} placeholder="Respuesta 3"/>
       </div>
-      <button disabled={disabled} className={`mt-3 px-4 py-2 rounded ${disabled?"bg-slate-200 text-slate-500":"bg-emerald-600 text-white"}`}>{disabled?"Cerrado":"Guardar apuesta"}</button>
+      <button disabled={disabled} className={`mt-3 px-4 py-2 rounded ${disabled?"bg-slate-200 text-slate-500":late?"bg-amber-600 text-white":"bg-emerald-600 text-white"}`}>{disabled?"Cerrado por admin":late?"Guardar apuesta (fuera de plazo, -2 pts)":"Guardar apuesta"}</button>
     </form>
   );
 }
@@ -410,7 +412,11 @@ function betsAreEqual(prev,next){
 
 function scoreForRace(db, raceKey, name){
   const bet=db.bets?.[raceKey]?.[name]; const res=db.results?.[raceKey];
-  if(!bet) return {points:0,hits:0,exact:0,pen:0,gotPole:false,gotAllPodium:false,gotAllQuestions:false,fullHouse:false,submittedAt:null};
+  const noBet=!bet;
+  if(noBet){
+    const hasResults=!!res;
+    return {points:hasResults?-3:0,hits:0,exact:0,pen:hasResults?1:0,gotPole:false,gotAllPodium:false,gotAllQuestions:false,fullHouse:false,submittedAt:null,missed:hasResults,late:false};
+  }
   let pts=0,hits=0,pen=0,exact=0;
   if(res?.pole && bet.pole===res.pole){pts++;hits++;}
   if(res?.podium){ bet.podium?.forEach((p,i)=>{ if(p===res.podium[i]){pts++;hits++;} }); }
@@ -418,11 +424,11 @@ function scoreForRace(db, raceKey, name){
   const gotPole=res?.pole && bet.pole===res.pole; const gotAllPod=res?.podium && bet.podium?.every((p,i)=>p===res.podium[i]); const gotAllQ=res?.qAnswers && bet.q?.every((a,i)=>(a||'').toLowerCase().trim()===(res.qAnswers[i]||'').toLowerCase().trim());
   if(gotPole && gotAllPod) pts+=2; if(gotPole && gotAllPod && gotAllQ) pts+=2;
   if(!bet.pole && (!bet.podium || bet.podium.filter(Boolean).length<3)){pts-=1;pen++;}
-  if(bet.late){pts-=3;pen++;}
+  if(bet.late){pts-=2;pen++;}
   if(gotAllPod) exact=1; const fullHouse=!!(gotPole && gotAllPod && gotAllQ);
   const manualAdj=Number(db.scoreAdjustments?.[raceKey]?.[name]||0) || 0;
   const finalPoints=pts+manualAdj;
-  return {points:finalPoints,hits,exact,pen,gotPole:!!gotPole,gotAllPodium:!!gotAllPod,gotAllQuestions:!!gotAllQ,fullHouse,manualAdj,submittedAt:bet.submittedAt||null};
+  return {points:finalPoints,hits,exact,pen,gotPole:!!gotPole,gotAllPodium:!!gotAllPod,gotAllQuestions:!!gotAllQ,fullHouse,manualAdj,submittedAt:bet.submittedAt||null,missed:false,late:!!bet.late};
 }
 
 function computeGPWins(db, races, participants){
@@ -509,7 +515,7 @@ function buildStats(db,races){
   };
 }
 function describeBetAgainstResult(bet,res,manualAdj=0){
-  if(!bet) return {points:0, items:[{label:"Sin apuesta enviada", delta:0}]};
+  if(!bet) return {points:res?-3:0, items:[{label:"No participó en la apuesta", delta:res?-3:0}]};
   let pts=0;
   const items=[];
   const push=(label,delta)=>{ pts+=delta; items.push({label,delta}); };
@@ -537,7 +543,7 @@ function describeBetAgainstResult(bet,res,manualAdj=0){
   if(gotPole && gotAllPod) push("Bonus pole + podio",2);
   if(gotPole && gotAllPod && gotAllQ) push("Bonus pleno (pole+podio+preguntas)",2);
   if(!bet.pole && (!bet.podium || bet.podium.filter(Boolean).length<3)) push("Penalización por apuesta incompleta",-1);
-  if(bet.late) push("Penalización por fuera de plazo",-3);
+  if(bet.late) push("Penalización por fuera de plazo",-2);
   if(manualAdj!==0) push("Ajuste manual", manualAdj);
   return {points:pts, items};
 }
@@ -643,7 +649,7 @@ function RaceBreakdown({db,races,raceKey,rows}){
       <div className="flex flex-col gap-1">
         <h3 className="font-semibold">Detalle puntos — {race?.grand_prix||raceKey}</h3>
         <div className="text-sm text-slate-300">Oficial: Pole {res.pole||"—"} · Podio {podium.join(" · ")} · Preguntas {questions.join(" · ")}</div>
-        <div className="text-xs text-slate-400">Desempates en la tabla superior: puntos, TB1 (suma de posiciones), aciertos, orden exacto, penalizaciones.</div>
+        <div className="text-xs text-slate-400">Desempates: puntos → victorias GP → podios exactos → aciertos → menos penalizaciones → apuesta más temprana.</div>
       </div>
       <div className="grid gap-3">
         {rows.map(row=>{
@@ -654,7 +660,7 @@ function RaceBreakdown({db,races,raceKey,rows}){
             <div key={row.name} className="border border-white/10 rounded p-3 bg-neutral-900">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2"><Avatar name={row.name} avatar={db.meta?.avatars?.[row.name]} size="sm"/><span className="font-medium">{row.name}</span></div>
-                <div className="text-sm">{row.points} pts {bet?.late && <span className="text-xs text-amber-300 ml-2">(tarde)</span>}</div>
+                <div className="text-sm">{row.points} pts {!bet && <span className="text-xs text-red-300 ml-2">(sin apuesta)</span>}{bet?.late && <span className="text-xs text-amber-300 ml-2">(fuera de plazo)</span>}</div>
               </div>
               <ul className="mt-2 space-y-1 text-xs text-slate-300">
                 {detail.items.map((item,idx)=>(<li key={idx} className="flex items-center justify-between border border-white/5 rounded px-2 py-1"><span>{item.label}</span><span className={`ml-2 ${item.delta>0?"text-emerald-300":item.delta<0?"text-amber-300":"text-slate-400"}`}>{item.delta>0?`+${item.delta}`:item.delta}</span></li>))}
@@ -844,10 +850,10 @@ function RuleCard({icon,text}){
 function F1Rules(){
   const scoring=[
     {icon:"🏁",text:"Antes de cada GP, apuestas: pole position, podio (P1, P2, P3) y 3 preguntas del autor de turno."},
-    {icon:"⏰",text:"Cierre de apuestas: antes de la clasificación (Q1). Hora exacta indicada en cada carrera."},
+    {icon:"⏰",text:"Cierre de apuestas: antes de la clasificación (Q1). Hora exacta indicada en cada carrera. Se puede apostar fuera de plazo, pero conlleva penalización."},
     {icon:"🎯",text:"Pole acertada: +1 punto. Cada posición de podio exacta: +1 punto (máx 3). Cada pregunta acertada: +1 punto (máx 3)."},
     {icon:"🔥",text:"Bonus combo: pole + podio completo → +2 puntos extra. Pleno total (pole + podio + 3 preguntas) → +2 puntos extra más. Máximo por carrera: 11 puntos."},
-    {icon:"⚠️",text:"Apuesta incompleta (sin pole o sin podio): -1 punto. Apuesta tardía (fuera de plazo): -3 puntos."},
+    {icon:"⚠️",text:"Apuesta incompleta (sin pole o sin podio): -1 punto. Apuesta fuera de plazo: -2 puntos. No apostar en un GP: -3 puntos. Las penalizaciones se aplican automáticamente."},
     {icon:"❓",text:"Las 3 preguntas las pone un participante distinto en cada GP, por turno rotatorio."},
   ];
   const tiebreakers=[
@@ -855,7 +861,7 @@ function F1Rules(){
     {icon:"2️⃣",text:"Victorias de GP: quien haya sido el mejor puntuado en más carreras individuales (sin compartir)."},
     {icon:"3️⃣",text:"Podios exactos: más veces que acertó el podio completo."},
     {icon:"4️⃣",text:"Aciertos totales: suma de todos los elementos acertados (pole, posiciones, preguntas)."},
-    {icon:"5️⃣",text:"Menos penalizaciones: menos apuestas incompletas o tardías."},
+    {icon:"5️⃣",text:"Menos penalizaciones: menos apuestas incompletas, tardías o no realizadas."},
     {icon:"6️⃣",text:"Apuesta más temprana: si persiste el empate, gana quien tenga un promedio de envío de apuesta más temprano (incentiva no esperar al último segundo)."},
   ];
   return (
@@ -877,11 +883,11 @@ function F1Rules(){
 function FutbolRules(){
   const scoring=[
     {icon:"⚽",text:"4 partidos por jornada: Madrid, Barça, Real Sociedad y Sporting. Si se enfrentan entre ellos, mete partido(s) de reserva hasta llegar a 4."},
-    {icon:"⏰",text:"Límite para apostar: viernes 15:00 (marcadores + respuestas a 3 preguntas)."},
+    {icon:"⏰",text:"Límite para apostar: viernes 15:00 (marcadores + respuestas a 3 preguntas). Se puede apostar fuera de plazo, pero conlleva penalización."},
     {icon:"🎯",text:"Puntos partidos: 3 por resultado exacto, 1 por acertar el signo (1X2), 0 si fallas."},
     {icon:"❓",text:"Preguntas extra: 3 por jornada, cada acierto vale 2 puntos. Máximo jornada = 18 puntos."},
-    {icon:"⚠️",text:"No apostar a tiempo: 0 puntos + -2 puntos en la general. Con 3 jornadas sin apostar → eliminado."},
-    {icon:"💥",text:"Apuestas catastróficas (0 puntos en todo): -1 punto extra en la general."},
+    {icon:"⚠️",text:"Apuesta fuera de plazo: -2 puntos. No apostar en una jornada: -3 puntos. Con 3 jornadas sin apostar → eliminado. Las penalizaciones se aplican automáticamente."},
+    {icon:"💥",text:"Apuestas catastróficas (0 puntos en todo, dentro de plazo): -1 punto extra en la general."},
   ];
   const tiebreakers=[
     {icon:"1️⃣",text:"Puntos totales: más puntos gana."},
@@ -889,7 +895,7 @@ function FutbolRules(){
     {icon:"3️⃣",text:"Más resultados exactos acumulados."},
     {icon:"4️⃣",text:"Más preguntas acertadas."},
     {icon:"5️⃣",text:"Más signos (1X2) acertados."},
-    {icon:"6️⃣",text:"Menos jornadas sin apostar."},
+    {icon:"6️⃣",text:"Menos jornadas sin apostar o fuera de plazo."},
     {icon:"7️⃣",text:"Menor diferencia de goles acumulada: suma de |predicción - resultado| en todos los partidos. Premia al que estuvo más cerca incluso sin acertar exacto."},
   ];
   return (
@@ -908,7 +914,7 @@ function FutbolRules(){
   );
 }
 
-function FutbolBetForm({jornada,bet,disabled,onSubmit}){
+function FutbolBetForm({jornada,bet,disabled,onSubmit,late}){
   const matches=jornada?.matches||[];
   const initialScores=()=>matches.map((_,idx)=>({home:bet?.matches?.[idx]?.home??"", away:bet?.matches?.[idx]?.away??""}));
   const [scores,setScores]=useState(initialScores);
@@ -943,7 +949,7 @@ function FutbolBetForm({jornada,bet,disabled,onSubmit}){
           ))}
         </div>
       </div>
-      <button disabled={disabled} className={`mt-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${disabled?"bg-white/5 text-white/30 border border-white/5":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{disabled?"⏳ Cerrado":"✅ Guardar apuesta"}</button>
+      <button disabled={disabled} className={`mt-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${disabled?"bg-white/5 text-white/30 border border-white/5":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{disabled?"⏳ Cerrado por admin":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"✅ Guardar apuesta"}</button>
     </form>
   );
 }
@@ -960,15 +966,16 @@ function FutbolParticipante({user,db,setDb}){
   const deadline=jornada?.deadline?new Date(jornada.deadline):null;
   const manualWindow=futbol.betsWindow?.[selected];
   const manualReveal=futbol.betsReveal?.[selected];
-  const baseCanEdit=deadline ? now<deadline : true;
-  const canEdit=manualWindow?.forceClosed?false:manualWindow?.forceOpen?true:baseCanEdit;
+  const isBeforeDeadline=deadline ? now<deadline : true;
+  const isFutbolLate=deadline ? now>=deadline : false;
+  const canEdit=manualWindow?.forceClosed?false:true;
   const revealAt=deadline?new Date(deadline.getTime()+60*1000):null;
   const canViewFull=manualReveal?.forceShow || (!!revealAt && now>revealAt);
   const bet=jornada ? (futbol.bets?.[selected]?.[user]||{matches:[],questions:["","",""],submittedAt:null,late:false}) : null;
   const res=jornada ? futbol.results?.[selected] : null;
   const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
   const myScore=jornada && res ? scoreFutbolJornada(db,selected,user) : null;
-  const betsStatus=jornada ? (manualWindow?.forceClosed?"Cerrado por admin":manualWindow?.forceOpen?"Abierto por admin":(deadline?`Cierre automático: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto")) : "—";
+  const betsStatus=jornada ? (manualWindow?.forceClosed?"Cerrado por admin":(isFutbolLate?`Fuera de plazo (penalización -2 pts)`:(deadline?`Cierre: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto"))) : "—";
   const saveBet=(payload)=>{
     if(!jornada) return;
     const ts=nowISO();
@@ -990,7 +997,7 @@ function FutbolParticipante({user,db,setDb}){
       }
       return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
     });
-    alert(late?"Apuesta registrada (fuera de plazo)":"Apuesta guardada");
+    alert(late?"Apuesta registrada (fuera de plazo: penalización -2 pts)":"Apuesta guardada correctamente");
   };
   const showOthersPanel=showOthers && !!jornada;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
@@ -1014,8 +1021,14 @@ function FutbolParticipante({user,db,setDb}){
         ) : (
           <p className="text-sm text-white/40 mb-3 p-3 rounded-xl bg-white/[.02] border border-white/[.06]">No hay jornadas creadas. Pide al admin que añada una.</p>
         )}
+        {jornada && isFutbolLate && canEdit && (
+          <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
+            <div className="font-semibold text-amber-200">⚠️ Apuesta fuera de plazo</div>
+            <div className="text-sm text-amber-300/80 mt-1">El plazo de apuestas ha cerrado. Puedes apostar igualmente, pero se aplicará una <b>penalización de -2 puntos</b>. No apostar supone <b>-3 puntos</b>.</div>
+          </div>
+        )}
         {jornada && (
-          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit} onSubmit={saveBet} />
+          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit} late={isFutbolLate} onSubmit={saveBet} />
         )}
         {myScore && (
           <div className="mt-4 border border-emerald-500/10 rounded-xl p-4 bg-white/[.02]">
@@ -1388,7 +1401,7 @@ function FutbolRanking({db}){
         <div className="overflow-x-auto">
           <table className="min-w-[720px] text-sm">
             <thead>
-              <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Pts</th>{scope==="all"&&<th className="p-2 text-left">Victorias</th>}<th className="p-2 text-left">Exactos</th><th className="p-2 text-left">Preg.</th><th className="p-2 text-left">Signos</th><th className="p-2 text-left">Sin ap.</th>{scope==="all"&&<th className="p-2 text-left">Dif. goles</th>}</tr>
+              <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Pts</th>{scope==="all"&&<th className="p-2 text-left">Victorias</th>}<th className="p-2 text-left">Exactos</th><th className="p-2 text-left">Preg.</th><th className="p-2 text-left">Signos</th><th className="p-2 text-left" title="Sin apuesta / Fuera de plazo">Pen.</th>{scope==="all"&&<th className="p-2 text-left">Dif. goles</th>}</tr>
             </thead>
             <tbody>
               {rows.map((r,idx)=>(
@@ -1400,7 +1413,7 @@ function FutbolRanking({db}){
                   <td className="p-2">{r.exact}</td>
                   <td className="p-2">{r.qHits}</td>
                   <td className="p-2">{r.signs}</td>
-                  <td className="p-2">{r.missed}</td>
+                  <td className="p-2" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{(r.missed||0)+(r.late||0)}</td>
                   {scope==="all"&&<td className="p-2">{r.goalDiff}</td>}
                 </tr>
               ))}
@@ -1408,7 +1421,7 @@ function FutbolRanking({db}){
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-white/30">Desempates: puntos → jornadas ganadas → exactos → preguntas → signos → menos sin apostar → menor diferencia de goles.</p>
+        <p className="text-xs text-white/30">Desempates: puntos → jornadas ganadas → exactos → preguntas → signos → menos penalizaciones (sin apuesta + fuera de plazo) → menor diferencia de goles.</p>
       </div>
       {scope!=="all" && (
         <div className="card p-4 space-y-2">
@@ -1780,14 +1793,15 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   const owner=race?(db.questionOwner?.[race.key]||""):""; const questions=race?(db.questions?.[race.key]||["","",""]):["","",""];
   const manualWindow=race ? db.betsWindow?.[race.key] : null;
   const manualReveal=race ? db.betsReveal?.[race.key] : null;
-  const baseCanEdit=race && now<race.cutoff;
-  const canEdit=race ? (manualWindow?.forceClosed?false:manualWindow?.forceOpen?true:baseCanEdit) : false;
+  const isBeforeCutoff=race && now<race.cutoff;
+  const isLate=race && !isBeforeCutoff;
+  const canEdit=race ? (manualWindow?.forceClosed?false:true) : false;
   const isAdmin=!!db.users?.[user]?.isAdmin;
   const canViewFull=race && (manualReveal?.forceShow || now>race.showBetsAt);
   const showStatusOnly=isAdmin && race && !canViewFull;
   const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
-  const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":manualWindow?.forceOpen?"Abierto por admin":(now<race.cutoff?"Abierto (horario)":"Cerrado (horario)")) : "—";
+  const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
   const last3RacesDisplay=useMemo(()=>{
     const nowMs=Date.now();
     const withResults=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3).map(r=>({race:r,score:scoreForRace(db,r.key,user),hasData:true}));
@@ -1841,7 +1855,13 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
         </div>
       )}
       {race && (<div className="mb-3"><div className="flex items-start justify-between bg-amber-500/10 border border-amber-400/30 rounded p-2"><div><div className="font-medium text-amber-200">Preguntas de este GP</div><div className="text-xs text-amber-300">{owner?<>Autor: <b>{owner}</b> — {db.questionsStatus?.[race.key]?.published?"Publicadas":"Pendiente"}</>:"Sin autor asignado"}</div></div></div>{(owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked)) && (<div id="owner-questions-editor" className="mt-2 space-y-2 bg-neutral-900 border border-white/10 rounded p-3"><div className="text-xs text-slate-300">Editor de preguntas (hasta 4h antes de quali)</div><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div><div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return alert("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); alert("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return alert("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); alert("Actualizado"); }}>Actualizar</button>)}</div></div>)}</div>)}
-      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={(b)=>{ const late=new Date()>=race.cutoff; setDb(prev=>{
+      {race && isLate && canEdit && (
+        <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
+          <div className="font-semibold text-amber-200">⚠️ Apuesta fuera de plazo</div>
+          <div className="text-sm text-amber-300/80 mt-1">El plazo de apuestas ha cerrado. Puedes apostar igualmente, pero se aplicará una <b>penalización de -2 puntos</b>. No apostar supone <b>-3 puntos</b>.</div>
+        </div>
+      )}
+      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={(b)=>{ const late=new Date()>=race.cutoff; setDb(prev=>{
         const timestamp=nowISO();
         const prevRaceBets={...(prev.bets?.[race.key]||{})};
         const prevBet=prevRaceBets[user];
@@ -1855,7 +1875,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
           betHistory={...betHistory,[race.key]:{...raceHistory,[user]:userLog}};
         }
         return {...prev, bets:nextBets, betHistory};
-      }); alert(late?"Apuesta enviada (fuera de plazo)":"Apuesta guardada"); }}/>}      
+      }); alert(late?"Apuesta registrada (fuera de plazo: penalización -2 pts)":"Apuesta guardada correctamente"); }}/>}      
       {race && prevYearResult && REAL_HISTORICAL_2025_KEYS.includes(race.key) && (
         <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
           <h3 className="text-sm font-semibold text-slate-200 mb-2">📋 Resultado año anterior ({race.grand_prix} {CURRENT_SEASON_YEAR-1})</h3>
