@@ -2962,30 +2962,32 @@ function App(){
   },[drivers,teams,db.meta,defaultPwdHash]);
   useEffect(()=>{
     if(!hydrated) return;
-    if(db.meta?.futbolJornadasUpdated) return;
-    const futbol=db.futbol||defaultFutbolState();
-    const order=futbol.order||[];
-    const hasOldSeed=order.length>0 && order.every(id=>["J1","J2","J3"].includes(id));
-    const needsUpdate=order.length===0||hasOldSeed;
-    if(!needsUpdate) return;
+    if(db.meta?.futbolJornadasV2) return;
     const defaultJornadas=[
-      {id:"J28",name:"Jornada 28 (13-16 Mar)",deadline:new Date(2026,2,13,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Elche"},{home:"FC Barcelona",away:"Sevilla"},{home:"Real Sociedad",away:"Osasuna"},{home:"Oviedo",away:"Valencia"}]},
-      {id:"J29",name:"Jornada 29 (20-22 Mar)",deadline:new Date(2026,2,20,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Atlético de Madrid"},{home:"FC Barcelona",away:"Rayo Vallecano"},{home:"Villarreal",away:"Real Sociedad"},{home:"Athletic Club",away:"Betis"}]},
-      {id:"J30",name:"Jornada 30 (5 Abr)",deadline:new Date(2026,3,3,15,0).toISOString(),matches:[{home:"Mallorca",away:"Real Madrid"},{home:"Atlético de Madrid",away:"FC Barcelona"},{home:"Real Sociedad",away:"Levante"},{home:"Oviedo",away:"Sevilla"}]}
+      {id:"J27",name:"Jornada 27 (7-9 Mar)",deadline:new Date(2026,2,6,15,0).toISOString(),matches:[{home:"Getafe",away:"Real Madrid"},{home:"FC Barcelona",away:"Rayo Vallecano"},{home:"Real Sociedad",away:"Villarreal"},{home:"Real Sporting de Gijón",away:"Burgos CF"}]},
+      {id:"J28",name:"Jornada 28 (14-16 Mar)",deadline:new Date(2026,2,13,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Girona"},{home:"Celta de Vigo",away:"FC Barcelona"},{home:"Osasuna",away:"Real Sociedad"},{home:"Mirandés",away:"Real Sporting de Gijón"}]},
+      {id:"J29",name:"Jornada 29 (21-23 Mar)",deadline:new Date(2026,2,20,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Atlético de Madrid"},{home:"FC Barcelona",away:"Sevilla"},{home:"Real Sociedad",away:"Athletic Club"},{home:"Real Sporting de Gijón",away:"Levante"}]},
+      {id:"J30",name:"Jornada 30 (4-6 Abr)",deadline:new Date(2026,3,3,15,0).toISOString(),matches:[{home:"Mallorca",away:"Real Madrid"},{home:"Atlético de Madrid",away:"FC Barcelona"},{home:"Betis",away:"Real Sociedad"},{home:"Elche",away:"Real Sporting de Gijón"}]},
+      {id:"J31",name:"Jornada 31 (11-13 Abr)",deadline:new Date(2026,3,10,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Betis"},{home:"FC Barcelona",away:"Mallorca"},{home:"Real Sociedad",away:"Getafe"},{home:"Real Sporting de Gijón",away:"Albacete"}]},
+      {id:"J32",name:"Jornada 32 (18-20 Abr)",deadline:new Date(2026,3,17,15,0).toISOString(),matches:[{home:"Valencia",away:"Real Madrid"},{home:"Villarreal",away:"FC Barcelona"},{home:"Celta de Vigo",away:"Real Sociedad"},{home:"Huesca",away:"Real Sporting de Gijón"}]},
+      {id:"J33",name:"Jornada 33 (25-27 Abr)",deadline:new Date(2026,3,24,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Osasuna"},{home:"FC Barcelona",away:"Athletic Club"},{home:"Real Sociedad",away:"Espanyol"},{home:"Real Sporting de Gijón",away:"Racing de Santander"}]},
+      {id:"J34",name:"Jornada 34 (2-4 May)",deadline:new Date(2026,4,1,15,0).toISOString(),matches:[{home:"Sevilla",away:"Real Madrid"},{home:"Rayo Vallecano",away:"FC Barcelona"},{home:"Espanyol",away:"Real Sociedad"},{home:"Castellón",away:"Real Sporting de Gijón"}]},
+      {id:"J35",name:"Jornada 35 (9-11 May)",deadline:new Date(2026,4,8,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Celta de Vigo"},{home:"FC Barcelona",away:"Getafe"},{home:"Real Sociedad",away:"Mallorca"},{home:"Real Sporting de Gijón",away:"Real Zaragoza"}]},
+      {id:"J36",name:"Jornada 36 (16-18 May)",deadline:new Date(2026,4,15,15,0).toISOString(),matches:[{home:"Athletic Club",away:"Real Madrid"},{home:"Girona",away:"FC Barcelona"},{home:"Valladolid",away:"Real Sociedad"},{home:"Córdoba CF",away:"Real Sporting de Gijón"}]},
+      {id:"J37",name:"Jornada 37 (23-25 May)",deadline:new Date(2026,4,22,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Villarreal"},{home:"FC Barcelona",away:"Osasuna"},{home:"Real Sociedad",away:"Sevilla"},{home:"Real Sporting de Gijón",away:"Granada CF"}]},
+      {id:"J38",name:"Jornada 38 (30 May-1 Jun)",deadline:new Date(2026,4,29,15,0).toISOString(),matches:[{home:"Espanyol",away:"Real Madrid"},{home:"Valladolid",away:"FC Barcelona"},{home:"Atlético de Madrid",away:"Real Sociedad"},{home:"Deportivo de la Coruña",away:"Real Sporting de Gijón"}]}
     ];
     setDb(prev=>{
       const f=prev.futbol||defaultFutbolState();
       let jornadas={...f.jornadas};
       let newOrder=[...f.order||[]];
-      if(hasOldSeed){
-        ["J1","J2","J3"].forEach(id=>{ delete jornadas[id]; newOrder=newOrder.filter(x=>x!==id); });
-      }
+      ["J1","J2","J3","J28","J29","J30"].forEach(id=>{ delete jornadas[id]; newOrder=newOrder.filter(x=>x!==id); });
       defaultJornadas.forEach(j=>{
-        jornadas[j.id]=j;
+        if(!jornadas[j.id]) jornadas[j.id]=j;
         if(!newOrder.includes(j.id)) newOrder.push(j.id);
       });
       newOrder.sort((a,b)=>{ const na=parseInt(a.replace(/\D/g,""),10); const nb=parseInt(b.replace(/\D/g,""),10); return (na||0)-(nb||0)||a.localeCompare(b); });
-      return {...prev, futbol:{...f, jornadas, order:newOrder}, meta:{...(prev.meta||{}), futbolJornadasUpdated:true}};
+      return {...prev, futbol:{...f, jornadas, order:newOrder}, meta:{...(prev.meta||{}), futbolJornadasV2:true}};
     });
   },[hydrated,db.futbol,db.meta]);
   const raceOverrides=db.meta?.raceOverrides||{};
