@@ -6,7 +6,7 @@ console.info("[PorraF1] Versión carga", CACHE_BUST);
 
 const LS_KEY = "porra_f1_clean_v3";
 const DEFAULT_PASSWORD = "B1rr3r0s";
-const RECOVERY_CODE_HASH = "8589a91bcd279e41a8866ba284f187ee439d709a17adc6b05f290152884585ae";
+const RECOVERY_CODE_HASH = "3c9aed6bcbf0ebf23367e34557722796f040290945a9abc608599bda30c4c0d3";
 const QUESTION_AUTHORS_ORDER = ["Pere","Antonio","Manrique","Toni","Carlos"];
 const MADRID_TZ = "Europe/Madrid";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
