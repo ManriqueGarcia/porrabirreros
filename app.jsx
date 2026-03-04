@@ -346,24 +346,28 @@ function Login({db,setDb,onLogged}){
   const tryLogin=async (e)=>{ e&&e.preventDefault(); const u=db.users?.[name]; if(!u) return alert("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return alert("Contraseña incorrecta"); if(u.blocked) return alert("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); };
   const doChange=async (e)=>{ e.preventDefault(); if(n1.length<6) return alert("Mínimo 6 caracteres"); if(n1!==n2) return alert("No coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); };
   return (
-    <div className="grid gap-2 max-w-md">
+    <div className="grid gap-3">
       {!needsChange ? (
-        <form onSubmit={tryLogin} className="grid gap-2">
-          <label className="text-sm">Usuario</label>
-          <select className="select border rounded px-3 py-2 text-base" value={name} onChange={e=>setName(e.target.value)}>
-            <option value="">— elige —</option>
-            {Object.keys(db.users||{}).sort().map(n=><option key={n} value={n}>{n}</option>)}
-          </select>
-          <label className="text-sm mt-2">Contraseña</label>
-          <input type="password" className="select border rounded px-3 py-2" value={pass} onChange={e=>setPass(e.target.value)} />
-          <button className="mt-2 px-4 py-2 rounded bg-slate-900 text-white" onClick={tryLogin}>Entrar</button>
+        <form onSubmit={tryLogin} className="grid gap-3">
+          <div>
+            <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Usuario</label>
+            <select className="select border rounded px-3 py-2.5 text-base w-full" value={name} onChange={e=>setName(e.target.value)}>
+              <option value="">— elige —</option>
+              {Object.keys(db.users||{}).sort().map(n=><option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Contraseña</label>
+            <input type="password" className="select border rounded px-3 py-2.5 w-full" value={pass} onChange={e=>setPass(e.target.value)} />
+          </div>
+          <button className="mt-1 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white font-medium hover:bg-white/15 transition-all" onClick={tryLogin}>Entrar</button>
         </form>
       ) : (
-        <form onSubmit={doChange} className="grid gap-2">
-          <div className="text-sm text-amber-300">Es tu primer acceso. Cambia tu contraseña.</div>
-          <label className="text-sm">Nueva contraseña</label><input type="password" className="select border rounded px-3 py-2" value={n1} onChange={e=>setN1(e.target.value)} />
-          <label className="text-sm">Repite la nueva contraseña</label><input type="password" className="select border rounded px-3 py-2" value={n2} onChange={e=>setN2(e.target.value)} />
-          <button className="mt-2 px-4 py-2 rounded bg-emerald-600 text-white">Guardar y entrar</button>
+        <form onSubmit={doChange} className="grid gap-3">
+          <div className="text-sm text-amber-300/80">Es tu primer acceso. Cambia tu contraseña.</div>
+          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label><input type="password" className="select border rounded px-3 py-2.5 w-full" value={n1} onChange={e=>setN1(e.target.value)} /></div>
+          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label><input type="password" className="select border rounded px-3 py-2.5 w-full" value={n2} onChange={e=>setN2(e.target.value)} /></div>
+          <button className="mt-1 px-4 py-2.5 rounded-xl bg-emerald-600/80 border border-emerald-500/30 text-white font-medium hover:bg-emerald-600 transition-all">Guardar y entrar</button>
         </form>
       )}
     </div>
@@ -602,10 +606,11 @@ function Ranking({db,races,setDb,currentUser}){
       return {...prev, meta:{...meta, basePoints:base}};
     });
   };
+  const podiumIcon=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1;
   return (<div className="space-y-4">
-    <div className="card p-4"><div className="flex items-center justify-between mb-3"><h2 className="font-bold tracking-tight text-white/90">🏎️ Ranking F1</h2><select className="select select-strong border rounded-xl px-3 py-2 shadow-sm" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto"><table className="min-w-[800px] text-sm"><thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th>{scope==="all"&&<th className="p-2 text-left">Victorias GP</th>}<th className="p-2 text-left">Podios exactos</th><th className="p-2 text-left">Aciertos</th><th className="p-2 text-left">Penalizaciones</th></tr></thead><tbody>{data.map((r,i)=>(<tr key={r.name} className="border-t border-white/10"><td className="p-2">{manualActive?(r.manualRank||i+1):i+1}</td><td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}</span></div></td><td className="p-2 font-semibold">{r.points}</td>{scope==="all"&&<td className="p-2">{r.wins}</td>}<td className="p-2">{r.exact}</td><td className="p-2">{r.hits}</td><td className="p-2">{r.pen}</td></tr>))}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Mostrando clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática + sumar backup</button></div>:<p className="text-xs text-white/30 mt-2">Desempates: puntos → victorias GP → podios exactos → aciertos → menos penalizaciones → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-xs text-emerald-300 mt-1">Incluye puntos base importados: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <div className="card p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title">🏎️ Ranking F1</h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10">#</th><th className="text-left">Participante</th><th className="text-right">Pts</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Victorias</th>}<th className="text-right hidden sm:table-cell">Podios</th><th className="text-right hidden sm:table-cell">Aciertos</th><th className="text-right">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;return(<tr key={r.name} className={i<3?"border-l-2 "+(i===0?"border-l-yellow-500/60":i===1?"border-l-slate-400/50":"border-l-amber-700/50"):""} style={i===0?{background:"rgba(250,204,21,.04)"}:{}}><td className="font-medium text-white/60">{podiumIcon(i)}</td><td><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span className="font-medium">{r.name}</span></div></td><td className="text-right font-bold tabular-nums">{r.points}</td>{scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/50 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/50 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/40">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/25 mt-2">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/60 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
     <RaceBreakdown db={db} races={races} raceKey={scope} rows={data} />
-    <div className="card p-4"><h3 className="font-semibold mb-2">Ranking campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
+    <div className="card p-4 md:p-5"><h3 className="section-title mb-3">Ranking campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
     {isAdmin && setDb && (
       <div className="card p-4 space-y-3">
         <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -638,11 +643,11 @@ function Ranking({db,races,setDb,currentUser}){
 function RaceBreakdown({db,races,raceKey,rows}){
   if(!raceKey || raceKey==="all"){
     const latest=(races||[]).find(r=>db.results?.[r.key]);
-    return <div className="card p-4"><h3 className="font-semibold">Detalle puntos</h3><p className="text-sm text-slate-300">{latest?"Selecciona un GP en el selector de arriba para ver su desglose.":"No hay resultados publicados aún."}</p></div>;
+    return <div className="card p-4 md:p-5"><h3 className="section-title">Detalle puntos</h3><p className="text-sm text-white/40 mt-2">{latest?"Selecciona un GP en el selector de arriba para ver su desglose.":"No hay resultados publicados aún."}</p></div>;
   }
   const race=(races||[]).find(r=>r.key===raceKey);
   const res=db.results?.[raceKey];
-  if(!res) return <div className="card p-4"><h3 className="font-semibold">Detalle puntos — {race?.grand_prix||raceKey}</h3><p className="text-sm text-slate-300">Añade resultados oficiales para ver el desglose.</p></div>;
+  if(!res) return <div className="card p-4 md:p-5"><h3 className="section-title">Detalle puntos — {race?.grand_prix||raceKey}</h3><p className="text-sm text-slate-300">Añade resultados oficiales para ver el desglose.</p></div>;
   const podium=res.podium||["","",""]; const questions=res.qAnswers||["","",""];
   return (
     <div className="card p-4 space-y-3">
@@ -674,7 +679,7 @@ function RaceBreakdown({db,races,raceKey,rows}){
 }
 
 function QuestionsHistory({db,races}){
-  return (<div className="card p-4 space-y-3"><h2 className="font-semibold">Histórico de preguntas</h2>{(races||[]).map(r=>{ const qs=db.questions?.[r.key]||["","",""]; const st=db.questionsStatus?.[r.key]; const owner=db.questionOwner?.[r.key]||""; return (<div key={r.key} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="flex items-center justify-between"><div className="font-medium">{r.round}. {r.grand_prix} — <span className="text-slate-300">{r.date_local}</span></div><div className="text-xs">{st?.published?<span className="text-emerald-400">Publicado</span>:<span className="text-amber-400">Pendiente</span>}</div></div><div className="text-xs text-slate-300">Autor: {owner||"—"}</div>{st?.published?<ol className="list-decimal pl-5 text-sm">{qs.map((q,i)=><li key={i}>{q||"—"}</li>)}</ol>:<div className="text-sm text-slate-400">Aún no publicadas.</div>}</div>); })}</div>);
+  return (<div className="card p-4 md:p-5 space-y-3"><h2 className="section-title">Histórico de preguntas</h2>{(races||[]).map(r=>{ const qs=db.questions?.[r.key]||["","",""]; const st=db.questionsStatus?.[r.key]; const owner=db.questionOwner?.[r.key]||""; return (<div key={r.key} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="flex items-center justify-between"><div className="font-medium">{r.round}. {r.grand_prix} — <span className="text-slate-300">{r.date_local}</span></div><div>{st?.published?<span className="badge badge-green">Publicado</span>:<span className="badge badge-amber">Pendiente</span>}</div></div><div className="text-xs text-slate-300">Autor: {owner||"—"}</div>{st?.published?<ol className="list-decimal pl-5 text-sm">{qs.map((q,i)=><li key={i}>{q||"—"}</li>)}</ol>:<div className="text-sm text-slate-400">Aún no publicadas.</div>}</div>); })}</div>);
 }
 
 function Historico(){
@@ -692,7 +697,7 @@ function Historico(){
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-semibold text-lg">{data.title||`Porra F1 ${data.year}`}</h2>
+        <h2 className="section-title text-lg">{data.title||`Porra F1 ${data.year}`}</h2>
         <select className="select border rounded px-3 py-2 text-sm" value={year} onChange={e=>setYear(Number(e.target.value))}>
           <option value={2025}>2025</option>
         </select>
@@ -1212,11 +1217,11 @@ function Stats({db,races}){
   ) : (<p className="text-sm text-slate-400">{emptyLabel}</p>);
   return (
     <div className="space-y-4">
-      <div className="card p-4 space-y-3">
-        <h2 className="font-semibold">Estadísticas</h2>
-        <p className="text-xs text-slate-400">Solo se calculan con carreras que ya tienen resultados publicados.</p>
+      <div className="card p-4 md:p-5 space-y-3">
+        <h2 className="section-title">Estadísticas</h2>
+        <p className="text-[11px] text-white/30">Solo carreras con resultados publicados.</p>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="border border-white/10 rounded p-3 bg-neutral-900">
+          <div className="rounded-xl p-3 bg-white/[.02] border border-white/[.06]">
             <h3 className="font-semibold mb-1">Más carreras ganadas</h3>
             {renderList(stats.winners,"Aún no hay ganadores registrados.",(item)=>`${item.name}`)} 
             <h3 className="font-semibold mt-3 mb-1">Plenos (pole+podio+preguntas)</h3>
@@ -1224,7 +1229,7 @@ function Stats({db,races}){
             <h3 className="font-semibold mt-3 mb-1">Más aciertos totales</h3>
             {renderList(stats.hitsLeaders,"Sin aciertos calculados.",(item)=>`${item.name}`)}
           </div>
-          <div className="border border-white/10 rounded p-3 bg-neutral-900">
+          <div className="rounded-xl p-3 bg-white/[.02] border border-white/[.06]">
             <h3 className="font-semibold mb-1">Mejores jornadas</h3>
             {stats.bestScores?.length ? (<ul className="space-y-1 text-sm mt-1">{stats.bestScores.map((row,idx)=>(<li key={idx} className="border border-white/10 rounded px-2 py-1 bg-neutral-900 flex items-center justify-between"><span>{row.name} — {row.race}</span><span className="text-xs text-emerald-300">{row.points} pts</span></li>))}</ul>) : (<p className="text-sm text-slate-400">Todavía no hay resultados.</p>)}
             <h3 className="font-semibold mt-3 mb-1">Peores jornadas</h3>
@@ -1288,14 +1293,14 @@ function F1Rules(){
   return (
     <div className="space-y-4">
       <div className="card p-5 space-y-4">
-        <h2 className="text-lg font-bold tracking-tight bg-gradient-to-r from-red-400 to-white bg-clip-text text-transparent">🏎️ Normas Porra F1 2026</h2>
-        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Puntuación</h3>
+        <h2 className="section-title text-lg">🏎️ Normas Porra F1 2026</h2>
+        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Puntuación</h3>
         <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
       </div>
       <div className="card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Criterios de desempate (en orden)</h3>
+        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Criterios de desempate (en orden)</h3>
         <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
-        <p className="text-xs text-white/30">Si tras todos los criterios persiste el empate, se comparte posición.</p>
+        <p className="text-[11px] text-white/25">Si tras todos los criterios persiste el empate, se comparte posición.</p>
       </div>
     </div>
   );
@@ -1322,14 +1327,14 @@ function FutbolRules(){
   return (
     <div className="space-y-4">
       <div className="card p-5 space-y-4">
-        <h2 className="text-lg font-bold tracking-tight bg-gradient-to-r from-emerald-300 to-white bg-clip-text text-transparent">📋 Normas Porra Fútbol</h2>
-        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Puntuación</h3>
+        <h2 className="section-title text-lg">📋 Normas Porra Fútbol</h2>
+        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Puntuación</h3>
         <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
       </div>
       <div className="card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Criterios de desempate (en orden)</h3>
+        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Criterios de desempate (en orden)</h3>
         <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
-        <p className="text-xs text-white/30">Si tras todos los criterios persiste el empate, se comparte posición.</p>
+        <p className="text-[11px] text-white/25">Si tras todos los criterios persiste el empate, se comparte posición.</p>
       </div>
     </div>
   );
@@ -1424,12 +1429,12 @@ function FutbolParticipante({user,db,setDb}){
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
   return (
     <div className={`grid gap-4 ${layoutCols}`}>
-      <div className="card p-4 min-w-0">
+      <div className="card p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="font-bold tracking-tight text-white/90">⚽ Tu apuesta</h2>
-          {jornada && (<button type="button" className="text-sm px-4 py-2 rounded-xl bg-white/[.05] border border-white/[.08] text-white/60 hover:bg-white/[.1] hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar apuestas":"👀 Ver apuestas de otros"}</button>)}
+          <h2 className="section-title">⚽ Tu apuesta</h2>
+          {jornada && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"Ver otras apuestas"}</button>)}
         </div>
-        <select className="select select-strong border rounded px-3 py-2 mb-3 shadow-sm" value={selected} onChange={e=>setSelected(e.target.value)}>
+        <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>
           {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id} {j.deadline?`— ${new Date(j.deadline).toLocaleDateString("es-ES")}`:""}</option>)}
         </select>
         {jornada ? (
@@ -1481,7 +1486,7 @@ function FutbolParticipante({user,db,setDb}){
       </div>
       {showOthersPanel && (
         <div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start">
-          <h2 className="font-semibold mb-4">Apuestas de otros</h2>
+          <h2 className="section-title mb-4">Apuestas de otros</h2>
           {!jornada && <p className="text-sm text-slate-300">Selecciona una jornada.</p>}
           {jornada && !canViewFull && <p className="text-sm text-slate-300">Se publicarán tras el cierre o si el admin las muestra antes.</p>}
           {jornada && canViewFull && (
@@ -1569,7 +1574,7 @@ function FutbolAdmin({db,setDb,currentUser}){
     }
   },[editUser,selected,editingMode,futbol,matches]);
   const participants=useMemo(()=>Object.keys(db.participants||{}).sort((a,b)=>a.localeCompare(b)),[db.participants]);
-  if(!isAdmin) return <div className="card p-4"><h2 className="font-semibold">Admin fútbol</h2><p className="text-sm text-slate-300">Inicia sesión como admin para editar.</p></div>;
+  if(!isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin fútbol</h2><p className="text-sm text-white/40">Inicia sesión como admin para editar.</p></div>;
   const ensureId=()=>{
     const id=(jId||jName||"").trim();
     return id || "";
@@ -1662,9 +1667,9 @@ function FutbolAdmin({db,setDb,currentUser}){
   const manualStatus=selected ? (futbol.betsWindow?.[selected]?.forceOpen?"Abierto manualmente":futbol.betsWindow?.[selected]?.forceClosed?"Cerrado manualmente":"Automático (viernes 15:00)") : "—";
   const revealStatus=selected ? (futbol.betsReveal?.[selected]?.forceShow?"Publicadas manualmente":"Automático tras cierre") : "—";
   return (
-    <div className="card p-4 space-y-4">
+    <div className="card p-4 md:p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Admin fútbol</h2>
+        <h2 className="section-title">Admin fútbol</h2>
         <div className="flex gap-2">
           <select className="select border rounded px-3 py-2" value={selected} onChange={e=>setSelected(e.target.value)}>
             <option value="">— Nueva jornada —</option>
@@ -1811,38 +1816,38 @@ function FutbolRanking({db}){
   const res=scope==="all"?null:futbol.results?.[scope];
   return (
     <div className="space-y-4">
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold tracking-tight text-white/90">⚽ Ranking fútbol</h2>
+      <div className="card p-4 md:p-5 space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <h2 className="section-title">⚽ Ranking fútbol</h2>
           <select className="select border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}>
             <option value="all">Global</option>
             {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}
           </select>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-[720px] text-sm">
+        <div className="overflow-x-auto rounded-xl border border-white/5">
+          <table className="text-sm w-full">
             <thead>
-              <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Pts</th>{scope==="all"&&<th className="p-2 text-left">Victorias</th>}<th className="p-2 text-left">Exactos</th><th className="p-2 text-left">Preg.</th><th className="p-2 text-left">Signos</th><th className="p-2 text-left" title="Sin apuesta / Fuera de plazo">Pen.</th>{scope==="all"&&<th className="p-2 text-left">Dif. goles</th>}</tr>
+              <tr><th className="text-left w-10">#</th><th className="text-left">Participante</th><th className="text-right">Pts</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Victorias</th>}<th className="text-right hidden sm:table-cell">Exactos</th><th className="text-right hidden sm:table-cell">Preg.</th><th className="text-right hidden sm:table-cell">Signos</th><th className="text-right" title="Penalizaciones">Pen.</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Dif.</th>}</tr>
             </thead>
             <tbody>
               {rows.map((r,idx)=>(
-                <tr key={r.name} className="border-t border-white/10">
-                  <td className="p-2">{idx+1}</td>
-                  <td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</span></div></td>
-                  <td className="p-2 font-semibold">{r.points}</td>
-                  {scope==="all"&&<td className="p-2">{r.wins}</td>}
-                  <td className="p-2">{r.exact}</td>
-                  <td className="p-2">{r.qHits}</td>
-                  <td className="p-2">{r.signs}</td>
-                  <td className="p-2" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{(r.missed||0)+(r.late||0)}</td>
-                  {scope==="all"&&<td className="p-2">{r.goalDiff}</td>}
+                <tr key={r.name} className={idx<3?"border-l-2 "+(idx===0?"border-l-yellow-500/60":idx===1?"border-l-slate-400/50":"border-l-amber-700/50"):""} style={idx===0?{background:"rgba(250,204,21,.04)"}:{}}>
+                  <td className="font-medium text-white/60">{idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":idx+1}</td>
+                  <td><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span className="font-medium">{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</span></div></td>
+                  <td className="text-right font-bold tabular-nums">{r.points}</td>
+                  {scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.wins}</td>}
+                  <td className="text-right text-white/50 hidden sm:table-cell">{r.exact}</td>
+                  <td className="text-right text-white/50 hidden sm:table-cell">{r.qHits}</td>
+                  <td className="text-right text-white/50 hidden sm:table-cell">{r.signs}</td>
+                  <td className="text-right text-white/40" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{(r.missed||0)+(r.late||0)}</td>
+                  {scope==="all"&&<td className="text-right text-white/50 hidden sm:table-cell">{r.goalDiff}</td>}
                 </tr>
               ))}
-              {rows.length===0 && <tr><td className="p-2 text-sm text-slate-300" colSpan={scope==="all"?9:7}>Sin datos (añade resultados y apuestas).</td></tr>}
+              {rows.length===0 && <tr><td className="text-sm text-slate-300" colSpan={scope==="all"?9:7}>Sin datos.</td></tr>}
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-white/30">Desempates: puntos → jornadas ganadas → exactos → preguntas → signos → menos penalizaciones (sin apuesta + fuera de plazo) → menor diferencia de goles.</p>
+        <p className="text-[11px] text-white/25">Desempates: puntos → victorias → exactos → preguntas → signos → menos pen. → menor dif. goles.</p>
       </div>
       {scope!=="all" && (
         <div className="card p-4 space-y-2">
@@ -1930,8 +1935,8 @@ const baseCalendar=baseCal;
   },[manualStandingsExists,db.standings,computedStandings]);
   const exportPayload=useMemo(()=>({...db, standings:standingsObject}),[db,standingsObject]);
   const exportJson=useMemo(()=>JSON.stringify(exportPayload,null,2),[exportPayload]);
-  if(!db.users?.[user]?.isAdmin) return <div className="card p-4"><h2 className="font-semibold">Admin</h2><p className="text-sm text-slate-300">Inicia sesión como admin.</p></div>;
-  if(!ok){ return (<div className="card p-4"><h2 className="font-semibold mb-2">Admin</h2><form onSubmit={(e)=>{e.preventDefault(); if(pass===(db.meta?.adminSecret||"manrique")){setOk(true);sessionStorage.setItem("admin_ok","1");} else alert("Contraseña admin incorrecta");}}><input type="password" className="select border rounded px-3 py-2 mr-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-3 py-2 rounded bg-slate-900 text-white">Entrar</button></form></div>); }
+  if(!db.users?.[user]?.isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin</h2><p className="text-sm text-white/40">Inicia sesión como admin.</p></div>;
+  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin</h2><form className="flex gap-2" onSubmit={(e)=>{e.preventDefault(); if(pass===(db.meta?.adminSecret||"manrique")){setOk(true);sessionStorage.setItem("admin_ok","1");} else alert("Contraseña admin incorrecta");}}><input type="password" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
   const driversText=(db.meta?.drivers||[]).join("\n");
   const teamsText=(db.meta?.teams||[]).join("\n");
   const driverList=(db.meta?.drivers?.length?db.meta.drivers:drivers)||[];
@@ -2106,8 +2111,8 @@ const baseCalendar=baseCal;
     reader.readAsText(file);
     event.target.value="";
   };
-  return (<div className="card p-4 space-y-4">
-    <div className="flex items-center justify-between"><h2 className="font-semibold">Admin</h2><button onClick={()=>{sessionStorage.removeItem("admin_ok"); setOk(false); setPass("");}} className="text-sm underline">Salir</button></div>
+  return (<div className="card p-4 md:p-5 space-y-4">
+    <div className="flex items-center justify-between"><h2 className="section-title">⚙ Admin</h2><button onClick={()=>{sessionStorage.removeItem("admin_ok"); setOk(false); setPass("");}} className="text-xs text-white/40 hover:text-white/70 transition-colors">Cerrar sesión admin</button></div>
     <div className="border border-white/10 rounded p-3">
       <h3 className="font-semibold mb-2">Gran Premio seleccionado</h3>
       <div className="grid gap-2 md:grid-cols-[2fr,1fr] md:items-center">
@@ -2232,16 +2237,16 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
   return (<div className={`grid gap-4 ${layoutCols}`}>
-    <div className="card p-4 min-w-0">
+    <div className="card p-4 md:p-5 min-w-0">
       <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-        <h2 className="font-semibold">Tu apuesta</h2>
-        {race && (<button type="button" className="text-sm px-3 py-1.5 rounded bg-neutral-900 text-white" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar apuestas":"Ver apuestas de otros"}</button>)}
+        <h2 className="section-title">Tu apuesta</h2>
+        {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"Ver otras apuestas"}</button>)}
       </div>
-      <select className="select select-strong border rounded px-3 py-2 mb-3 shadow-sm" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
+      <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
       {race && <div className="md:hidden"><CircuitCard race={race} circuits={circuits}/></div>}
       {race && (
-        <div className="mb-4 p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
-          <h3 className="text-sm font-semibold text-slate-100 mb-2 flex items-center gap-2">🕐 Horarios del GP</h3>
+        <div className="mb-4 p-3 rounded-xl bg-white/[.03] border border-white/[.06]">
+          <h3 className="text-sm font-semibold text-white/80 mb-2 flex items-center gap-2">🕐 Horarios del GP</h3>
           <div className="grid gap-2 text-sm">
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="text-slate-400">Quali:</span>
@@ -2355,7 +2360,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
         </div>
       )}
     </div>
-    {showOthersPanel && (<div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start"><h2 className="font-semibold mb-4">Apuestas de otros {showStatusOnly && <span className="text-xs text-emerald-300">(estado admin)</span>}</h2>
+    {showOthersPanel && (<div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start"><h2 className="section-title mb-4">Apuestas de otros {showStatusOnly && <span className="text-xs text-emerald-300">(estado admin)</span>}</h2>
       {!race && <p className="text-sm text-slate-300">Selecciona un GP para ver apuestas.</p>}
       {race && showStatusOnly && (
         <ul className="space-y-2">
@@ -2543,45 +2548,45 @@ function App(){
       setView("participante");
     }
   };
-  return (<div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-4 space-y-6">
-    <section className="hero p-6 md:p-8 text-center md:text-left relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 via-transparent to-blue-600/5 pointer-events-none"></div>
-      <div className="relative">
-        <div className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-white to-red-200 bg-clip-text text-transparent">Porra de los birreros</div>
-        <div className="text-sm md:text-base text-white/60 mt-2 font-light tracking-wide">Las cervezas están en juego 🍻 · {mode==="f1"?"F1 2026":"Fútbol"}</div>
-      </div>
-    </section>
-    <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-center md:text-left">{mode==="f1"?"Porra F1 — Temporada 2026":"Porra Fútbol"}</h1>
-        <div className="flex gap-2 justify-center md:justify-start items-center">
-          <span className="text-xs uppercase tracking-widest text-white/40 font-semibold">Modo</span>
-          <button className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${mode==="f1"?"bg-red-600/20 text-white border border-red-500/30 shadow-lg shadow-red-500/10":"bg-white/5 text-white/50 border border-white/8 hover:bg-white/10 hover:text-white/80"}`} onClick={()=>handleModeChange("f1")}>🏎️ F1</button>
-          <button className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${mode==="futbol"?"bg-emerald-600/20 text-white border border-emerald-500/30 shadow-lg shadow-emerald-500/10":"bg-white/5 text-white/50 border border-white/8 hover:bg-white/10 hover:text-white/80"}`} onClick={()=>handleModeChange("futbol")}>⚽ Fútbol</button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-        <nav className="flex flex-wrap gap-2 justify-center md:justify-end">
-          <button className={`px-3 py-2 rounded ${view==="participante"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("participante")}>Participante</button>
-          <button className={`px-3 py-2 rounded ${view==="ranking"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("ranking")}>Ranking</button>
-          {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="stats"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("stats")}>Estadísticas</button>}
-          {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>}
-          {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="historico"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("historico")}>Histórico</button>}
-          <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Normas</button>
-          {mode==="f1" && <button className="px-3 py-2 rounded bg-emerald-800/50 hover:bg-emerald-700/50 text-emerald-200 flex items-center gap-1.5" onClick={()=>setShowAI(true)}><img src="./assets/manribot.svg" alt="" className="w-5 h-5 inline-block"/> ManriBot</button>}
-          <button className={`px-3 py-2 rounded ${view==="admin"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("admin")}>Admin</button>
-        </nav>
-        {user ? (
-          <div className="text-sm flex flex-wrap items-center justify-center md:justify-end gap-3">
-            <span className="text-white/50">Hola,</span> <span className="font-semibold text-white/90">{user}</span>
-            <button className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 text-xs hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowPass(true)}>Contraseña</button>
-            <button className="text-white/30 hover:text-white/60 transition-colors text-xs" onClick={()=>logout()}>Salir</button>
+  return (<div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-3 md:p-4 space-y-4">
+    <header className="hero p-4 md:p-5 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-red-600/8 via-transparent to-blue-600/4 pointer-events-none"></div>
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="text-lg md:text-xl font-extrabold tracking-tight text-white">Porra Birreros</div>
+            <div className="text-xs text-white/40 font-medium tracking-wide">{mode==="f1"?"F1 · Temporada 2026":"Fútbol · Liga"} 🍻</div>
           </div>
-        ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <button className={`px-4 py-2 rounded-xl font-semibold text-xs transition-all ${mode==="f1"?"bg-red-600/20 text-white border border-red-500/25":"bg-white/5 text-white/45 border border-white/8 hover:bg-white/10"}`} onClick={()=>handleModeChange("f1")}>🏎️ F1</button>
+          <button className={`px-4 py-2 rounded-xl font-semibold text-xs transition-all ${mode==="futbol"?"bg-emerald-600/20 text-white border border-emerald-500/25":"bg-white/5 text-white/45 border border-white/8 hover:bg-white/10"}`} onClick={()=>handleModeChange("futbol")}>⚽ Fútbol</button>
+          {user && <div className="hidden md:flex items-center gap-2 ml-2 pl-2 border-l border-white/10">
+            <Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm"/>
+            <span className="text-sm font-medium text-white/80">{user}</span>
+            <button className="text-white/30 hover:text-white/60 text-xs ml-1" onClick={()=>setShowPass(true)}>🔑</button>
+            <button className="text-white/25 hover:text-white/50 text-xs" onClick={()=>logout()}>Salir</button>
+          </div>}
+        </div>
+        {user && <div className="flex md:hidden items-center justify-center gap-3 text-xs pt-1 border-t border-white/8">
+          <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm"/><span className="font-medium text-white/70">{user}</span></div>
+          <button className="text-white/40 hover:text-white/70" onClick={()=>setShowPass(true)}>Contraseña</button>
+          <button className="text-white/30 hover:text-white/60" onClick={()=>logout()}>Salir</button>
+        </div>}
       </div>
     </header>
-    {!user ? (<div className="card p-4"><h2 className="font-semibold mb-2">Acceso</h2><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); }} /></div>) : (
-      <div className="md:flex md:gap-5"><aside className="sidebar p-4 w-56 shrink-0 hidden md:flex md:flex-col md:items-center gap-1"><Avatar name={user} avatar={db.meta?.avatars?.[user]}/><div className="mt-2 text-sm font-semibold tracking-wide text-white/90">{user}</div><button type="button" className="text-xs text-white/30 hover:text-white/60 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button>{sidebarRace&&<CircuitCard race={sidebarRace} circuits={circuits} compact/>}</aside><main className="flex-1 space-y-6">
+    {user && <nav className="porra-nav justify-center">
+      <button className={view==="participante"?"nav-active":""} onClick={()=>setView("participante")}>Mi apuesta</button>
+      <button className={view==="ranking"?"nav-active":""} onClick={()=>setView("ranking")}>Ranking</button>
+      {mode==="f1" && <button className={view==="stats"?"nav-active":""} onClick={()=>setView("stats")}>Estadísticas</button>}
+      {mode==="f1" && <button className={view==="questions"?"nav-active":""} onClick={()=>setView("questions")}>Preguntas</button>}
+      {mode==="f1" && <button className={view==="historico"?"nav-active":""} onClick={()=>setView("historico")}>Histórico</button>}
+      <button className={view==="rules"?"nav-active":""} onClick={()=>setView("rules")}>Normas</button>
+      {mode==="f1" && <button className="nav-special flex items-center gap-1.5" onClick={()=>setShowAI(true)}><img src="./assets/manribot.svg" alt="" className="w-4 h-4"/> ManriBot</button>}
+      <button className={view==="admin"?"nav-active":""} onClick={()=>setView("admin")}>⚙ Admin</button>
+    </nav>}
+    {!user ? (<div className="card p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Acceso</h2><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); }} /></div>) : (
+      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]}/><button type="button" className="text-[11px] text-white/25 hover:text-white/50 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button>{sidebarRace&&<div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact/></div>}</aside><main className="flex-1 space-y-4 min-w-0">
         {mode==="f1" && (
           <>
             {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers} circuits={circuits} selectedRaceKey={mode==="f1"?selectedRaceKey:""} setSelectedRaceKey={mode==="f1"?setSelectedRaceKey:()=>{}}/>}
@@ -2603,7 +2608,7 @@ function App(){
         )}
       </main></div>
     )}
-    <footer className="text-xs text-white/30 pt-10 pb-6 text-center tracking-wide">Hecho con ❤️ por los birreros</footer>
+    <footer className="text-[11px] text-white/20 pt-8 pb-6 text-center tracking-wide">Porra Birreros · Hecho con ❤️ y cervezas</footer>
     <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} /><ChangeAvatarModal open={showAvatar} onClose={()=>setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />
     <AIAssistant open={showAI} onClose={()=>setShowAI(false)} races={races} />
   </div>);
