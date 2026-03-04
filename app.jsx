@@ -2517,6 +2517,24 @@ const CURRENT_SEASON_YEAR = 2026;
 const REAL_HISTORICAL_2025_KEYS = ["las_vegas","qatar","abu_dhabi"];
 const REAL_HISTORICAL_2025_ROUNDS = [22,23,24];
 
+function CountdownBadge({target,now}){
+  if(!target||!now) return null;
+  const diff=target.getTime()-now.getTime();
+  if(diff<=0) return <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 font-semibold">Cerrado</span>;
+  const totalMin=Math.floor(diff/60000);
+  const days=Math.floor(totalMin/1440);
+  const hours=Math.floor((totalMin%1440)/60);
+  const mins=totalMin%60;
+  let text="";
+  if(days>0) text=`${days}d ${hours}h ${mins}m`;
+  else if(hours>0) text=`${hours}h ${mins}m`;
+  else text=`${mins}m`;
+  const urgent=totalMin<120;
+  const warn=totalMin<720 && !urgent;
+  const cls=urgent?"bg-red-500/15 text-red-300 border-red-500/25 animate-pulse":warn?"bg-amber-500/15 text-amber-300 border-amber-500/20":"bg-emerald-500/10 text-emerald-300 border-emerald-500/15";
+  return <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${cls}`}>⏱ {text}</span>;
+}
+
 function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setSelectedRaceKey}){
   const [now,setNow]=useState(()=>new Date());
   const selected=selectedRaceKey||"";
@@ -2594,10 +2612,11 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
               </div>
             )}
             <div className="mt-2 pt-2 border-t border-slate-600/50">
-              <div className="flex flex-wrap items-baseline gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-slate-400">Cierre apuestas:</span>
                 <span className="text-amber-300 font-bold text-base">{formatTime(race.cutoff,MADRID_TZ)}</span>
                 <span className="text-amber-100 text-xs">(España)</span>
+                <CountdownBadge target={race.cutoff} now={now}/>
               </div>
               <div className="flex flex-wrap gap-3 mt-1 text-xs">
                 <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
