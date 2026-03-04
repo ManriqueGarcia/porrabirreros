@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120">
+  <defs>
+    <filter id="glow-canada" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="200" height="120" fill="rgba(0,0,0,0.4)"/>
+  <g filter="url(#glow-canada)">
+    <!-- Montreal: L-shape, hairpin, chicanes, Wall of Champions -->
+    <path d="M 25 95
+             L 25 45
+             Q 25 22 50 20
+             L 170 20
+             Q 192 22 192 50
+             L 192 75
+             Q 192 98 168 98
+             L 110 98
+             Q 92 98 90 80
+             L 90 55
+             Q 90 42 105 42
+             L 165 42
+             Q 178 42 178 55
+             L 178 68
+             Q 178 82 165 82
+             L 105 82
+             Q 90 82 90 68
+             L 90 50
+             Q 90 32 108 28
+             L 50 28
+             Q 25 30 25 45
+             L 25 95" fill="none" stroke="#E10600" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="25" y1="93" x2="25" y2="97" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https://images.unsplash.com; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
   <title>Porra de los birreros — F1 y Fútbol</title>
   <link rel="icon" href="data:,">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,27 +14,198 @@
   <script src="./assets/vendor/react-dom.js?v=20260301"></script>
   <script src="./assets/vendor/babel.js?v=20260301"></script>
   <style>
-    html,body{margin:0;min-height:100vh;color:#f5f5f5;}
-    html{background:#050208;}
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100vh;color:#f0f0f5;font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:.01em;}
+    html{background:#06060e;}
     body{background:transparent;}
-    body::before{content:'';position:fixed;inset:0;background:linear-gradient(180deg,rgba(5,2,8,.15) 0%,transparent 50%,rgba(5,2,8,.2) 100%);pointer-events:none;z-index:1;}
+
+    body::before{content:'';position:fixed;inset:0;background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(225,6,0,.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0,120,255,.08) 0%, transparent 50%),
+      linear-gradient(180deg,rgba(6,6,14,.1) 0%,transparent 40%,rgba(6,6,14,.3) 100%);
+      pointer-events:none;z-index:1;}
+    body[data-porra-mode="futbol"]::before{background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34,197,94,.1) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(34,197,94,.06) 0%, transparent 50%),
+      linear-gradient(180deg,rgba(6,6,14,.1) 0%,transparent 40%,rgba(6,6,14,.3) 100%);}
+
     #bg-f1,#bg-futbol{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+    #bg-f1::after,#bg-futbol::after{content:'';position:absolute;inset:0;background:rgba(6,6,14,.55);z-index:1;}
     #root{position:relative;z-index:2;}
+
     body[data-porra-mode="f1"] #bg-f1{display:block} body[data-porra-mode="f1"] #bg-futbol{display:none}
     body[data-porra-mode="futbol"] #bg-f1{display:none} body[data-porra-mode="futbol"] #bg-futbol{display:block}
-    .card,.hero,.sidebar{background:rgba(10,12,22,.88);backdrop-filter:blur(12px);border:1px solid rgba(225,6,0,.2);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(0,212,255,.03);}
-    body[data-porra-mode="futbol"] .card,body[data-porra-mode="futbol"] .hero,body[data-porra-mode="futbol"] .sidebar{border-color:rgba(34,197,94,.3);box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(34,197,94,.08);}
-    .hero{border-color:rgba(225,6,0,.35);}
-    body[data-porra-mode="futbol"] .hero{border-color:rgba(34,197,94,.4);}
-    /* Force readable selects */
-    select, .select { background:#fff !important; color:#111 !important; border-color: rgba(15,23,42,.3) !important; }
-    option { background:#fff; color:#111; }
-    .select-strong { background:#fff !important; color:#0f172a !important; font-weight:600; font-size:1rem; }
+
+    /* === GLASSMORPHISM CORE === */
+    .card,.hero,.sidebar{
+      background:rgba(255,255,255,.04);
+      backdrop-filter:blur(24px) saturate(1.4);
+      -webkit-backdrop-filter:blur(24px) saturate(1.4);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:20px;
+      box-shadow:
+        0 8px 32px rgba(0,0,0,.35),
+        0 0 0 1px rgba(255,255,255,.03),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      transition:border-color .3s ease, box-shadow .3s ease, transform .2s ease;
+    }
+    .card:hover{
+      border-color:rgba(255,255,255,.12);
+      box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.08);
+      transform:translateY(-1px);
+    }
+
+    /* F1 accent glow */
+    body[data-porra-mode="f1"] .card,
+    body[data-porra-mode="f1"] .sidebar{
+      border-color:rgba(225,6,0,.12);
+      box-shadow:0 8px 32px rgba(0,0,0,.35),0 0 0 1px rgba(225,6,0,.05),inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    body[data-porra-mode="f1"] .card:hover{
+      border-color:rgba(225,6,0,.25);
+      box-shadow:0 12px 40px rgba(225,6,0,.08),0 0 0 1px rgba(225,6,0,.1),inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .hero{
+      background:linear-gradient(135deg,rgba(225,6,0,.08) 0%,rgba(255,255,255,.03) 100%);
+      backdrop-filter:blur(28px) saturate(1.5);
+      -webkit-backdrop-filter:blur(28px) saturate(1.5);
+      border-color:rgba(225,6,0,.2);
+      box-shadow:0 8px 40px rgba(225,6,0,.1),0 0 0 1px rgba(225,6,0,.08),inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    /* Futbol accent */
+    body[data-porra-mode="futbol"] .card,
+    body[data-porra-mode="futbol"] .hero,
+    body[data-porra-mode="futbol"] .sidebar{
+      border-color:rgba(34,197,94,.15);
+      box-shadow:0 8px 32px rgba(0,0,0,.35),0 0 0 1px rgba(34,197,94,.06),inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    body[data-porra-mode="futbol"] .card:hover{
+      border-color:rgba(34,197,94,.3);
+      box-shadow:0 12px 40px rgba(34,197,94,.08),0 0 0 1px rgba(34,197,94,.1),inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    body[data-porra-mode="futbol"] .hero{
+      background:linear-gradient(135deg,rgba(34,197,94,.08) 0%,rgba(255,255,255,.03) 100%);
+      border-color:rgba(34,197,94,.25);
+    }
+
+    .sidebar{
+      background:rgba(255,255,255,.03);
+      backdrop-filter:blur(20px) saturate(1.3);
+      -webkit-backdrop-filter:blur(20px) saturate(1.3);
+    }
+
+    /* === BUTTONS === */
+    button, [type="button"], [type="submit"]{transition:all .2s ease;}
+    nav button, header button{
+      background:rgba(255,255,255,.06) !important;
+      backdrop-filter:blur(12px);
+      border:1px solid rgba(255,255,255,.08) !important;
+      border-radius:12px !important;
+      transition:all .25s ease;
+    }
+    nav button:hover, header button:hover{
+      background:rgba(255,255,255,.12) !important;
+      border-color:rgba(255,255,255,.16) !important;
+      transform:translateY(-1px);
+      box-shadow:0 4px 16px rgba(0,0,0,.25);
+    }
+    nav button[class*="bg-slate-900"], nav button[class*="bg-emerald"]{
+      background:rgba(225,6,0,.2) !important;
+      border-color:rgba(225,6,0,.3) !important;
+      color:#fff !important;
+      box-shadow:0 0 20px rgba(225,6,0,.1);
+    }
+    body[data-porra-mode="futbol"] nav button[class*="bg-slate-900"]{
+      background:rgba(34,197,94,.2) !important;
+      border-color:rgba(34,197,94,.3) !important;
+      box-shadow:0 0 20px rgba(34,197,94,.1);
+    }
+    body[data-porra-mode="futbol"] nav button[class*="bg-emerald"]{
+      background:rgba(34,197,94,.25) !important;
+      border-color:rgba(34,197,94,.35) !important;
+      box-shadow:0 0 20px rgba(34,197,94,.12);
+    }
+    body[data-porra-mode="futbol"] input:focus,
+    body[data-porra-mode="futbol"] textarea:focus{
+      border-color:rgba(34,197,94,.4) !important;
+      box-shadow:0 0 0 3px rgba(34,197,94,.1);
+    }
+    body[data-porra-mode="futbol"] select:focus, body[data-porra-mode="futbol"] .select:focus{
+      border-color:rgba(34,197,94,.4) !important;
+      box-shadow:0 0 0 3px rgba(34,197,94,.1), 0 2px 8px rgba(0,0,0,.08);
+    }
+
+    /* === INPUTS & SELECTS === */
+    select, .select{
+      background:rgba(255,255,255,.92) !important;
+      color:#111 !important;
+      border:1px solid rgba(15,23,42,.15) !important;
+      border-radius:12px !important;
+      padding:8px 12px;
+      transition:all .2s ease;
+      box-shadow:0 2px 8px rgba(0,0,0,.08);
+    }
+    select:focus, .select:focus{
+      border-color:rgba(225,6,0,.4) !important;
+      box-shadow:0 0 0 3px rgba(225,6,0,.1), 0 2px 8px rgba(0,0,0,.08);
+      outline:none;
+    }
+    option{background:#fff;color:#111;}
+    .select-strong{background:rgba(255,255,255,.95) !important;color:#0f172a !important;font-weight:600;font-size:1rem;}
+    input[type="password"],input[type="text"],input[type="number"],input[type="datetime-local"],textarea{
+      border-radius:12px !important;
+      transition:all .2s ease;
+    }
+    input:focus,textarea:focus{
+      border-color:rgba(225,6,0,.4) !important;
+      box-shadow:0 0 0 3px rgba(225,6,0,.1);
+      outline:none;
+    }
+
+    /* === TABLES === */
+    table{border-collapse:separate;border-spacing:0;}
+    thead th{
+      background:rgba(255,255,255,.04);
+      backdrop-filter:blur(8px);
+      border-bottom:1px solid rgba(255,255,255,.08);
+      font-weight:600;text-transform:uppercase;font-size:.7rem;letter-spacing:.06em;color:rgba(255,255,255,.5);
+    }
+    tbody tr{transition:background .15s ease;}
+    tbody tr:hover{background:rgba(255,255,255,.04);}
+    .border-t.border-white\/10{border-color:rgba(255,255,255,.06) !important;}
+
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar{width:6px;height:6px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:10px;}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2);}
+
+    /* === MODALS glass === */
+    .bg-white{
+      background:rgba(255,255,255,.95) !important;
+      backdrop-filter:blur(20px);
+      border-radius:20px !important;
+      box-shadow:0 24px 80px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.1);
+    }
+
+    /* === MISC === */
+    .bg-neutral-900{background:rgba(255,255,255,.03) !important;}
+    .border-white\/10{border-color:rgba(255,255,255,.06) !important;}
+    footer{opacity:.6;transition:opacity .3s ease;}
+    footer:hover{opacity:1;}
+
+    /* === ANIMATIONS === */
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .card,.hero,.sidebar{animation:fadeInUp .4s ease both;}
+    .card:nth-child(2){animation-delay:.05s;}
+    .card:nth-child(3){animation-delay:.1s;}
+    .card:nth-child(4){animation-delay:.15s;}
   </style>
 </head>
 <body data-porra-mode="">
   <script>document.body.dataset.porraMode=localStorage.getItem("porra_mode")||"f1";</script>
-  <div id="bg-f1"><img src="./assets/bg_f1_racing.svg" alt="" style="width:100%;height:100%;object-fit:cover;min-width:100%;min-height:100%"/></div>
+  <div id="bg-f1" style="background-image:url('https://images.unsplash.com/photo-1767408906599-e4e3aa8698fd?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');background-size:cover;background-position:center;background-repeat:no-repeat;"></div>
   <div id="bg-futbol" style="display:none"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;object-fit:cover"><defs><radialGradient id="bgRadialFutbol" cx="50%" cy="50%" r="90%"><stop offset="0%" stop-color="#0a1a0d"/><stop offset="40%" stop-color="#061408"/><stop offset="80%" stop-color="#030a05"/><stop offset="100%" stop-color="#000000"/></radialGradient><linearGradient id="accentGreen" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#22c55e"/><stop offset="50%" stop-color="#16a34a"/><stop offset="100%" stop-color="#15803d"/></linearGradient><pattern id="grass" width="60" height="60" patternUnits="userSpaceOnUse"><rect width="60" height="60" fill="#0d2818"/><path d="M0,30 L60,30 M30,0 L30,60" stroke="#14532d" stroke-width="0.5" opacity="0.4"/></pattern></defs><rect width="1920" height="1080" fill="url(#bgRadialFutbol)"/><rect x="0" y="0" width="1920" height="1080" fill="url(#grass)" opacity="0.5"/><ellipse cx="960" cy="200" rx="1000" ry="250" fill="url(#accentGreen)" opacity="0.12"/><ellipse cx="960" cy="880" rx="1000" ry="300" fill="url(#accentGreen)" opacity="0.1"/><rect x="400" y="340" width="1120" height="400" fill="none" stroke="#22c55e" stroke-width="4" opacity="0.25" rx="8"/><circle cx="960" cy="540" r="80" fill="none" stroke="#22c55e" stroke-width="3" opacity="0.2"/><rect x="400" y="440" width="120" height="200" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.2"/><rect x="1400" y="440" width="120" height="200" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.2"/><text x="960" y="560" font-family="Arial Black,sans-serif" font-size="200" font-weight="900" fill="#22c55e" opacity="0.05" text-anchor="middle">LIGA</text></svg></div>
   <script>
     window.PORRA_API_BASE = "https://porra.manriquegarcia.com";

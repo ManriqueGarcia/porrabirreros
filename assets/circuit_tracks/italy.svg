@@ -1,3 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
-  <path d="M50,20 L150,20 L150,80 L50,80 L50,50 L120,50 L120,55 L50,55 Z" fill="none" stroke="#E10600" stroke-width="3" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120">
+  <defs>
+    <filter id="glow-italy" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="200" height="120" fill="rgba(0,0,0,0.4)"/>
+  <g filter="url(#glow-italy)">
+    <!-- Monza: long straights, chicanes, Parabolica, Ascari - elongated oval with chicanes -->
+    <path d="M 25 60
+             L 25 18
+             Q 25 6 55 6
+             L 85 6
+             Q 95 6 95 16
+             L 95 24
+             Q 95 34 85 34
+             L 55 34
+             L 145 34
+             Q 155 34 155 24
+             L 155 16
+             Q 155 6 145 6
+             L 175 6
+             Q 192 6 192 40
+             L 192 80
+             Q 192 114 165 114
+             L 35 114
+             Q 8 114 8 80
+             L 8 40
+             Q 8 6 25 6
+             Z" fill="none" stroke="#E10600" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="25" y1="58" x2="25" y2="62" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
 </svg>

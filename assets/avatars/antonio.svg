@@ -1,37 +1,63 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
   <defs>
-    <linearGradient id="antonio-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#1a1d26"/><stop offset="100%" style="stop-color:#0b0c10"/></linearGradient>
-    <linearGradient id="antonio-suit" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#374151"/><stop offset="100%" style="stop-color:#111111"/></linearGradient>
-    <linearGradient id="antonio-helmet" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#FEF08A"/><stop offset="100%" style="stop-color:#FFD000"/></linearGradient>
+    <linearGradient id="a-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a0a0a"/><stop offset="100%" stop-color="#0a0a12"/></linearGradient>
+    <linearGradient id="a-helmet" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#DA121A"/><stop offset="40%" stop-color="#CC0000"/><stop offset="100%" stop-color="#FCDD09"/></linearGradient>
+    <linearGradient id="a-suit" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#CC0000"/><stop offset="50%" stop-color="#f0f0f0"/><stop offset="100%" stop-color="#DA121A"/></linearGradient>
+    <radialGradient id="a-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#F5D4B8"/><stop offset="100%" stop-color="#DDA882"/></radialGradient>
+    <radialGradient id="a-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F5A0A0" stop-opacity=".4"/><stop offset="100%" stop-color="#F5A0A0" stop-opacity="0"/></radialGradient>
   </defs>
-  <rect width="220" height="240" fill="url(#antonio-bg)"/>
-  <rect x="10" y="10" width="200" height="220" rx="24" fill="#161922" stroke="#2a2f3a" stroke-width="2"/>
-  <!-- Cuerpo mono Mercedes-style -->
-  <path d="M55 175 Q55 155 75 145 L145 145 Q165 155 165 175 L165 210 Q165 220 110 220 Q55 220 55 210 Z" fill="url(#antonio-suit)"/>
-  <rect x="35" y="168" width="28" height="22" rx="10" fill="url(#antonio-suit)"/>
-  <rect x="157" y="168" width="28" height="22" rx="10" fill="url(#antonio-suit)"/>
-  <!-- Franja turquesa -->
-  <rect x="70" y="155" width="80" height="12" rx="6" fill="#00D9A5"/>
-  <!-- Cabeza/helmet -->
-  <ellipse cx="110" cy="95" rx="52" ry="50" fill="url(#antonio-helmet)"/>
-  <ellipse cx="110" cy="95" rx="48" ry="46" fill="url(#antonio-helmet)" stroke="#E6B800" stroke-width="2"/>
+  <rect width="220" height="240" rx="24" fill="url(#a-bg)"/>
+  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#CC0000" stroke-width="1" opacity=".2"/>
+  <!-- Murcia + Cataluña accent stripes -->
+  <rect x="8" y="210" width="102" height="5" rx="2.5" fill="#DA121A" opacity=".4"/>
+  <rect x="110" y="210" width="102" height="5" rx="2.5" fill="#FCDD09" opacity=".4"/>
+  <rect x="8" y="217" width="204" height="4" rx="2" fill="#CC0000" opacity=".3"/>
+  <!-- Body -->
+  <path d="M70 175 Q70 160 85 155 L135 155 Q150 160 150 175 L150 205 Q150 215 110 215 Q70 215 70 205 Z" fill="url(#a-suit)"/>
+  <path d="M110 155 L110 205" stroke="#999" stroke-width=".6" opacity=".4"/>
+  <!-- Murcia castle detail on suit -->
+  <rect x="93" y="185" width="34" height="18" rx="3" fill="none" stroke="#CC0000" stroke-width="1" opacity=".5"/>
+  <rect x="98" y="182" width="4" height="6" rx="1" fill="#CC0000" opacity=".4"/>
+  <rect x="108" y="182" width="4" height="6" rx="1" fill="#CC0000" opacity=".4"/>
+  <rect x="118" y="182" width="4" height="6" rx="1" fill="#CC0000" opacity=".4"/>
+  <!-- Arms -->
+  <ellipse cx="58" cy="175" rx="14" ry="10" fill="#CC0000"/>
+  <ellipse cx="162" cy="175" rx="14" ry="10" fill="#DA121A"/>
+  <!-- BIG head -->
+  <ellipse cx="110" cy="90" rx="56" ry="54" fill="url(#a-helmet)"/>
+  <!-- Helmet split: Cataluña left, Murcia right -->
+  <clipPath id="a-left"><rect x="54" y="36" width="56" height="70"/></clipPath>
+  <clipPath id="a-right"><rect x="110" y="36" width="56" height="70"/></clipPath>
+  <ellipse cx="110" cy="68" rx="48" ry="22" fill="#FCDD09" clip-path="url(#a-left)" opacity=".8"/>
+  <ellipse cx="110" cy="68" rx="48" ry="22" fill="white" clip-path="url(#a-right)" opacity=".7"/>
+  <rect x="62" y="56" width="96" height="4" rx="2" fill="#DA121A" opacity=".6"/>
+  <!-- Helmet shine -->
+  <ellipse cx="90" cy="56" rx="18" ry="8" fill="white" opacity=".12"/>
   <!-- Visor -->
-  <path d="M62 85 Q62 70 110 68 Q158 70 158 85 L158 105 Q158 120 110 122 Q62 120 62 105 Z" fill="#1a1d26" stroke="#2a2f3a" stroke-width="2"/>
-  <ellipse cx="110" cy="92" rx="38" ry="28" fill="#87CEEB" opacity="0.6"/>
-  <!-- Ojos simpáticos -->
-  <ellipse cx="88" cy="88" rx="8" ry="10" fill="#1a1d26"/>
-  <ellipse cx="132" cy="88" rx="8" ry="10" fill="#1a1d26"/>
-  <circle cx="90" cy="86" r="2" fill="white"/>
-  <circle cx="134" cy="86" r="2" fill="white"/>
-  <!-- Sonrisa -->
-  <path d="M92 98 Q110 108 128 98" stroke="#1a1d26" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <!-- Mano con bandera a cuadros -->
-  <path d="M157 145 Q172 132 178 128 Q184 124 182 118 Q180 112 174 115 Q168 118 162 124" fill="#FDE68A" stroke="#FCD34D" stroke-width="1.5"/>
-  <rect x="170" y="108" width="16" height="14" rx="1" fill="#FFFFFF" stroke="#1a1d26" stroke-width="1"/>
-  <rect x="171" y="109" width="7" height="6" fill="#1a1d26"/>
-  <rect x="178" y="109" width="7" height="6" fill="#FFFFFF"/>
-  <rect x="171" y="115" width="7" height="6" fill="#FFFFFF"/>
-  <rect x="178" y="115" width="7" height="6" fill="#1a1d26"/>
-  <!-- Nombre -->
-  <text x="110" y="218" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#e5e7eb" text-anchor="middle">Antonio</text>
+  <path d="M62 82 Q62 70 110 68 Q158 70 158 82 L158 108 Q158 120 110 122 Q62 120 62 108 Z" fill="#0f172a" stroke="#1a1d26" stroke-width="1.5"/>
+  <!-- Face -->
+  <ellipse cx="110" cy="95" rx="38" ry="24" fill="url(#a-skin)"/>
+  <!-- Glasses (thin frame) -->
+  <rect x="76" y="82" width="25" height="18" rx="9" fill="none" stroke="#333" stroke-width="1.8"/>
+  <rect x="119" y="82" width="25" height="18" rx="9" fill="none" stroke="#333" stroke-width="1.8"/>
+  <path d="M101 89 L119 89" stroke="#333" stroke-width="1.5"/>
+  <!-- Eyes behind glasses -->
+  <ellipse cx="89" cy="90" rx="7" ry="8" fill="white"/>
+  <ellipse cx="131" cy="90" rx="7" ry="8" fill="white"/>
+  <ellipse cx="90" cy="91" rx="4" ry="5" fill="#2D1B0E"/>
+  <ellipse cx="132" cy="91" rx="4" ry="5" fill="#2D1B0E"/>
+  <circle cx="92" cy="88" r="2" fill="white"/>
+  <circle cx="134" cy="88" r="2" fill="white"/>
+  <!-- Eyebrows -->
+  <path d="M78 78 Q89 73 100 78" stroke="#2D1B0E" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M120 78 Q131 73 142 78" stroke="#2D1B0E" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Nose -->
+  <ellipse cx="110" cy="98" rx="3" ry="2.5" fill="#C4956E" opacity=".7"/>
+  <!-- Smart smile -->
+  <path d="M95 106 Q110 114 125 106" stroke="#5C3A20" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Cheeks -->
+  <circle cx="80" cy="100" r="7" fill="url(#a-cheek)"/>
+  <circle cx="140" cy="100" r="7" fill="url(#a-cheek)"/>
+  <!-- Name -->
+  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FCDD09" text-anchor="middle" opacity=".9">Antonio</text>
 </svg>

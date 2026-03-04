@@ -1,0 +1,1013 @@
+{
+    "questions": {
+        "australia": [
+            "Que escuderia hace mas puntos",
+            "Que piloto de mercedes queda delante",
+            "Que piloto de mclaren queda delante"
+        ]
+    },
+    "betsReveal": {
+        "abu_dhabi": {
+            "forceShow": true
+        }
+    },
+    "bets": {
+        "las_vegas": {
+            "Toni": {
+                "q": [
+                    "12",
+                    "No",
+                    "Albon"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-11-21T18:25:54.740Z",
+                "late": false,
+                "podium": [
+                    "Lando Norris",
+                    "Oscar Piastri",
+                    "Kimi Antonelli"
+                ]
+            },
+            "Manrique": {
+                "q": [
+                    "15",
+                    "No",
+                    "Albon"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-11-22T05:09:55.738Z",
+                "late": false,
+                "podium": [
+                    "Lando Norris",
+                    "Kimi Antonelli",
+                    "Charles Leclerc"
+                ]
+            },
+            "Antonio": {
+                "q": [
+                    "14",
+                    "NO",
+                    "Sainz"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-11-21T22:27:05.048Z",
+                "late": false,
+                "podium": [
+                    "Lando Norris",
+                    "George Russell",
+                    "Max Verstappen"
+                ]
+            },
+            "Pere": {
+                "q": [
+                    "10",
+                    "No",
+                    "Albon"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-11-22T02:40:57.317Z",
+                "late": false,
+                "podium": [
+                    "Lando Norris",
+                    "Max Verstappen",
+                    "George Russell"
+                ]
+            }
+        },
+        "abu_dhabi": {
+            "Toni": {
+                "q": [
+                    "S\u00ed",
+                    "Gasly",
+                    "10-14"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-12-07T22:07:23.975Z",
+                "late": false,
+                "adminEdited": true,
+                "podium": [
+                    "Lando Norris",
+                    "Max Verstappen",
+                    "George Russell"
+                ]
+            },
+            "Manrique": {
+                "q": [
+                    "S\u00ed",
+                    "Colapinto",
+                    "10-14"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-12-07T22:07:33.805Z",
+                "late": false,
+                "adminEdited": true,
+                "podium": [
+                    "Lando Norris",
+                    "George Russell",
+                    "Max Verstappen"
+                ]
+            },
+            "Antonio": {
+                "q": [
+                    "No",
+                    "Stroll",
+                    "5-9"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-12-07T22:11:25.643Z",
+                "late": true,
+                "adminEdited": true,
+                "podium": [
+                    "Oscar Piastri",
+                    "Max Verstappen",
+                    "George Russell"
+                ]
+            },
+            "Pere": {
+                "q": [
+                    "S\u00ed",
+                    "Colapinto",
+                    "0-4"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-12-07T22:07:05.258Z",
+                "late": false,
+                "adminEdited": true,
+                "podium": [
+                    "Lando Norris",
+                    "Max Verstappen",
+                    "George Russell"
+                ]
+            },
+            "Carlos": {
+                "q": [
+                    "No",
+                    "Tsunoda",
+                    "10-14"
+                ],
+                "pole": "Max Verstappen",
+                "submittedAt": "2025-12-07T22:06:12.897Z",
+                "late": false,
+                "adminEdited": true,
+                "podium": [
+                    "Max Verstappen",
+                    "Oscar Piastri",
+                    "Lando Norris"
+                ]
+            }
+        },
+        "qatar": {
+            "Toni": {
+                "q": [
+                    "Norris",
+                    "Norris",
+                    "Noveno"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-12-02T16:11:18.494Z",
+                "late": false,
+                "adminEdited": true,
+                "podium": [
+                    "Lando Norris",
+                    "Oscar Piastri",
+                    "Max Verstappen"
+                ]
+            },
+            "Manrique": {
+                "q": [
+                    "Norris",
+                    "Norris",
+                    "9"
+                ],
+                "pole": "Oscar Piastri",
+                "submittedAt": "2025-11-29T14:29:32.867Z",
+                "late": false,
+                "podium": [
+                    "Lando Norris",
+                    "Oscar Piastri",
+                    "Max Verstappen"
+                ]
+            },
+            "Antonio": {
+                "q": [
+                    "Norris",
+                    "Norris",
+                    "10"
+                ],
+                "pole": "Lando Norris",
+                "submittedAt": "2025-11-29T14:42:06.062Z",
+                "late": false,
+                "podium": [
+                    "Lando Norris",
+                    "Oscar Piastri",
+                    "Max Verstappen"
+                ]
+            },
+            "Pere": {
+                "q": [
+                    "Piastri",
+                    "Norris",
+                    "7"
+                ],
+                "pole": "Oscar Piastri",
+                "submittedAt": "2025-11-29T15:16:15.413Z",
+                "late": false,
+                "podium": [
+                    "Oscar Piastri",
+                    "George Russell",
+                    "Lando Norris"
+                ]
+            }
+        }
+    },
+    "users": {
+        "Toni": {
+            "name": "Toni",
+            "mustChange": false,
+            "changedAt": "2025-11-19T21:04:21.042Z",
+            "isAdmin": false,
+            "blocked": false,
+            "passwordHash": "4f8de44ba0a6a041020b0dc9673bff4da1011d7b614d6e36b914edeb2706b4a3"
+        },
+        "Manrique": {
+            "name": "Manrique",
+            "mustChange": false,
+            "changedAt": "2025-11-18T08:17:01.662Z",
+            "isAdmin": true,
+            "blocked": false,
+            "passwordHash": "690cf705a6c3443b541e366a6b09f368b3301073d0d181840e3cc874d06d741b"
+        },
+        "Antonio": {
+            "name": "Antonio",
+            "mustChange": false,
+            "changedAt": "2025-11-29T12:14:24.902Z",
+            "isAdmin": false,
+            "blocked": false,
+            "passwordHash": "975f7402b37b29795ba7be4abd00765c7ac9c8c3b86e88845cbbdd0ea8867528"
+        },
+        "Carlos": {
+            "name": "Carlos",
+            "mustChange": false,
+            "changedAt": "2025-12-06T13:17:57.684Z",
+            "isAdmin": false,
+            "blocked": false,
+            "passwordHash": "f61c00666000349d2a8a1308b5ad2214692bd84577af976714dc13b20f32c975"
+        },
+        "Pere": {
+            "name": "Pere",
+            "mustChange": false,
+            "changedAt": "2025-11-21T20:49:59.594Z",
+            "isAdmin": false,
+            "blocked": false,
+            "passwordHash": "2649db6fd101e576ec83dd19f02bc5482a8f4132afa6028785bd6740f440eca0"
+        }
+    },
+    "futbol": {
+        "betsWindow": {},
+        "jornadas": {
+            "J29": {
+                "name": "Jornada 29 (20-22 Mar)",
+                "id": "J29",
+                "deadline": "2026-03-20T14:00:00.000Z",
+                "matches": [
+                    {
+                        "home": "Real Madrid",
+                        "away": "Atl\u00e9tico de Madrid"
+                    },
+                    {
+                        "home": "FC Barcelona",
+                        "away": "Rayo Vallecano"
+                    },
+                    {
+                        "home": "Villarreal",
+                        "away": "Real Sociedad"
+                    },
+                    {
+                        "home": "Athletic Club",
+                        "away": "Betis"
+                    }
+                ]
+            },
+            "J28": {
+                "name": "Jornada 28 (13-16 Mar)",
+                "id": "J28",
+                "deadline": "2026-03-13T14:00:00.000Z",
+                "matches": [
+                    {
+                        "home": "Real Madrid",
+                        "away": "Elche"
+                    },
+                    {
+                        "home": "FC Barcelona",
+                        "away": "Sevilla"
+                    },
+                    {
+                        "home": "Real Sociedad",
+                        "away": "Osasuna"
+                    },
+                    {
+                        "home": "Oviedo",
+                        "away": "Valencia"
+                    }
+                ]
+            },
+            "J30": {
+                "name": "Jornada 30 (5 Abr)",
+                "id": "J30",
+                "deadline": "2026-04-03T13:00:00.000Z",
+                "matches": [
+                    {
+                        "home": "Mallorca",
+                        "away": "Real Madrid"
+                    },
+                    {
+                        "home": "Atl\u00e9tico de Madrid",
+                        "away": "FC Barcelona"
+                    },
+                    {
+                        "home": "Real Sociedad",
+                        "away": "Levante"
+                    },
+                    {
+                        "home": "Oviedo",
+                        "away": "Sevilla"
+                    }
+                ]
+            }
+        },
+        "questions": {},
+        "betsReveal": {},
+        "bets": {},
+        "questionsStatus": {},
+        "results": {},
+        "betHistory": {},
+        "order": [
+            "J28",
+            "J29",
+            "J30"
+        ]
+    },
+    "betsWindow": {
+        "las_vegas": {
+            "forceOpen": false,
+            "forceClosed": true
+        },
+        "abu_dhabi": {
+            "forceOpen": false,
+            "forceClosed": true
+        },
+        "qatar": {
+            "forceOpen": false,
+            "forceClosed": true
+        }
+    },
+    "meta": {
+        "championships": {
+            "Carlos": 1,
+            "Toni": 1,
+            "Pere": 1
+        },
+        "futbolJornadasUpdated": true,
+        "raceOverrides": {},
+        "adminSecret": "@C23l3br3@",
+        "seeded": true,
+        "forceAutoStandings": true,
+        "drivers": [],
+        "basePoints": {}
+    },
+    "questionOwner": {
+        "united_states": "Toni",
+        "las_vegas": "Antonio",
+        "azerbaijan": "Antonio",
+        "brazil": "Pere",
+        "japan": "Manrique",
+        "great_britain": "Pere",
+        "netherlands": "Toni",
+        "australia": "Pere",
+        "bahrain": "Toni",
+        "monaco": "Manrique",
+        "hungary": "Manrique",
+        "miami": "Pere",
+        "singapore": "Manrique",
+        "abu_dhabi": "Toni",
+        "mexico": "Carlos",
+        "qatar": "Manrique",
+        "china": "Antonio",
+        "canada": "Antonio",
+        "barcelona": "Toni",
+        "saudi_arabia": "Carlos",
+        "austria": "Carlos",
+        "madrid": "Pere",
+        "belgium": "Antonio",
+        "italy": "Carlos"
+    },
+    "questionsStatus": {
+        "australia": {
+            "publishedAt": "2026-03-03T18:30:58.836Z",
+            "author": "Pere",
+            "published": true
+        }
+    },
+    "results": {
+        "las_vegas": {
+            "pole": "Lando Norris",
+            "podium": [
+                "Max Verstappen",
+                "George Russell",
+                "Kimi Antonelli"
+            ],
+            "qAnswers": [
+                "11",
+                "S\u00ed",
+                "Sainz"
+            ]
+        },
+        "abu_dhabi": {
+            "pole": "Max Verstappen",
+            "podium": [
+                "Max Verstappen",
+                "Oscar Piastri",
+                "Lando Norris"
+            ],
+            "qAnswers": [
+                "S\u00ed",
+                "Colapinto",
+                "10-14"
+            ]
+        },
+        "qatar": {
+            "pole": "Oscar Piastri",
+            "podium": [
+                "Max Verstappen",
+                "Oscar Piastri",
+                "Carlos Sainz"
+            ],
+            "qAnswers": [
+                "Piastri",
+                "Verstappen",
+                "7"
+            ]
+        }
+    },
+    "scoreAdjustments": {},
+    "betHistory": {
+        "las_vegas": {
+            "Toni": [
+                {
+                    "q": [
+                        "Primero",
+                        "Si",
+                        "Otro"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "George Russell",
+                        "Isack Hadjar",
+                        "Lando Norris"
+                    ],
+                    "ts": "2025-11-19T21:01:53.876Z"
+                },
+                {
+                    "q": [
+                        "Primero",
+                        "No",
+                        "Otro"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Oscar Piastri",
+                        "Kimi Antonelli"
+                    ],
+                    "ts": "2025-11-21T18:20:33.963Z"
+                },
+                {
+                    "q": [
+                        "12",
+                        "No",
+                        "Otro"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Oscar Piastri",
+                        "Kimi Antonelli"
+                    ],
+                    "ts": "2025-11-21T18:20:44.665Z"
+                },
+                {
+                    "q": [
+                        "12",
+                        "No",
+                        "Albon"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Oscar Piastri",
+                        "Kimi Antonelli"
+                    ],
+                    "ts": "2025-11-21T18:25:54.740Z"
+                }
+            ],
+            "Manrique": [
+                {
+                    "q": [
+                        "15",
+                        "No",
+                        "Albon"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Kimi Antonelli",
+                        "Charles Leclerc"
+                    ],
+                    "ts": "2025-11-21T18:34:25.598Z"
+                }
+            ],
+            "Antonio": [
+                {
+                    "q": [
+                        "14",
+                        "NO",
+                        "Sainz"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "George Russell",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-11-21T22:27:05.048Z"
+                }
+            ],
+            "Pere": [
+                {
+                    "q": [
+                        "10",
+                        "No",
+                        "Albon"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-11-22T02:40:57.317Z"
+                }
+            ]
+        },
+        "abu_dhabi": {
+            "Toni": [
+                {
+                    "q": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "pole": "",
+                    "late": false,
+                    "podium": [
+                        "",
+                        "",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-05T20:00:02.312Z"
+                },
+                {
+                    "q": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-05T20:00:19.115Z"
+                },
+                {
+                    "q": [
+                        "No",
+                        "Gasly",
+                        "Entre 10 y 14"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-05T20:00:36.697Z"
+                },
+                {
+                    "q": [
+                        "Si",
+                        "Gasly",
+                        "Entre 10 y 14"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-06T13:01:58.380Z"
+                },
+                {
+                    "q": [
+                        "S\u00ed",
+                        "Gasly",
+                        "10-14"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-07T22:07:23.975Z",
+                    "editedByAdmin": true
+                }
+            ],
+            "Manrique": [
+                {
+                    "q": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "George Russell",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-12-06T11:59:55.425Z"
+                },
+                {
+                    "q": [
+                        "S\u00ed",
+                        "Colapinto",
+                        "10"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "George Russell",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-12-06T12:00:38.552Z"
+                },
+                {
+                    "q": [
+                        "S\u00ed",
+                        "Colapinto",
+                        "10-14"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "George Russell",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-12-07T22:07:33.805Z",
+                    "editedByAdmin": true
+                }
+            ],
+            "Antonio": [
+                {
+                    "q": [
+                        "Hulkenberg",
+                        "Stroll",
+                        "5-9"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Oscar Piastri",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-07T22:05:20.775Z",
+                    "editedByAdmin": true
+                },
+                {
+                    "q": [
+                        "No",
+                        "Stroll",
+                        "5-9"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Oscar Piastri",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-07T22:06:23.702Z",
+                    "editedByAdmin": true
+                },
+                {
+                    "q": [
+                        "No",
+                        "Stroll",
+                        "5-9"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": true,
+                    "podium": [
+                        "Oscar Piastri",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-07T22:11:25.643Z",
+                    "editedByAdmin": true
+                }
+            ],
+            "Pere": [
+                {
+                    "q": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "Oscar Piastri"
+                    ],
+                    "ts": "2025-12-06T12:51:28.562Z"
+                },
+                {
+                    "q": [
+                        "Alonso primero",
+                        "",
+                        "0-4 seg"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "Oscar Piastri"
+                    ],
+                    "ts": "2025-12-06T12:51:53.273Z"
+                },
+                {
+                    "q": [
+                        "Alonso primero",
+                        "Colapinto",
+                        "0-4 seg"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-06T12:53:40.318Z"
+                },
+                {
+                    "q": [
+                        "D\u00ed",
+                        "Colapinto",
+                        "0-4"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-07T22:06:40.267Z",
+                    "editedByAdmin": true
+                },
+                {
+                    "q": [
+                        "S\u00ed",
+                        "Colapinto",
+                        "0-4"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Max Verstappen",
+                        "George Russell"
+                    ],
+                    "ts": "2025-12-07T22:06:47.260Z",
+                    "editedByAdmin": true
+                }
+            ],
+            "Carlos": [
+                {
+                    "q": [
+                        "",
+                        "",
+                        "10 y 14"
+                    ],
+                    "pole": "",
+                    "late": false,
+                    "podium": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "ts": "2025-12-06T13:21:20.600Z"
+                },
+                {
+                    "q": [
+                        "No",
+                        "Tsunoda",
+                        "10-14"
+                    ],
+                    "pole": "Max Verstappen",
+                    "late": false,
+                    "podium": [
+                        "Max Verstappen",
+                        "Oscar Piastri",
+                        "Lando Norris"
+                    ],
+                    "ts": "2025-12-07T22:06:12.897Z",
+                    "editedByAdmin": true
+                }
+            ]
+        },
+        "qatar": {
+            "Toni": [
+                {
+                    "q": [
+                        "Norris",
+                        "Norris",
+                        "Noveno"
+                    ],
+                    "pole": "",
+                    "late": false,
+                    "podium": [
+                        "",
+                        "Oscar Piastri",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-11-29T15:14:10.191Z"
+                },
+                {
+                    "q": [
+                        "Norris",
+                        "Norris",
+                        "Noveno"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Oscar Piastri",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-12-02T16:11:18.494Z",
+                    "editedByAdmin": true
+                }
+            ],
+            "Manrique": [
+                {
+                    "q": [
+                        "Norris",
+                        "Norris",
+                        "9"
+                    ],
+                    "pole": "",
+                    "late": false,
+                    "podium": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "ts": "2025-11-29T14:28:02.482Z"
+                },
+                {
+                    "q": [
+                        "Norris",
+                        "Norris",
+                        "9"
+                    ],
+                    "pole": "Oscar Piastri",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Oscar Piastri",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-11-29T14:29:32.867Z"
+                }
+            ],
+            "Antonio": [
+                {
+                    "q": [
+                        "Norris",
+                        "Norris",
+                        "10"
+                    ],
+                    "pole": "",
+                    "late": false,
+                    "podium": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "ts": "2025-11-29T14:41:26.301Z"
+                },
+                {
+                    "q": [
+                        "Norris",
+                        "Norris",
+                        "10"
+                    ],
+                    "pole": "Lando Norris",
+                    "late": false,
+                    "podium": [
+                        "Lando Norris",
+                        "Oscar Piastri",
+                        "Max Verstappen"
+                    ],
+                    "ts": "2025-11-29T14:42:06.062Z"
+                }
+            ],
+            "Pere": [
+                {
+                    "q": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "pole": "",
+                    "late": false,
+                    "podium": [
+                        "",
+                        "",
+                        ""
+                    ],
+                    "ts": "2025-11-29T14:51:30.418Z"
+                },
+                {
+                    "q": [
+                        "Piastri",
+                        "Norris",
+                        "7"
+                    ],
+                    "pole": "Oscar Piastri",
+                    "late": false,
+                    "podium": [
+                        "Oscar Piastri",
+                        "George Russell",
+                        "Lando Norris"
+                    ],
+                    "ts": "2025-11-29T15:16:15.413Z"
+                }
+            ]
+        }
+    },
+    "participants": {
+        "Toni": {
+            "name": "Toni",
+            "createdAt": "2025-11-18T08:16:02.215Z"
+        },
+        "Manrique": {
+            "name": "Manrique",
+            "createdAt": "2025-11-18T08:16:02.215Z"
+        },
+        "Antonio": {
+            "name": "Antonio",
+            "createdAt": "2025-11-18T08:16:02.215Z"
+        },
+        "Carlos": {
+            "name": "Carlos",
+            "createdAt": "2025-11-18T08:16:02.215Z"
+        },
+        "Pere": {
+            "name": "Pere",
+            "createdAt": "2025-11-18T08:16:02.215Z"
+        }
+    }
+}
