@@ -1071,7 +1071,7 @@ async function hTeammates(year,driverId){
   return t;
 }
 
-const F1_HELP=`Pregúntame lo que quieras sobre F1. Ejemplos:\n\n🏆 "¿Quién fue campeón en 2023?"\n🏁 "Resultados GP Mónaco 2024"\n📊 "Clasificación mundial 2024"\n🏎️ "Victorias de Alonso"\n📅 "Calendario 2025"\n❓ "Coches que acabaron en Australia últimos 5 años"\n⏱️ "Clasificación GP Bahréin 2024"\n🟣 "Vuelta rápida Monza 2023"\n🏆 "¿Quién ha ganado más en Silverstone?"\n👥 "Compañero de Hamilton en 2019"\n🗓️ "Hamilton en 2020"\n📍 "Alonso en Mónaco"\n📊 "Resultados en Mónaco últimos 10 años"`;
+const F1_HELP=`¡Biip! No he pillado esa. Prueba algo así:\n\n🏆 "¿Quién fue campeón en 2023?"\n🏁 "Resultados GP Mónaco 2024"\n📊 "Clasificación mundial 2024"\n🏎️ "Victorias de Alonso"\n📅 "Calendario 2025"\n❓ "Coches que acabaron en Australia últimos 5 años"\n⏱️ "Clasificación GP Bahréin 2024"\n🟣 "Vuelta rápida Monza 2023"\n🏆 "¿Quién ha ganado más en Silverstone?"\n👥 "Compañero de Hamilton en 2019"\n🗓️ "Hamilton en 2020"\n📍 "Alonso en Mónaco"\n📊 "Resultados en Mónaco últimos 10 años"`;
 
 function xMultiYear(q){
   let m;
@@ -1160,7 +1160,7 @@ function AIAssistant({open,onClose,races}){
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
       <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col bg-[#12141b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="font-semibold flex items-center gap-2">🤖 Asistente F1</h2>
+          <h2 className="font-semibold flex items-center gap-2"><img src="./assets/manribot.svg" alt="" className="w-7 h-7 inline-block"/> ManriBot</h2>
           <div className="flex items-center gap-2">
             <button className="text-xs text-slate-500 hover:text-slate-300" onClick={()=>setMessages([])}>Limpiar</button>
             <button className="text-slate-400 hover:text-white p-1" onClick={onClose}>✕</button>
@@ -1169,8 +1169,8 @@ function AIAssistant({open,onClose,races}){
         <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
           {messages.length===0 && (
             <div>
-              <p className="text-sm text-slate-300 mb-3">Pregúntame cualquier cosa sobre F1: resultados, campeonatos, pilotos, circuitos, récords...</p>
-              <p className="text-xs text-slate-500 mb-3">Datos desde 1950 hasta hoy (Jolpica/Ergast API)</p>
+              <p className="text-sm text-slate-300 mb-3">¡Biip boop! Soy <b>ManriBot</b>, tu enciclopedia F1 con tanto dato inútil como Manrique. Pregúntame lo que quieras: resultados, campeonatos, pilotos, circuitos...</p>
+              <p className="text-xs text-slate-500 mb-3">Datos desde 1950 hasta hoy · Jolpica/Ergast API</p>
               <div className="flex flex-wrap gap-1.5">
                 {F1_SUGG.slice(0,8).map((s,i)=>(
                   <button key={i} className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
@@ -1196,7 +1196,7 @@ function AIAssistant({open,onClose,races}){
         )}
         <div className="p-4 border-t border-white/10">
           <div className="flex gap-2">
-            <input className="flex-1 border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-white text-sm placeholder:text-slate-500" style={{color:"#f0f0f5"}} placeholder="Pregunta sobre F1..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
+            <input className="flex-1 border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-white text-sm placeholder:text-slate-500" style={{color:"#f0f0f5"}} placeholder="Pregunta a ManriBot..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
             <button className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm disabled:opacity-50" onClick={()=>ask()} disabled={loading||!input.trim()}>Enviar</button>
           </div>
         </div>
@@ -2568,7 +2568,7 @@ function App(){
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>}
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="historico"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("historico")}>Histórico</button>}
           <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Normas</button>
-          {mode==="f1" && <button className="px-3 py-2 rounded bg-emerald-800/50 hover:bg-emerald-700/50 text-emerald-200" onClick={()=>setShowAI(true)}>🤖 Asistente</button>}
+          {mode==="f1" && <button className="px-3 py-2 rounded bg-emerald-800/50 hover:bg-emerald-700/50 text-emerald-200 flex items-center gap-1.5" onClick={()=>setShowAI(true)}><img src="./assets/manribot.svg" alt="" className="w-5 h-5 inline-block"/> ManriBot</button>}
           <button className={`px-3 py-2 rounded ${view==="admin"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("admin")}>Admin</button>
         </nav>
         {user ? (
