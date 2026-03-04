@@ -1814,8 +1814,7 @@ function FutbolRanking({db}){
                   <td className="text-right text-white/45 hidden sm:table-cell">{r.signs}</td>
                   <td className="text-right text-white/30 hidden sm:table-cell" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{penTotal}</td>
                   {scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.goalDiff}</td>}
-                </tr>);})
-              ))}
+                </tr>)})}
               {rows.length===0 && <tr><td className="text-sm text-slate-300" colSpan={scope==="all"?9:7}>Sin datos.</td></tr>}
             </tbody>
           </table>
