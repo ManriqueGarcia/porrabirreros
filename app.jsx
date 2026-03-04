@@ -6,6 +6,7 @@ console.info("[PorraF1] Versión carga", CACHE_BUST);
 
 const LS_KEY = "porra_f1_clean_v3";
 const DEFAULT_PASSWORD = "B1rr3r0s";
+const RECOVERY_CODE_HASH = "8589a91bcd279e41a8866ba284f187ee439d709a17adc6b05f290152884585ae";
 const QUESTION_AUTHORS_ORDER = ["Pere","Antonio","Manrique","Toni","Carlos"];
 const MADRID_TZ = "Europe/Madrid";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -411,12 +412,12 @@ function Login({db,setDb,onLogged}){
   const tryLogin=async (e)=>{ e&&e.preventDefault(); if(busy) return; setBusy(true); try{ const u=db.users?.[name]; if(!u) return toast.error("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return toast.error("Contraseña incorrecta"); if(u.blocked) return toast.error("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); }finally{setBusy(false);} };
   const doChange=async (e)=>{ e.preventDefault(); if(busy) return; setBusy(true); try{ if(n1.length<6) return toast.error("Mínimo 6 caracteres"); if(n1!==n2) return toast.error("Las contraseñas no coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); }finally{setBusy(false);} };
 
-  const verifyRecoverCode=(e)=>{
+  const verifyRecoverCode=async (e)=>{
     e.preventDefault();
     if(!recoverUser) return toast.error("Selecciona tu usuario");
     if(!db.users?.[recoverUser]) return toast.error("Usuario no encontrado");
-    const secret=db.meta?.adminSecret||atob("bWFucmlxdWU=");
-    if(recoverCode!==secret) return toast.error("Código de recuperación incorrecto");
+    const inputHash=await hashPassword(recoverCode);
+    if(inputHash!==RECOVERY_CODE_HASH) return toast.error("Código de recuperación incorrecto");
     setRecoverStep(2);
   };
 
