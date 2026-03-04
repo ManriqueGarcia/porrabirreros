@@ -2517,19 +2517,26 @@ const CURRENT_SEASON_YEAR = 2026;
 const REAL_HISTORICAL_2025_KEYS = ["las_vegas","qatar","abu_dhabi"];
 const REAL_HISTORICAL_2025_ROUNDS = [22,23,24];
 
-function CountdownBadge({target,now}){
-  if(!target||!now) return null;
-  const diff=target.getTime()-now.getTime();
+function CountdownBadge({target}){
+  const [tick,setTick]=useState(()=>Date.now());
+  useEffect(()=>{
+    const id=setInterval(()=>setTick(Date.now()),1000);
+    return ()=>clearInterval(id);
+  },[]);
+  if(!target) return null;
+  const diff=target.getTime()-tick;
   if(diff<=0) return (
     <div className="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
       <div className="text-red-400 text-lg font-bold">🔒 Apuestas cerradas</div>
       <div className="text-xs text-red-300/60 mt-1">El plazo de apuestas ha finalizado</div>
     </div>
   );
-  const totalMin=Math.floor(diff/60000);
-  const days=Math.floor(totalMin/1440);
-  const hours=Math.floor((totalMin%1440)/60);
-  const mins=totalMin%60;
+  const totalSec=Math.floor(diff/1000);
+  const days=Math.floor(totalSec/86400);
+  const hours=Math.floor((totalSec%86400)/3600);
+  const mins=Math.floor((totalSec%3600)/60);
+  const secs=totalSec%60;
+  const totalMin=Math.floor(totalSec/60);
   const urgent=totalMin<120;
   const warn=totalMin<720 && !urgent;
   const bgCls=urgent?"bg-red-500/10 border-red-500/25":"bg-amber-500/8 border-amber-500/20";
@@ -2537,13 +2544,17 @@ function CountdownBadge({target,now}){
   const labelCls=urgent?"text-red-400/60":warn?"text-amber-400/50":"text-emerald-400/50";
   const msgCls=urgent?"text-red-300/70":warn?"text-amber-300/60":"text-white/40";
   const msg=urgent?"¡Queda poco! Date prisa para apostar":(warn?"Todavía tienes tiempo, pero no te duermas":"Tienes tiempo de sobra para apostar");
+  const p2=n=>String(n).padStart(2,"0");
   return (
-    <div className={`mt-3 p-3 rounded-xl border ${bgCls} ${urgent?"animate-pulse":""}`}>
-      <div className={`text-[10px] uppercase tracking-widest font-semibold mb-1.5 ${labelCls}`}>⏱ Tiempo restante para apostar</div>
-      <div className="flex items-baseline gap-1.5 justify-center">
-        {days>0 && <><span className={`text-2xl font-black tabular-nums ${timeCls}`}>{days}</span><span className={`text-xs font-medium mr-2 ${labelCls}`}>días</span></>}
-        <span className={`text-2xl font-black tabular-nums ${timeCls}`}>{String(hours).padStart(2,"0")}</span><span className={`text-xs font-medium ${labelCls}`}>h</span>
-        <span className={`text-2xl font-black tabular-nums ${timeCls}`}>{String(mins).padStart(2,"0")}</span><span className={`text-xs font-medium ${labelCls}`}>min</span>
+    <div className={`mt-3 p-3 rounded-xl border ${bgCls}`}>
+      <div className={`text-[10px] uppercase tracking-widest font-semibold mb-1.5 text-center ${labelCls}`}>⏱ Tiempo restante para apostar</div>
+      <div className="flex items-baseline gap-1 justify-center">
+        {days>0 && <><span className={`text-2xl font-black tabular-nums ${timeCls}`}>{days}</span><span className={`text-[10px] font-medium mr-1.5 ${labelCls}`}>d</span></>}
+        <span className={`text-2xl font-black tabular-nums ${timeCls}`}>{p2(hours)}</span><span className={`text-[10px] font-medium ${labelCls}`}>h</span>
+        <span className={`text-lg ${timeCls} opacity-40 mx-0.5`}>:</span>
+        <span className={`text-2xl font-black tabular-nums ${timeCls}`}>{p2(mins)}</span><span className={`text-[10px] font-medium ${labelCls}`}>m</span>
+        <span className={`text-lg ${timeCls} opacity-40 mx-0.5`}>:</span>
+        <span className={`text-2xl font-black tabular-nums ${timeCls} ${urgent?"animate-pulse":""}`}>{p2(secs)}</span><span className={`text-[10px] font-medium ${labelCls}`}>s</span>
       </div>
       <div className={`text-xs mt-1.5 text-center ${msgCls}`}>{msg}</div>
     </div>
@@ -2636,7 +2647,7 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
                 <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
                 <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
               </div>
-              <CountdownBadge target={race.cutoff} now={now}/>
+              <CountdownBadge target={race.cutoff}/>
             </div>
           </div>
         </div>
