@@ -114,17 +114,22 @@ function scoreFutbolJornada(db,jornadaId,name){
   const jornada=futbol.jornadas?.[jornadaId];
   const bet=futbol.bets?.[jornadaId]?.[name];
   const res=futbol.results?.[jornadaId];
-  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,late:!!bet?.late,items:[]};
+  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,late:!!bet?.late,goalDiff:0,items:[]};
   const validBet=!!bet && !bet.late;
   const predictions=validBet?(bet.matches||[]):[];
   const questions=validBet?(bet.questions||[]):[];
   const late=!!bet?.late;
-  let points=0; let exact=0; let signs=0; let qHits=0; const items=[];
+  let points=0; let exact=0; let signs=0; let qHits=0; let goalDiff=0; const items=[];
   const official=res.matches||[];
   official.forEach((m,idx)=>{
     const pred=predictions[idx];
     const {points:p,exact:ex,sign}=futbolMatchPoints(pred,m);
     points+=p; if(ex) exact++; if(sign) signs++;
+    if(pred && pred.home!=null && pred.away!=null && m.home!=null && m.away!=null){
+      goalDiff+=Math.abs(Number(pred.home)-Number(m.home))+Math.abs(Number(pred.away)-Number(m.away));
+    } else {
+      goalDiff+=10;
+    }
     items.push({label:`${jornada?.matches?.[idx]?.home||"Local"} ${pred?.home??"?"}-${pred?.away??"?"} vs ${m?.home??"?"}-${m?.away??"?"}`, delta:p});
   });
   const answers=res.qAnswers||[];
@@ -136,19 +141,38 @@ function scoreFutbolJornada(db,jornadaId,name){
   });
   const missed=!bet || late;
   let missingPenalty=0;
-  if(missed){ missingPenalty=-2; points+=missingPenalty; items.push({label:"Sin apuesta a tiempo", delta:missingPenalty}); }
+  if(missed){ missingPenalty=-2; points+=missingPenalty; items.push({label:"Sin apuesta a tiempo", delta:missingPenalty}); goalDiff+=40; }
   let catPenalty=0;
   if(!missed && points===0){ catPenalty=-1; points+=catPenalty; items.push({label:"Apuesta catastrófica", delta:catPenalty}); }
-  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,items};
+  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,goalDiff,items};
 }
+
+function computeFutbolJornadaWins(dbFutbol, participants, jornadas){
+  const wins={};
+  participants.forEach(n=>{ wins[n]=0; });
+  const completed=(jornadas||[]).filter(j=>dbFutbol.results?.[j.id]);
+  completed.forEach(j=>{
+    let best=-Infinity; let winners=[];
+    participants.forEach(name=>{
+      const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
+      if(s.points>best){ best=s.points; winners=[name]; }
+      else if(s.points===best) winners.push(name);
+    });
+    if(winners.length===1) wins[winners[0]]++;
+  });
+  return wins;
+}
+
 function computeFutbolStandings(dbFutbol,participants,jornadas){
   const completed=(jornadas||[]).filter(j=>dbFutbol.results?.[j.id]);
+  const jornadaWins=computeFutbolJornadaWins(dbFutbol, participants, jornadas);
   return participants.map(name=>{
-    return completed.reduce((acc,j)=>{
+    const acc=completed.reduce((a,j)=>{
       const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
-      acc.points+=s.points; acc.exact+=s.exact; acc.qHits+=s.qHits; acc.signs+=s.signs; acc.missed+=s.missed?1:0; acc.cat+=s.catPenalty?1:0; return acc;
-    },{name,points:0,exact:0,signs:0,qHits:0,missed:0,cat:0});
-  }).sort((a,b)=>b.points-a.points||b.exact-a.exact||b.qHits-a.qHits||b.signs-a.signs||a.missed-b.missed||a.name.localeCompare(b.name));
+      a.points+=s.points; a.exact+=s.exact; a.qHits+=s.qHits; a.signs+=s.signs; a.missed+=s.missed?1:0; a.cat+=s.catPenalty?1:0; a.goalDiff+=s.goalDiff; return a;
+    },{points:0,exact:0,signs:0,qHits:0,missed:0,cat:0,goalDiff:0});
+    return {name,...acc, wins:jornadaWins[name]||0};
+  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.qHits-a.qHits||b.signs-a.signs||a.missed-b.missed||a.goalDiff-b.goalDiff);
 }
 function listFutbolJornadas(futbol){
   const entries=Object.values(futbol?.jornadas||{});
@@ -385,7 +409,8 @@ function betsAreEqual(prev,next){
 }
 
 function scoreForRace(db, raceKey, name){
-  const bet=db.bets?.[raceKey]?.[name]; const res=db.results?.[raceKey]; if(!bet) return {points:0,tb1:999,hits:0,exact:0,pen:0,gotPole:false,gotAllPodium:false,gotAllQuestions:false,fullHouse:false};
+  const bet=db.bets?.[raceKey]?.[name]; const res=db.results?.[raceKey];
+  if(!bet) return {points:0,hits:0,exact:0,pen:0,gotPole:false,gotAllPodium:false,gotAllQuestions:false,fullHouse:false,submittedAt:null};
   let pts=0,hits=0,pen=0,exact=0;
   if(res?.pole && bet.pole===res.pole){pts++;hits++;}
   if(res?.podium){ bet.podium?.forEach((p,i)=>{ if(p===res.podium[i]){pts++;hits++;} }); }
@@ -394,20 +419,49 @@ function scoreForRace(db, raceKey, name){
   if(gotPole && gotAllPod) pts+=2; if(gotPole && gotAllPod && gotAllQ) pts+=2;
   if(!bet.pole && (!bet.podium || bet.podium.filter(Boolean).length<3)){pts-=1;pen++;}
   if(bet.late){pts-=3;pen++;}
-  const pos=(p)=>{const i=res?.podium?.indexOf(p); return i>=0?i+1:99;}; const tb1=(bet.podium||[]).slice(0,3).reduce((a,p)=>a+pos(p),0);
   if(gotAllPod) exact=1; const fullHouse=!!(gotPole && gotAllPod && gotAllQ);
   const manualAdj=Number(db.scoreAdjustments?.[raceKey]?.[name]||0) || 0;
   const finalPoints=pts+manualAdj;
-  return {points:finalPoints,tb1,hits,exact,pen,gotPole:!!gotPole,gotAllPodium:!!gotAllPod,gotAllQuestions:!!gotAllQ,fullHouse,manualAdj};
+  return {points:finalPoints,hits,exact,pen,gotPole:!!gotPole,gotAllPodium:!!gotAllPod,gotAllQuestions:!!gotAllQ,fullHouse,manualAdj,submittedAt:bet.submittedAt||null};
+}
+
+function computeGPWins(db, races, participants){
+  const wins={};
+  participants.forEach(n=>{ wins[n]=0; });
+  (races||[]).forEach(race=>{
+    const res=db.results?.[race.key];
+    if(!res) return;
+    let best=-Infinity; let winners=[];
+    participants.forEach(name=>{
+      const s=scoreForRace(db,race.key,name);
+      if(s.points>best){ best=s.points; winners=[name]; }
+      else if(s.points===best) winners.push(name);
+    });
+    if(winners.length===1) wins[winners[0]]++;
+  });
+  return wins;
+}
+
+function computeAvgSubmitTime(db, races, name){
+  let total=0, count=0;
+  (races||[]).forEach(race=>{
+    const bet=db.bets?.[race.key]?.[name];
+    if(bet?.submittedAt){ total+=new Date(bet.submittedAt).getTime(); count++; }
+  });
+  return count>0 ? total/count : Infinity;
 }
 
 function computeGlobalStandings(db,races){
   const participants=Object.keys(db.participants||{});
   const keys=(races||[]).map(r=>r.key);
-  return participants.map(name=>keys.reduce((acc,k)=>{
-    const s=scoreForRace(db,k,name);
-    acc.points+=s.points; acc.tb2+=s.tb1; acc.hits+=s.hits; acc.exact+=s.exact; acc.pen+=s.pen; return acc;
-  },{name,points:0,tb2:0,hits:0,exact:0,pen:0})).sort((A,B)=>B.points-A.points||A.tb2-B.tb2||B.hits-A.hits||B.exact-A.exact||A.pen-B.pen||A.name.localeCompare(B.name));
+  const gpWins=computeGPWins(db, races, participants);
+  return participants.map(name=>{
+    const acc=keys.reduce((a,k)=>{
+      const s=scoreForRace(db,k,name);
+      a.points+=s.points; a.hits+=s.hits; a.exact+=s.exact; a.pen+=s.pen; return a;
+    },{points:0,hits:0,exact:0,pen:0});
+    return {...acc, name, wins:gpWins[name]||0, avgSubmit:computeAvgSubmitTime(db,races,name)};
+  }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
 }
 function topList(obj, limit=5){ return Object.entries(obj||{}).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,limit).map(([name,value])=>({name,value})); }
 function buildStats(db,races){
@@ -506,9 +560,25 @@ function Ranking({db,races,setDb,currentUser}){
         return a.name.localeCompare(b.name);
       });
   },[db.standings]);
-  const computedData=useMemo(()=>{ if(scope==="all"){ const keys=(races||[]).map(r=>r.key); return participants.map(n=>keys.reduce((acc,k)=>{const s=scoreForRace(db,k,n); acc.points+=s.points;acc.tb2+=s.tb1;acc.tb3+=s.hits;acc.tb4+=s.exact;acc.pen+=s.pen;return acc;},{name:n,points:Number(basePoints[n]||0),tb2:0,tb3:0,tb4:0,pen:0})).sort((A,B)=>B.points-A.points||A.tb2-B.tb2||B.tb3-A.tb3||B.tb4-A.tb4||A.pen-B.pen||A.name.localeCompare(B.name)); } else { const k=scope; return participants.map(n=>{const s=scoreForRace(db,k,n); return {name:n,points:s.points,tb1:s.tb1,tb3:s.hits,tb4:s.exact,pen:s.pen};}).sort((A,B)=>B.points-A.points||A.tb1-B.tb1||B.tb3-A.tb3||B.tb4-A.tb4||A.pen-B.pen||A.name.localeCompare(B.name)); } },[db,races,scope,participants,basePoints]);
+  const computedData=useMemo(()=>{
+    if(scope==="all"){
+      const keys=(races||[]).map(r=>r.key);
+      const gpWins=computeGPWins(db, races, participants);
+      return participants.map(n=>{
+        const acc=keys.reduce((a,k)=>{
+          const s=scoreForRace(db,k,n);
+          a.points+=s.points; a.hits+=s.hits; a.exact+=s.exact; a.pen+=s.pen; return a;
+        },{points:Number(basePoints[n]||0),hits:0,exact:0,pen:0});
+        return {name:n,...acc, wins:gpWins[n]||0, avgSubmit:computeAvgSubmitTime(db,races,n)};
+      }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
+    } else {
+      const k=scope;
+      return participants.map(n=>{const s=scoreForRace(db,k,n); return {name:n,points:s.points,hits:s.hits,exact:s.exact,pen:s.pen,wins:0};})
+        .sort((A,B)=>B.points-A.points||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen);
+    }
+  },[db,races,scope,participants,basePoints]);
   const manualActive=scope==="all" && manualStandings.length>0 && !forceAuto;
-  const data=manualActive?manualStandings.map((item,idx)=>({name:item.name,points:item.points,tb2:"—",tb3:"—",tb4:"—",pen:"—",manualRank:item.rank??(idx+1)})):computedData;
+  const data=manualActive?manualStandings.map((item,idx)=>({name:item.name,points:item.points,wins:"—",hits:"—",exact:"—",pen:"—",manualRank:item.rank??(idx+1)})):computedData;
   const championships=db.meta?.championships||{};
   const champData=participants.map(name=>({name,titles:Number(championships[name]||0)})).sort((A,B)=>B.titles-A.titles||A.name.localeCompare(B.name));
   const resetManual=()=>{
@@ -527,7 +597,7 @@ function Ranking({db,races,setDb,currentUser}){
     });
   };
   return (<div className="space-y-4">
-    <div className="card p-4"><div className="flex items-center justify-between mb-3"><h2 className="font-semibold">Ranking</h2><select className="select select-strong border rounded px-3 py-2 shadow-sm" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto"><table className="min-w-[800px] text-sm"><thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th><th className="p-2 text-left">{scope==="all"?"TB2 Σ":"TB1 Σ"}</th><th className="p-2 text-left">Aciertos</th><th className="p-2 text-left">Orden exacto</th><th className="p-2 text-left">Penalizaciones</th></tr></thead><tbody>{data.map((r,i)=>(<tr key={r.name} className="border-t border-white/10"><td className="p-2">{manualActive?(r.manualRank||i+1):i+1}</td><td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}</span></div></td><td className="p-2 font-semibold">{r.points}</td><td className="p-2">{scope==="all"?r.tb2:r.tb1}</td><td className="p-2">{r.tb3}</td><td className="p-2">{r.tb4}</td><td className="p-2">{r.pen}</td></tr>))}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Mostrando clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática + sumar backup</button></div>:<p className="text-xs text-slate-300 mt-2">Desempates: puntos, TB1 (menor), TB2 global (menor), aciertos, orden exacto y menos penalizaciones.</p>}{!manualActive && baseEntries.length>0 && <p className="text-xs text-emerald-300 mt-1">Incluye puntos base importados: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <div className="card p-4"><div className="flex items-center justify-between mb-3"><h2 className="font-bold tracking-tight text-white/90">🏎️ Ranking F1</h2><select className="select select-strong border rounded-xl px-3 py-2 shadow-sm" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto"><table className="min-w-[800px] text-sm"><thead><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Puntos</th>{scope==="all"&&<th className="p-2 text-left">Victorias GP</th>}<th className="p-2 text-left">Podios exactos</th><th className="p-2 text-left">Aciertos</th><th className="p-2 text-left">Penalizaciones</th></tr></thead><tbody>{data.map((r,i)=>(<tr key={r.name} className="border-t border-white/10"><td className="p-2">{manualActive?(r.manualRank||i+1):i+1}</td><td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}</span></div></td><td className="p-2 font-semibold">{r.points}</td>{scope==="all"&&<td className="p-2">{r.wins}</td>}<td className="p-2">{r.exact}</td><td className="p-2">{r.hits}</td><td className="p-2">{r.pen}</td></tr>))}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-2 flex flex-wrap items-center gap-2">Mostrando clasificación importada desde backup.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática + sumar backup</button></div>:<p className="text-xs text-white/30 mt-2">Desempates: puntos → victorias GP → podios exactos → aciertos → menos penalizaciones → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-xs text-emerald-300 mt-1">Incluye puntos base importados: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
     <RaceBreakdown db={db} races={races} raceKey={scope} rows={data} />
     <div className="card p-4"><h3 className="font-semibold mb-2">Ranking campeonatos mundiales</h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
     {isAdmin && setDb && (
@@ -762,28 +832,78 @@ function Stats({db,races}){
   );
 }
 
+function RuleCard({icon,text}){
+  return (
+    <div className="flex gap-3 items-start p-3 rounded-xl bg-white/[.03] border border-white/[.06] hover:bg-white/[.06] transition-colors">
+      <span className="text-lg flex-shrink-0 mt-0.5">{icon}</span>
+      <span className="text-sm text-white/70 leading-relaxed">{text}</span>
+    </div>
+  );
+}
+
+function F1Rules(){
+  const scoring=[
+    {icon:"🏁",text:"Antes de cada GP, apuestas: pole position, podio (P1, P2, P3) y 3 preguntas del autor de turno."},
+    {icon:"⏰",text:"Cierre de apuestas: antes de la clasificación (Q1). Hora exacta indicada en cada carrera."},
+    {icon:"🎯",text:"Pole acertada: +1 punto. Cada posición de podio exacta: +1 punto (máx 3). Cada pregunta acertada: +1 punto (máx 3)."},
+    {icon:"🔥",text:"Bonus combo: pole + podio completo → +2 puntos extra. Pleno total (pole + podio + 3 preguntas) → +2 puntos extra más. Máximo por carrera: 11 puntos."},
+    {icon:"⚠️",text:"Apuesta incompleta (sin pole o sin podio): -1 punto. Apuesta tardía (fuera de plazo): -3 puntos."},
+    {icon:"❓",text:"Las 3 preguntas las pone un participante distinto en cada GP, por turno rotatorio."},
+  ];
+  const tiebreakers=[
+    {icon:"1️⃣",text:"Puntos totales: más puntos gana."},
+    {icon:"2️⃣",text:"Victorias de GP: quien haya sido el mejor puntuado en más carreras individuales (sin compartir)."},
+    {icon:"3️⃣",text:"Podios exactos: más veces que acertó el podio completo."},
+    {icon:"4️⃣",text:"Aciertos totales: suma de todos los elementos acertados (pole, posiciones, preguntas)."},
+    {icon:"5️⃣",text:"Menos penalizaciones: menos apuestas incompletas o tardías."},
+    {icon:"6️⃣",text:"Apuesta más temprana: si persiste el empate, gana quien tenga un promedio de envío de apuesta más temprano (incentiva no esperar al último segundo)."},
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="card p-5 space-y-4">
+        <h2 className="text-lg font-bold tracking-tight bg-gradient-to-r from-red-400 to-white bg-clip-text text-transparent">🏎️ Normas Porra F1 2026</h2>
+        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Puntuación</h3>
+        <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
+      </div>
+      <div className="card p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Criterios de desempate (en orden)</h3>
+        <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
+        <p className="text-xs text-white/30">Si tras todos los criterios persiste el empate, se comparte posición.</p>
+      </div>
+    </div>
+  );
+}
+
 function FutbolRules(){
-  const rules=[
+  const scoring=[
     {icon:"⚽",text:"4 partidos por jornada: Madrid, Barça, Real Sociedad y Sporting. Si se enfrentan entre ellos, mete partido(s) de reserva hasta llegar a 4."},
     {icon:"⏰",text:"Límite para apostar: viernes 15:00 (marcadores + respuestas a 3 preguntas)."},
     {icon:"🎯",text:"Puntos partidos: 3 por resultado exacto, 1 por acertar el signo (1X2), 0 si fallas."},
     {icon:"❓",text:"Preguntas extra: 3 por jornada, cada acierto vale 2 puntos. Máximo jornada = 18 puntos."},
     {icon:"⚠️",text:"No apostar a tiempo: 0 puntos + -2 puntos en la general. Con 3 jornadas sin apostar → eliminado."},
     {icon:"💥",text:"Apuestas catastróficas (0 puntos en todo): -1 punto extra en la general."},
-    {icon:"🏆",text:"Desempate: más exactos → más preguntas acertadas → más signos → segunda vuelta → duelo especial → sorteo."},
+  ];
+  const tiebreakers=[
+    {icon:"1️⃣",text:"Puntos totales: más puntos gana."},
+    {icon:"2️⃣",text:"Jornadas ganadas: quien haya sido el mejor puntuado en más jornadas individuales (sin compartir)."},
+    {icon:"3️⃣",text:"Más resultados exactos acumulados."},
+    {icon:"4️⃣",text:"Más preguntas acertadas."},
+    {icon:"5️⃣",text:"Más signos (1X2) acertados."},
+    {icon:"6️⃣",text:"Menos jornadas sin apostar."},
+    {icon:"7️⃣",text:"Menor diferencia de goles acumulada: suma de |predicción - resultado| en todos los partidos. Premia al que estuvo más cerca incluso sin acertar exacto."},
   ];
   return (
-    <div className="card p-5 space-y-4">
-      <h2 className="text-lg font-bold tracking-tight bg-gradient-to-r from-emerald-300 to-white bg-clip-text text-transparent">📋 Chuleta porra futbolera</h2>
-      <div className="grid gap-2">
-        {rules.map((r,i)=>(
-          <div key={i} className="flex gap-3 items-start p-3 rounded-xl bg-white/[.03] border border-white/[.06] hover:bg-white/[.06] transition-colors">
-            <span className="text-lg flex-shrink-0 mt-0.5">{r.icon}</span>
-            <span className="text-sm text-white/70 leading-relaxed">{r.text}</span>
-          </div>
-        ))}
+    <div className="space-y-4">
+      <div className="card p-5 space-y-4">
+        <h2 className="text-lg font-bold tracking-tight bg-gradient-to-r from-emerald-300 to-white bg-clip-text text-transparent">📋 Normas Porra Fútbol</h2>
+        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Puntuación</h3>
+        <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
       </div>
-      <p className="text-xs text-white/30">Las reglas se aplican a la porra de fútbol; la de F1 sigue con sus normas actuales.</p>
+      <div className="card p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">Criterios de desempate (en orden)</h3>
+        <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
+        <p className="text-xs text-white/30">Si tras todos los criterios persiste el empate, se comparte posición.</p>
+      </div>
     </div>
   );
 }
@@ -1251,7 +1371,7 @@ function FutbolRanking({db}){
     return participants.map(name=>{
       const s=scoreFutbolJornada(db,scope,name);
       return {...s,name};
-    }).sort((A,B)=>B.points-A.points||B.exact-A.exact||B.qHits-A.qHits||B.signs-A.signs||A.missed-B.missed||A.name.localeCompare(B.name));
+    }).sort((A,B)=>B.points-A.points||B.exact-A.exact||B.qHits-A.qHits||B.signs-A.signs||A.goalDiff-B.goalDiff);
   },[scope,standings,participants,futbol.results,db]);
   const selectedJornada=scope==="all"?null:jornadas.find(j=>j.id===scope);
   const res=scope==="all"?null:futbol.results?.[scope];
@@ -1268,7 +1388,7 @@ function FutbolRanking({db}){
         <div className="overflow-x-auto">
           <table className="min-w-[720px] text-sm">
             <thead>
-              <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Pts</th><th className="p-2 text-left">Exactos</th><th className="p-2 text-left">Preg.</th><th className="p-2 text-left">Signos</th><th className="p-2 text-left">Sin apostar</th><th className="p-2 text-left">Cat.</th></tr>
+              <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Participante</th><th className="p-2 text-left">Pts</th>{scope==="all"&&<th className="p-2 text-left">Victorias</th>}<th className="p-2 text-left">Exactos</th><th className="p-2 text-left">Preg.</th><th className="p-2 text-left">Signos</th><th className="p-2 text-left">Sin ap.</th>{scope==="all"&&<th className="p-2 text-left">Dif. goles</th>}</tr>
             </thead>
             <tbody>
               {rows.map((r,idx)=>(
@@ -1276,18 +1396,19 @@ function FutbolRanking({db}){
                   <td className="p-2">{idx+1}</td>
                   <td className="p-2"><div className="flex items-center gap-2"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><span>{r.name}{r.missed>=3 && <span className="text-[11px] text-amber-300 ml-2">(eliminado)</span>}</span></div></td>
                   <td className="p-2 font-semibold">{r.points}</td>
+                  {scope==="all"&&<td className="p-2">{r.wins}</td>}
                   <td className="p-2">{r.exact}</td>
                   <td className="p-2">{r.qHits}</td>
                   <td className="p-2">{r.signs}</td>
                   <td className="p-2">{r.missed}</td>
-                  <td className="p-2">{r.cat}</td>
+                  {scope==="all"&&<td className="p-2">{r.goalDiff}</td>}
                 </tr>
               ))}
-              {rows.length===0 && <tr><td className="p-2 text-sm text-slate-300" colSpan={8}>Sin datos (añade resultados y apuestas).</td></tr>}
+              {rows.length===0 && <tr><td className="p-2 text-sm text-slate-300" colSpan={scope==="all"?9:7}>Sin datos (añade resultados y apuestas).</td></tr>}
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-slate-400">Desempate: exactos → preguntas → signos → segunda vuelta → duelo especial → sorteo.</p>
+        <p className="text-xs text-white/30">Desempates: puntos → jornadas ganadas → exactos → preguntas → signos → menos sin apostar → menor diferencia de goles.</p>
       </div>
       {scope!=="all" && (
         <div className="card p-4 space-y-2">
@@ -1975,7 +2096,7 @@ function App(){
     setMode(newMode);
     localStorage.setItem("porra_mode",newMode);
     // Resetear vista si la actual no existe en el nuevo modo
-    if(newMode==="f1" && !["participante","ranking","stats","questions","historico","admin"].includes(view)){
+    if(newMode==="f1" && !["participante","ranking","stats","questions","historico","rules","admin"].includes(view)){
       setView("participante");
     } else if(newMode==="futbol" && !["participante","ranking","rules","admin"].includes(view)){
       setView("participante");
@@ -2005,8 +2126,8 @@ function App(){
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="stats"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("stats")}>Estadísticas</button>}
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="questions"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("questions")}>Preguntas</button>}
           {mode==="f1" && <button className={`px-3 py-2 rounded ${view==="historico"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("historico")}>Histórico</button>}
+          <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Normas</button>
           {mode==="f1" && <button className="px-3 py-2 rounded bg-emerald-800/50 hover:bg-emerald-700/50 text-emerald-200" onClick={()=>setShowAI(true)}>🤖 Asistente</button>}
-          {mode==="futbol" && <button className={`px-3 py-2 rounded ${view==="rules"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("rules")}>Reglas</button>}
           <button className={`px-3 py-2 rounded ${view==="admin"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>setView("admin")}>Admin</button>
         </nav>
         {user ? (
@@ -2028,6 +2149,7 @@ function App(){
             {view==="stats" && <Stats db={db} races={races}/>}
             {view==="questions" && <QuestionsHistory db={db} races={races}/>}
             {view==="historico" && <Historico/>}
+            {view==="rules" && <F1Rules/>}
           </>
         )}
         {mode==="futbol" && (
