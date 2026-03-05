@@ -1,8 +1,8 @@
-# Porra Birreros — F1 y Fútbol 🍺
+# Porra Birreros — F1 y Futbol 🍺
 
-Aplicación web para gestionar porras de Fórmula 1 y Fútbol entre amigos. El que pierde, pone las birras.
+Aplicacion web para gestionar porras de Formula 1 y Futbol entre amigos. El que pierde, pone las birras.
 
-## 🏗️ Arquitectura
+## 🏗️ Arquitectura de la aplicacion
 
 ```mermaid
 graph TB
@@ -88,106 +88,141 @@ graph TB
 
 ![Diagrama de infraestructura AWS](docs/aws-infrastructure.png)
 
-> **Flujo**: El usuario accede vía CloudFront (CDN + HTTPS). La SPA se carga desde S3 Hosting. Las llamadas a `/state` y `/assistant` van a API Gateway → Lambda. GitHub Actions despliega automáticamente en cada push a `main`.
+> **Flujo**: El usuario accede via CloudFront (CDN + HTTPS). La SPA se carga desde S3 Hosting. Las llamadas a `/state` y `/assistant` van a API Gateway -> Lambda. GitHub Actions despliega automaticamente en cada push a `main`.
 
 ### Estructura de archivos
 
 ```
 src/
 ├── index.jsx              Punto de entrada React
-├── config.js              Constantes (participantes, timezone, equipos, colores)
-├── api.js                 Comunicación con backend (fetch/save estado remoto)
-├── scoring.js             Lógica de puntuación F1 (scoreForRace, standings, stats)
-├── futbol-utils.js        Lógica de puntuación fútbol (scoreFutbolJornada, standings)
-├── utils.js               Utilidades (hash, fechas, sesión, export CSV/PDF, share)
-├── f1-data.js             NLP + datos históricos F1 (Jolpica/Ergast API)
+├── config.js              Configuracion generica (plantilla para forks)
+├── config.local.js        ⛔ Configuracion real (gitignored)
+├── api.js                 Comunicacion con backend (fetch/save estado remoto)
+├── scoring.js             Logica de puntuacion F1 (scoreForRace, standings, stats)
+├── futbol-utils.js        Logica de puntuacion futbol (scoreFutbolJornada, standings)
+├── utils.js               Utilidades (hash, fechas, sesion, export CSV/PDF, share)
+├── f1-data.js             NLP + datos historicos F1 (Jolpica/Ergast API)
 ├── toast.jsx              Sistema de notificaciones toast
 ├── i18n.jsx               Contexto de idioma (es/en)
 └── components/
-    ├── App.jsx             Componente raíz (routing, estado global, sync)
-    ├── Auth.jsx            Login, cambio de contraseña, cambio de avatar
+    ├── App.jsx             Componente raiz (routing, estado global, sync)
+    ├── Auth.jsx            Login, cambio de contrasena, cambio de avatar
     ├── WelcomeBanner.jsx   Mini-dashboard personal al entrar
     ├── Participante.jsx    Vista de apuestas F1 (con countdown y reminder)
     ├── BetForm.jsx         Formulario de apuesta F1
-    ├── FutbolParticipante.jsx  Vista de apuestas fútbol
-    ├── FutbolBetForm.jsx   Formulario de apuesta fútbol
+    ├── FutbolParticipante.jsx  Vista de apuestas futbol
+    ├── FutbolBetForm.jsx   Formulario de apuesta futbol
     ├── Ranking.jsx         Ranking F1 + desglose + resumen post-carrera
-    ├── FutbolRanking.jsx   Ranking fútbol + gráfico evolución
-    ├── Stats.jsx           Estadísticas, birras, tendencia, suerte, simulador
-    ├── Charts.jsx          Gráfico de evolución de posiciones F1
+    ├── FutbolRanking.jsx   Ranking futbol + grafico evolucion
+    ├── Stats.jsx           Estadisticas, birras, tendencia, suerte, simulador
+    ├── Charts.jsx          Grafico de evolucion de posiciones F1
     ├── Admin.jsx           Panel admin F1
-    ├── FutbolAdmin.jsx     Panel admin fútbol
-    ├── Rules.jsx           Normas F1 y fútbol
-    ├── Historico.jsx       Histórico de temporadas anteriores
-    ├── AIAssistant.jsx     Asistente AI (chat F1/fútbol)
+    ├── FutbolAdmin.jsx     Panel admin futbol
+    ├── Rules.jsx           Normas F1 y futbol
+    ├── Historico.jsx       Historico de temporadas anteriores
+    ├── AIAssistant.jsx     Asistente AI (chat F1/futbol)
     ├── Avatar.jsx          Avatares SVG con fallback por modo
     └── CircuitCard.jsx     Tarjeta de circuito con trazado SVG
 
 assets/
-├── avatars/               Caricaturas SVG (F1 + fútbol) + default
+├── avatars/               Caricaturas SVG (gitignored, excepto default.svg)
 ├── circuit_tracks/        24 trazados de circuitos SVG
 ├── calendar_YYYY.json     Calendario F1 de la temporada
 ├── drivers_YYYY.json      Pilotos F1 de la temporada
-├── teams_YYYY.json        Escuderías F1 de la temporada
+├── teams_YYYY.json        Escuderias F1 de la temporada
 ├── circuits_YYYY.json     Info de circuitos
-└── historical_YYYY.json   Resultados históricos
+└── historical_YYYY.json   Resultados historicos
 
+.env                       ⛔ URLs de backend (gitignored)
+.env.example               Plantilla de variables de entorno
 porra-ai.mjs               Lambda AWS (AI backend)
 build.mjs                  Script de build (esbuild + Tailwind CLI)
 ```
 
-### Stack tecnológico
+### Stack tecnologico
 
-| Capa | Tecnología |
+| Capa | Tecnologia |
 |------|-----------|
 | **Frontend** | React 18, Tailwind CSS v4, glassmorphism UI |
 | **Build** | esbuild (bundle + minify), @tailwindcss/cli |
 | **Backend** | AWS Lambda (Node.js), API Gateway |
 | **AI** | Google AI API (Gemma / Gemini), client-side Jolpica/Ergast |
-| **Storage** | AWS S3 (estado remoto) + localStorage (caché local) |
+| **Storage** | AWS S3 (estado remoto) + localStorage (cache local) |
 | **Hosting** | S3 + CloudFront (CDN) |
 | **CI/CD** | GitHub Actions (build + deploy en push a main) |
 
-## 📋 Características
+## 📋 Caracteristicas
 
 ### Porra F1
 - Apuestas por pole, podio y 3 preguntas adicionales (autor rotativo)
-- Ranking global con desempates: puntos → victorias GP → podios exactos → aciertos → menos penalizaciones → apuesta más temprana
-- Apuesta ciega: no ves las apuestas de otros hasta después de la quali
+- Ranking global con desempates: puntos -> victorias GP -> podios exactos -> aciertos -> menos penalizaciones -> apuesta mas temprana
+- Apuesta ciega: no ves las apuestas de otros hasta despues de la quali
 - Countdown en tiempo real con indicador de urgencia
-- Resultado del año anterior y puntos del usuario en cada circuito
+- Resultado del ano anterior y puntos del usuario en cada circuito
 - 24 circuitos SVG con trazados realistas
 - Compartir apuesta por WhatsApp (incluye preguntas)
 
-### Porra Fútbol
+### Porra Futbol
 - N partidos por jornada (configurable)
-- Puntuación: 3 pts exacto, 1 pt signo correcto, 0 pts fallo, -1 catastrófica
-- Desempates: puntos → victorias → exactos → signos → menos penalizaciones → menor diferencia de goles → apuesta más temprana
-- Apuesta ciega hasta después del cierre
+- Puntuacion: 3 pts exacto, 1 pt signo correcto, 0 pts fallo, -1 catastrofica
+- Desempates: puntos -> victorias -> exactos -> signos -> menos penalizaciones -> menor diferencia de goles -> apuesta mas temprana
+- Apuesta ciega hasta despues del cierre
 
 ### Penalizaciones (ambos modos)
 - No apostar: **-3 pts**
 - Apuesta fuera de plazo: **-2 pts**
-- Apuesta catastrófica (fútbol, 0 aciertos): **-1 pt**
+- Apuesta catastrofica (futbol, 0 aciertos): **-1 pt**
 
-### Estadísticas y análisis
-- **Histórico de birras**: quién ha pagado más rondas por GP/jornada
-- **Tendencia de puntos**: gráfico SVG de barras agrupadas por carrera
-- **Índice de suerte**: tasa de aciertos, eficiencia, consistencia, plenos
-- **Simulador "¿Qué habría pasado si...?"**: modifica resultados y recalcula ranking
+### Estadisticas y analisis
+- **Historico de birras**: quien ha pagado mas rondas por GP/jornada
+- **Tendencia de puntos**: grafico SVG de barras agrupadas por carrera
+- **Indice de suerte**: tasa de aciertos, eficiencia, consistencia, plenos
+- **Simulador "Que habria pasado si..."**: modifica resultados y recalcula ranking
 - **Resumen post-carrera**: ganador, perdedor, aciertos de pole, plenos
-- **Gráfico de evolución**: posiciones por carrera/jornada
+- **Grafico de evolucion**: posiciones por carrera/jornada
 
 ### Calidad de vida
-- **Mini-dashboard**: posición, tendencia, estado de apuesta al entrar
-- **Banner recordatorio**: alerta si faltan <24h y no has apostado
-- **Asistente AI**: datos F1 históricos (1950-hoy) + fútbol
+- **Mini-dashboard**: posicion, tendencia, estado de apuesta al entrar
+- **Banner recordatorio**: alerta si faltan menos de 24h y no has apostado
+- **Asistente AI**: datos F1 historicos (1950-hoy) + futbol
 - **Exportar**: CSV y PDF de rankings
 - **PWA**: instalable como app, Service Worker con cache
 - **Avatares**: caricaturas SVG personalizadas por participante y modo
 - **Multidioma**: soporte es/en
 
-## 🚀 Cómo usar este proyecto (Fork)
+## 🔧 Configuracion
+
+El repositorio es completamente agnostico: no contiene datos personales, URLs de produccion ni credenciales. Toda la configuracion especifica de cada instancia vive en ficheros locales que estan en `.gitignore`.
+
+### Que va en git (publico)
+
+| Fichero | Contenido |
+|---------|-----------|
+| `src/config.js` | Configuracion generica con valores placeholder (`Jugador1`, `Jugador2`...) |
+| `.env.example` | Plantilla de variables de entorno con URLs de ejemplo |
+| `assets/avatars/default.svg` | Avatar por defecto |
+| Todo el codigo fuente | Sin datos personales, URLs ni credenciales |
+
+### Que es local (gitignored)
+
+| Fichero | Contenido |
+|---------|-----------|
+| `src/config.local.js` | Participantes reales, hashes de contrasenas, colores, equipos |
+| `.env` | URLs reales (dominio, API Gateway, Lambda AI) |
+| `assets/avatars/*.svg` | Caricaturas SVG personalizadas (excepto default.svg) |
+
+### Como funciona el build
+
+1. `build.mjs` detecta si existe `src/config.local.js`
+2. Si existe, un plugin de esbuild redirige todos los `import` de `config.js` a `config.local.js` de forma transparente
+3. Si no existe, usa `config.js` con los valores placeholder
+4. `build.mjs` lee `.env` e inyecta las URLs en el HTML de produccion (CSP, og:url, preconnect, `window.PORRA_API_BASE`, `window.PORRA_AI_URL`)
+
+### Datos en runtime
+
+Los datos reales de la aplicacion (participantes, apuestas, resultados, usuarios con passwords hasheados) se almacenan en **S3** como `state.json` y se sincronizan con el frontend via API Gateway + Lambda. El `config.local.js` solo define la configuracion inicial de seed (nombres, hashes de password por defecto, colores).
+
+## 🚀 Como usar este proyecto (Fork)
 
 ### 1. Haz fork y clona
 
@@ -199,7 +234,7 @@ npm install
 
 ### 2. Configura tus participantes
 
-Copia el fichero de configuración y personaliza:
+Copia la plantilla de configuracion y personaliza:
 
 ```bash
 cp src/config.js src/config.local.js
@@ -209,28 +244,28 @@ Edita `src/config.local.js` con los datos de tu grupo:
 
 ```javascript
 export const CONFIG = {
-  participants: ["Nombre1", "Nombre2", "Nombre3", "Nombre4", "Nombre5"],
+  participants: ["Ana", "Luis", "Marta", "Pedro", "Sara"],
   timezone: "Europe/Madrid",
-  questionAuthorsOrder: ["Nombre1", "Nombre2", "Nombre3", "Nombre4", "Nombre5"],
-  futbolTeams: ["Equipo1", "Equipo2", "Equipo3", "Equipo4"],
-  // ...
+  sessionTimeoutMs: 30 * 60 * 1000,
+  questionAuthorsOrder: ["Ana", "Luis", "Marta", "Pedro", "Sara"],
+  futbolTeams: ["Real Madrid", "FC Barcelona", "Atletico", "Sevilla"],
+  futbolDeadlineHour: "15:00",
 };
 
 // Genera hashes con: echo -n "TuPassword" | sha256sum
 export const DEFAULT_PASSWORD_HASH = "tu-hash-sha256-aqui";
 export const ADMIN_SECRET_HASH = "tu-hash-admin-aqui";
 
+// Colores para graficos (uno por participante)
 export const PILOT_COLORS = {
-  "Nombre1": "#c4544e", "Nombre2": "#5a9abf", // ...
+  "Ana": "#c4544e", "Luis": "#5a9abf", "Marta": "#5fb8a8",
+  "Pedro": "#c9874a", "Sara": "#9078b0",
 };
 ```
 
-> `src/config.local.js` esta en `.gitignore` y nunca se sube al repositorio.
-> Al hacer build, esbuild lo usa automaticamente si existe.
+> Este fichero esta en `.gitignore` y nunca se sube al repositorio. Al hacer build, esbuild lo usa automaticamente si existe.
 
 ### 3. Configura las URLs de tu backend
-
-Copia el fichero de entorno:
 
 ```bash
 cp .env.example .env
@@ -244,38 +279,47 @@ PORRA_AI_URL=https://tu-lambda-ai.execute-api.eu-west-1.amazonaws.com
 PORRA_DOMAIN=https://tu-dominio.com
 ```
 
-> `.env` esta en `.gitignore` y nunca se sube al repositorio.
-> `build.mjs` lee estas variables e inyecta las URLs en el HTML de produccion.
+| Variable | Descripcion | Donde se usa |
+|----------|-------------|--------------|
+| `PORRA_API_BASE` | URL de tu API Gateway (Lambda State) | `window.PORRA_API_BASE` en el HTML, CSP `connect-src` |
+| `PORRA_AI_URL` | URL del endpoint de AI (Lambda ManriBot) | `window.PORRA_AI_URL` en el HTML, CSP `connect-src` |
+| `PORRA_DOMAIN` | Tu dominio de produccion | `og:url`, `preconnect` |
+
+> Este fichero esta en `.gitignore`. `build.mjs` lee estas variables e inyecta las URLs en el HTML de produccion.
 
 ### 4. Personaliza los avatares (opcional)
 
 Crea SVGs en `assets/avatars/` con las caricaturas de tus participantes:
-- `nombre.svg` -- avatar para modo F1
-- `nombre-futbol.svg` -- avatar para modo futbol
-- `default.svg` -- avatar por defecto (ya incluido)
 
-Los nombres deben coincidir (en minusculas, sin espacios) con los de `CONFIG.participants`.
+| Fichero | Uso |
+|---------|-----|
+| `nombre.svg` | Avatar para modo F1 |
+| `nombre-futbol.svg` | Avatar para modo futbol |
+| `default.svg` | Fallback (ya incluido en el repo) |
+
+Los nombres de fichero deben coincidir (en minusculas, sin espacios) con los de `CONFIG.participants`.
 
 > Los avatares personales estan en `.gitignore`. Solo `default.svg` va al repositorio.
 
 ### 5. Configura el backend AWS
 
-Ver [DEPLOY.md](DEPLOY.md) para instrucciones detalladas. En resumen:
+Ver [DEPLOY.md](DEPLOY.md) para instrucciones detalladas.
 
-| Recurso | Funcion |
-|---------|---------|
+| Recurso AWS | Funcion |
+|-------------|---------|
 | **S3 Hosting** | Bucket para servir `dist/` (SPA estatica) |
 | **S3 Datos** | Bucket para `state.json` (bets, results, users) |
 | **API Gateway + Lambda State** | GET/PUT del estado JSON desde S3 |
-| **API Gateway + Lambda AI** | ManriBot (`porra-ai.mjs`) -- opcional |
-| **CloudFront** | CDN + HTTPS + dominio personalizado |
+| **API Gateway + Lambda AI** | ManriBot (`porra-ai.mjs`) — opcional |
+| **CloudFront + ACM** | CDN + HTTPS + dominio personalizado |
 
 Variables de entorno de la Lambda AI (`porra-ai.mjs`):
 
 | Variable | Descripcion |
 |----------|-------------|
-| `GEMINI_API_KEY` | API key de Google AI Studio (gratis) |
-| `ALLOWED_ORIGIN` | Tu dominio (ej: `https://tu-dominio.com`) |
+| `GEMINI_API_KEY` | API key de Google AI Studio (gratis en [aistudio.google.com](https://aistudio.google.com)) |
+| `ALLOWED_ORIGIN` | Tu dominio de produccion para CORS |
+| `API_SECRET` | (opcional) Secret compartido con el frontend |
 
 ### 6. Configura CI/CD (GitHub Actions)
 
@@ -283,17 +327,35 @@ Anade estos secrets en tu repositorio (`Settings > Secrets > Actions`):
 
 | Secret | Descripcion |
 |--------|-------------|
-| `AWS_ACCESS_KEY_ID` | Access Key de un usuario IAM |
+| `AWS_ACCESS_KEY_ID` | Access Key de un usuario IAM con permisos S3 |
 | `AWS_SECRET_ACCESS_KEY` | Secret Key del mismo usuario |
 | `S3_BUCKET_NAME` | Nombre de tu bucket S3 de hosting |
 | `AWS_REGION` | Region AWS (ej: `eu-west-1`) |
 | `CLOUDFRONT_DISTRIBUTION_ID` | *(opcional)* ID de distribucion CloudFront |
+
+El workflow (`.github/workflows/deploy-s3.yml`) se activa en cada push a `main`:
+
+```
+npm ci → npm audit → node build.mjs → aws s3 sync → cloudfront invalidation
+```
 
 ### 7. Build y previsualizacion local
 
 ```bash
 node build.mjs        # Compila JS + CSS -> dist/
 npx serve dist        # Previsualizar en http://localhost:3000
+```
+
+Si todo esta bien configurado, veras en la salida del build:
+
+```
+📌 Usando src/config.local.js (configuración local)
+```
+
+Si no has creado `config.local.js`, veras:
+
+```
+⚠️  No se encontró src/config.local.js — usando config.js genérico
 ```
 
 ### 8. Despliegue
@@ -309,16 +371,19 @@ git push origin main
 
 ## 🔐 Seguridad
 
-- Contraseñas hasheadas con SHA-256 (nunca se almacenan en texto plano)
+- Contrasenas hasheadas con SHA-256 (nunca se almacenan en texto plano)
 - Sesiones con token aleatorio en sessionStorage (expiran tras 30 min)
 - Rate limiting en login (5 intentos, cooldown 30s)
 - Panel admin protegido con secreto independiente
-- CSP (Content Security Policy) configurado en producción
+- CSP (Content Security Policy) configurado en produccion (generado dinamicamente por `build.mjs` segun `.env`)
+- Lambda AI con rate limiting (10 req/min/IP) y proteccion contra prompt injection
+- Datos personales (participantes, hashes, URLs) fuera del repositorio
 
 ## 📝 Notas
 
-- El modo seleccionado (F1/Fútbol) se guarda en localStorage
-- Los datos se sincronizan automáticamente con el backend remoto
-- Si no hay resultados publicados, no se asigna quién paga las birras
-- Datos de F1 históricos (1950-hoy) disponibles vía Jolpica/Ergast API (client-side, sin coste)
+- El modo seleccionado (F1/Futbol) se guarda en localStorage
+- Los datos se sincronizan automaticamente con el backend remoto (S3 via Lambda)
+- Si no hay resultados publicados, no se asigna quien paga las birras
+- Datos de F1 historicos (1950-hoy) disponibles via Jolpica/Ergast API (client-side, sin coste)
 - La app funciona offline gracias al Service Worker (PWA)
+- Al hacer fork, el repositorio no contiene datos personales: necesitas crear `config.local.js` y `.env`
