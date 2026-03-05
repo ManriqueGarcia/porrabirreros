@@ -114,12 +114,13 @@ export function App() {
   }, [hydrated, db.users, setDbUser]);
   useEffect(() => {
     if (db.meta?.seeded || !defaultPwdHash) return;
-    const initial = ["Antonio", "Carlos", "Pere", "Toni", "Manrique"];
+    const initial = CONFIG.participants;
+    const adminUser = initial[initial.length - 1];
     setDb(prev => {
-      const baseUsers = { ...(prev.users || {}) }; initial.forEach(n => { if (!baseUsers[n]) baseUsers[n] = { name: n, passwordHash: defaultPwdHash, mustChange: true, isAdmin: n === "Manrique", blocked: false }; else if (baseUsers[n].password && !baseUsers[n].passwordHash) { baseUsers[n] = { ...baseUsers[n], passwordHash: defaultPwdHash }; delete baseUsers[n].password; } });
+      const baseUsers = { ...(prev.users || {}) }; initial.forEach(n => { if (!baseUsers[n]) baseUsers[n] = { name: n, passwordHash: defaultPwdHash, mustChange: true, isAdmin: n === adminUser, blocked: false }; else if (baseUsers[n].password && !baseUsers[n].passwordHash) { baseUsers[n] = { ...baseUsers[n], passwordHash: defaultPwdHash }; delete baseUsers[n].password; } });
       const baseParticipants = { ...(prev.participants || {}) }; initial.forEach(n => { if (!baseParticipants[n]) baseParticipants[n] = { name: n, createdAt: nowISO() }; });
       const prevMeta = prev.meta || {};
-      const championships = prevMeta.championships || { Carlos: 1, Toni: 1, Pere: 1 };
+      const championships = prevMeta.championships || {};
       const nextDrivers = drivers && drivers.length ? drivers : (prevMeta.drivers || []);
       const nextTeams = teams && teams.length ? teams : (prevMeta.teams || []);
       const basePoints = prevMeta.basePoints || {};

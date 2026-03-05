@@ -189,7 +189,7 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 
 ## 🚀 Cómo usar este proyecto (Fork)
 
-### 1. Haz fork del repositorio
+### 1. Haz fork y clona
 
 ```bash
 git clone https://github.com/TU_USUARIO/porra-birreros-f1.git
@@ -197,88 +197,113 @@ cd porra-birreros-f1
 npm install
 ```
 
-### 2. Configura los participantes
+### 2. Configura tus participantes
 
-Edita `src/config.js` y cambia los datos a los de tu grupo:
+Copia el fichero de configuración y personaliza:
+
+```bash
+cp src/config.js src/config.local.js
+```
+
+Edita `src/config.local.js` con los datos de tu grupo:
 
 ```javascript
 export const CONFIG = {
-  participants: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
-  timezone: "Europe/Madrid",           // Tu zona horaria
-  sessionTimeoutMs: 30 * 60 * 1000,
-  questionAuthorsOrder: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
+  participants: ["Nombre1", "Nombre2", "Nombre3", "Nombre4", "Nombre5"],
+  timezone: "Europe/Madrid",
+  questionAuthorsOrder: ["Nombre1", "Nombre2", "Nombre3", "Nombre4", "Nombre5"],
   futbolTeams: ["Equipo1", "Equipo2", "Equipo3", "Equipo4"],
-  futbolDeadlineHour: "15:00",
+  // ...
+};
+
+// Genera hashes con: echo -n "TuPassword" | sha256sum
+export const DEFAULT_PASSWORD_HASH = "tu-hash-sha256-aqui";
+export const ADMIN_SECRET_HASH = "tu-hash-admin-aqui";
+
+export const PILOT_COLORS = {
+  "Nombre1": "#c4544e", "Nombre2": "#5a9abf", // ...
 };
 ```
 
-También en `config.js`, actualiza:
-- `DEFAULT_PASSWORD_HASH` — hash SHA-256 de la contraseña inicial que quieras
-- `ADMIN_SECRET_HASH` — hash SHA-256 del secreto de administrador
-- `PILOT_COLORS` — colores para cada participante en los gráficos
+> `src/config.local.js` esta en `.gitignore` y nunca se sube al repositorio.
+> Al hacer build, esbuild lo usa automaticamente si existe.
 
-Para generar un hash SHA-256:
+### 3. Configura las URLs de tu backend
+
+Copia el fichero de entorno:
+
 ```bash
-echo -n "TuContraseña" | sha256sum
+cp .env.example .env
 ```
 
-### 3. Personaliza los avatares (opcional)
+Edita `.env` con tus URLs reales:
 
-Reemplaza los SVGs en `assets/avatars/` con las caricaturas de tus participantes:
-- `nombre.svg` — avatar para modo F1
-- `nombre-futbol.svg` — avatar para modo fútbol
-- `default.svg` — avatar por defecto
+```env
+PORRA_API_BASE=https://tu-api.example.com
+PORRA_AI_URL=https://tu-lambda-ai.execute-api.eu-west-1.amazonaws.com
+PORRA_DOMAIN=https://tu-dominio.com
+```
 
-Los nombres deben coincidir (en minúsculas, sin espacios) con los de `CONFIG.participants`.
+> `.env` esta en `.gitignore` y nunca se sube al repositorio.
+> `build.mjs` lee estas variables e inyecta las URLs en el HTML de produccion.
 
-### 4. Configura el backend AWS
+### 4. Personaliza los avatares (opcional)
 
-Necesitas crear los siguientes recursos en AWS:
+Crea SVGs en `assets/avatars/` con las caricaturas de tus participantes:
+- `nombre.svg` -- avatar para modo F1
+- `nombre-futbol.svg` -- avatar para modo futbol
+- `default.svg` -- avatar por defecto (ya incluido)
 
-#### S3 Buckets
-- **Hosting**: bucket para servir los archivos estáticos (`dist/`)
-- **Datos**: bucket para almacenar el estado JSON de la porra
+Los nombres deben coincidir (en minusculas, sin espacios) con los de `CONFIG.participants`.
 
-#### API Gateway + Lambda (Estado)
-Una Lambda que haga GET/PUT del JSON de estado desde S3. Configura las variables de entorno correspondientes en `src/api.js`.
+> Los avatares personales estan en `.gitignore`. Solo `default.svg` va al repositorio.
 
-#### API Gateway + Lambda (AI — opcional)
-Si quieres el asistente AI, despliega `porra-ai.mjs` como Lambda y configura:
-- Variable de entorno `GOOGLE_AI_KEY` con tu API key de Google AI Studio
-- El endpoint en `src/components/AIAssistant.jsx`
+### 5. Configura el backend AWS
 
-#### CloudFront (recomendado)
-Configura una distribución de CloudFront apuntando al bucket de hosting para CDN y HTTPS con tu dominio personalizado.
+Ver [DEPLOY.md](DEPLOY.md) para instrucciones detalladas. En resumen:
 
-### 5. Configura CI/CD (GitHub Actions)
+| Recurso | Funcion |
+|---------|---------|
+| **S3 Hosting** | Bucket para servir `dist/` (SPA estatica) |
+| **S3 Datos** | Bucket para `state.json` (bets, results, users) |
+| **API Gateway + Lambda State** | GET/PUT del estado JSON desde S3 |
+| **API Gateway + Lambda AI** | ManriBot (`porra-ai.mjs`) -- opcional |
+| **CloudFront** | CDN + HTTPS + dominio personalizado |
 
-Añade estos secrets en tu repositorio (`Settings → Secrets → Actions`):
+Variables de entorno de la Lambda AI (`porra-ai.mjs`):
 
-| Secret | Descripción |
+| Variable | Descripcion |
+|----------|-------------|
+| `GEMINI_API_KEY` | API key de Google AI Studio (gratis) |
+| `ALLOWED_ORIGIN` | Tu dominio (ej: `https://tu-dominio.com`) |
+
+### 6. Configura CI/CD (GitHub Actions)
+
+Anade estos secrets en tu repositorio (`Settings > Secrets > Actions`):
+
+| Secret | Descripcion |
 |--------|-------------|
-| `AWS_ACCESS_KEY_ID` | Access Key de un usuario IAM con permisos S3 |
+| `AWS_ACCESS_KEY_ID` | Access Key de un usuario IAM |
 | `AWS_SECRET_ACCESS_KEY` | Secret Key del mismo usuario |
-| `CLOUDFRONT_DISTRIBUTION_ID` | *(opcional)* ID de tu distribución CloudFront |
+| `S3_BUCKET_NAME` | Nombre de tu bucket S3 de hosting |
+| `AWS_REGION` | Region AWS (ej: `eu-west-1`) |
+| `CLOUDFRONT_DISTRIBUTION_ID` | *(opcional)* ID de distribucion CloudFront |
 
-Edita `.github/workflows/deploy-s3.yml` y cambia el nombre del bucket S3 al tuyo.
-
-Ver [DEPLOY.md](DEPLOY.md) para permisos IAM detallados.
-
-### 6. Build y previsualización local
+### 7. Build y previsualizacion local
 
 ```bash
-node build.mjs        # Compila JS + CSS → dist/
+node build.mjs        # Compila JS + CSS -> dist/
 npx serve dist        # Previsualizar en http://localhost:3000
 ```
 
-### 7. Despliegue
+### 8. Despliegue
 
 ```bash
 # Manual
 aws s3 sync dist/ s3://TU-BUCKET --delete
 aws cloudfront create-invalidation --distribution-id TU_DIST_ID --paths "/*"
 
-# Automático: haz push a main y GitHub Actions se encarga
+# Automatico: haz push a main y GitHub Actions se encarga
 git push origin main
 ```
 

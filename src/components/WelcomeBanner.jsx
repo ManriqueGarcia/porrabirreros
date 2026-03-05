@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { CONFIG } from "../config.js";
 import { scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { defaultFutbolState, listFutbolJornadas, computeFutbolStandings } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
@@ -66,7 +67,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const gap=leader?leader.points-myPts:0;
   const gapToLast=last&&myIdx!==total-1?myPts-last.points:0;
   const evento=isFut?"jornada":"GP";
-  const beerGuy=hasResults?last.name:"Antonio";
+  const beerGuy=hasResults?last.name:CONFIG.participants[0];
   let emoji,title,msg;
   if(!hasResults){
     emoji=isFut?"⚽🍺":"🏎️🍺";
@@ -117,11 +118,11 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
             const isMe=s.name===user;
             const isFirst=hasResults&&i===0;
             const isLast=hasResults&&i===total-1&&total>1;
-            const isAntonio=!hasResults&&s.name==="Antonio";
-            return <div key={s.name} className={`text-xs px-2 py-1 rounded-lg border ${isMe?"bg-amber-500/15 border-amber-500/30 text-amber-300 font-bold":isFirst?"bg-emerald-500/10 border-emerald-500/20 text-emerald-300":isLast?"bg-red-500/10 border-red-500/20 text-red-300":isAntonio?"bg-red-500/10 border-red-500/20 text-red-300":"bg-white/[.03] border-white/8 text-white/50"}`}>
+            const isDefaultBeerGuy=!hasResults&&s.name===CONFIG.participants[0];
+            return <div key={s.name} className={`text-xs px-2 py-1 rounded-lg border ${isMe?"bg-amber-500/15 border-amber-500/30 text-amber-300 font-bold":isFirst?"bg-emerald-500/10 border-emerald-500/20 text-emerald-300":isLast?"bg-red-500/10 border-red-500/20 text-red-300":isDefaultBeerGuy?"bg-red-500/10 border-red-500/20 text-red-300":"bg-white/[.03] border-white/8 text-white/50"}`}>
               {hasResults&&<span className="font-semibold">{i+1}.</span>} {s.name} {hasResults&&<span className="text-[10px] opacity-60">{s.points}pts</span>}
               {isLast&&total>1&&<span className="ml-1">🍺</span>}
-              {isAntonio&&<span className="ml-1">🍺</span>}
+              {isDefaultBeerGuy&&<span className="ml-1">🍺</span>}
               {isFirst&&<span className="ml-1">👑</span>}
             </div>;
           })}

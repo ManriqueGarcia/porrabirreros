@@ -5,7 +5,8 @@
  * - Limpia raceOverrides (el calendario 2026 tiene las fechas correctas)
  * - Mantiene usuarios, participantes, championships, bets/results históricos
  */
-const API_BASE = process.env.PORRA_API_BASE || "https://porra.manriquegarcia.com";
+const API_BASE = process.env.PORRA_API_BASE || "";
+if (!API_BASE) { console.error("Error: define PORRA_API_BASE en .env o como variable de entorno"); process.exit(1); }
 const API_SECRET = process.env.PORRA_API_SECRET || "";
 
 async function main() {

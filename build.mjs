@@ -3,6 +3,33 @@ import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync, ren
 import { execSync } from "child_process";
 import { createHash } from "crypto";
 import { gzipSync } from "zlib";
+import { resolve } from "path";
+
+function loadEnv() {
+  const env = {};
+  const envFiles = [".env", ".env.local"];
+  for (const f of envFiles) {
+    if (!existsSync(f)) continue;
+    for (const line of readFileSync(f, "utf-8").split("\n")) {
+      const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*"?([^"#]*)"?\s*$/);
+      if (m) env[m[1]] = m[2].trim();
+    }
+  }
+  return env;
+}
+
+const dotenv = loadEnv();
+const PORRA_API_BASE = process.env.PORRA_API_BASE || dotenv.PORRA_API_BASE || "";
+const PORRA_AI_URL = process.env.PORRA_AI_URL || dotenv.PORRA_AI_URL || "";
+const PORRA_DOMAIN = process.env.PORRA_DOMAIN || dotenv.PORRA_DOMAIN || "";
+
+const useLocalConfig = existsSync("src/config.local.js");
+if (useLocalConfig) {
+  console.log("📌 Usando src/config.local.js (configuración local)\n");
+} else {
+  console.log("⚠️  No se encontró src/config.local.js — usando config.js genérico\n");
+  console.log("   Copia src/config.js a src/config.local.js y personaliza tus datos.\n");
+}
 
 function contentHash(filepath) {
   return createHash("md5").update(readFileSync(filepath)).digest("hex").slice(0, 8);
@@ -26,6 +53,20 @@ mkdirSync(DIST, { recursive: true });
 // 1. Build JS (modular entry point)
 console.log("📦 Compilando src/index.jsx...");
 try {
+  const esbuildPlugins = [];
+  if (useLocalConfig) {
+    esbuildPlugins.push({
+      name: "config-local",
+      setup(b) {
+        b.onResolve({ filter: /\.\/config\.js$/ }, (args) => {
+          if (args.importer && args.importer.includes("src/")) {
+            return { path: resolve("src/config.local.js") };
+          }
+        });
+      },
+    });
+  }
+
   await build({
     entryPoints: ["src/index.jsx"],
     bundle: true,
@@ -37,6 +78,7 @@ try {
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' },
     legalComments: "none",
+    plugins: esbuildPlugins,
   });
 
   console.log("  ✅ dist/app.js");
@@ -82,9 +124,29 @@ html = html.replace(
 );
 html = html.replace("</head>", `  <link rel="stylesheet" href="./${cssHashed}">\n</head>`);
 
+const connectSources = ["'self'", "https://api.jolpi.ca"];
+if (PORRA_API_BASE) connectSources.push(PORRA_API_BASE);
+if (PORRA_AI_URL) connectSources.push(PORRA_AI_URL);
 html = html.replace(
   /content="default-src 'self';[^"]*"/,
-  `content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.unsplash.com; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com https://api.jolpi.ca; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"`
+  `content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.unsplash.com; connect-src ${connectSources.join(" ")}; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"`
+);
+
+if (PORRA_DOMAIN) {
+  html = html.replace(/content="https:\/\/[^"]*"/, `content="${PORRA_DOMAIN}"`);
+  html = html.replace(/href="https:\/\/porra\.[^"]*"/, `href="${PORRA_DOMAIN}"`);
+} else {
+  html = html.replace(/<meta property="og:url"[^>]*>\n?\s*/g, "");
+  html = html.replace(/<link rel="preconnect" href="https:\/\/porra\.[^"]*">\n?\s*/g, "");
+}
+
+html = html.replace(
+  /window\.PORRA_API_BASE\s*=\s*"[^"]*"/,
+  `window.PORRA_API_BASE = "${PORRA_API_BASE}"`
+);
+html = html.replace(
+  /window\.PORRA_AI_URL\s*=\s*"[^"]*"/,
+  `window.PORRA_AI_URL = "${PORRA_AI_URL}"`
 );
 
 html = html.replace(/<script>\s*\/\/ Verificar que los scripts[\s\S]*?<\/script>\n?\s*/g, "");

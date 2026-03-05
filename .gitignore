@@ -8,10 +8,17 @@ Thumbs.db
 *.swo
 *~
 
-# Archivos de entorno
+# Archivos de entorno (contienen URLs y secrets reales)
 .env
 .env.local
 .env.*.local
+
+# Configuración local (contiene participantes, hashes, etc.)
+src/config.local.js
+
+# Avatares personales (solo default.svg va al repo)
+assets/avatars/*.svg
+!assets/avatars/default.svg
 
 # Logs
 *.log

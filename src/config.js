@@ -1,25 +1,28 @@
 export const CACHE_BUST = "v20260301";
 
 export const CONFIG = {
-  participants: ["Antonio", "Carlos", "Pere", "Toni", "Manrique"],
+  participants: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
   timezone: "Europe/Madrid",
   sessionTimeoutMs: 30 * 60 * 1000,
-  questionAuthorsOrder: ["Pere", "Antonio", "Manrique", "Toni", "Carlos"],
-  futbolTeams: ["Real Madrid", "FC Barcelona", "Real Sociedad", "Real Sporting de Gijón"],
+  questionAuthorsOrder: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
+  futbolTeams: ["Equipo1", "Equipo2", "Equipo3", "Equipo4"],
   futbolDeadlineHour: "15:00",
 };
 
 export const LS_KEY = "porra_f1_clean_v3";
-export const DEFAULT_PASSWORD_HASH = "3c9aed6bcbf0ebf23367e34557722796f040290945a9abc608599bda30c4c0d3";
+
+// echo -n "TuPassword" | sha256sum
+export const DEFAULT_PASSWORD_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 export const RECOVERY_CODE_HASH = DEFAULT_PASSWORD_HASH;
-export const ADMIN_SECRET_HASH = "3c456c5124d0660a8bc1b4a6c1e09f5e72c5de8fd36dd0c4ec4607bc22325652";
+export const ADMIN_SECRET_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
+
 export const QUESTION_AUTHORS_ORDER = CONFIG.questionAuthorsOrder;
 export const MADRID_TZ = CONFIG.timezone;
 export const SESSION_TIMEOUT_MS = CONFIG.sessionTimeoutMs;
 export const CURRENT_SEASON_YEAR = 2026;
 
-export const FUTBOL_BASE_TEAMS = ["Real Madrid", "FC Barcelona", "Real Sociedad", "Real Sporting de Gijón"];
-export const FUTBOL_DEFAULT_DEADLINE_HOUR = "15:00";
+export const FUTBOL_BASE_TEAMS = CONFIG.futbolTeams;
+export const FUTBOL_DEFAULT_DEADLINE_HOUR = CONFIG.futbolDeadlineHour;
 
 export const DRIVER_TEAMS = {
   "Lando Norris": "McLaren", "Oscar Piastri": "McLaren",
@@ -41,8 +44,8 @@ export const TEAMS_ORDER_2025 = [
 ];
 
 export const PILOT_COLORS = {
-  "Antonio": "#c4544e", "Carlos": "#5a9abf", "Pere": "#5fb8a8",
-  "Toni": "#c9874a", "Manrique": "#9078b0",
+  "Jugador1": "#c4544e", "Jugador2": "#5a9abf", "Jugador3": "#5fb8a8",
+  "Jugador4": "#c9874a", "Jugador5": "#9078b0",
 };
 
 export const FALLBACK_COLORS = [

@@ -5,7 +5,7 @@
  */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://porra.manriquegarcia.com";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const API_SECRET = process.env.API_SECRET || "";
 
 function log(level, msg, data = {}) {
