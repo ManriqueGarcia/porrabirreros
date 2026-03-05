@@ -21,8 +21,8 @@ function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-user",
-    "Access-Control-Allow-Methods": "GET,PUT,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-user,x-porra-group",
+    "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
     "Cache-Control": "no-store",
     ...extra,
   };
@@ -70,9 +70,26 @@ async function scanAll() {
   return items;
 }
 
+async function resolveUser(inputName) {
+  if (!inputName) return "";
+  const exact = await getItem(`USER#${inputName}`, "PROFILE");
+  if (exact) return inputName;
+  const r = await client.send(new ScanCommand({
+    TableName: TABLE,
+    FilterExpression: "begins_with(pk, :prefix) AND sk = :sk",
+    ExpressionAttributeValues: { ":prefix": "USER#", ":sk": "PROFILE" },
+    ProjectionExpression: "pk",
+  }));
+  const match = (r.Items || []).find(i => i.pk.replace("USER#", "").toLowerCase() === inputName.trim().toLowerCase());
+  return match ? match.pk.replace("USER#", "") : "";
+}
+
 async function isAdmin(userName) {
   const user = await getItem(`USER#${userName}`, "PROFILE");
-  return !!user?.isAdmin;
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  const r = user.adminRoles;
+  return !!(r?.general || r?.f1 || r?.futbol);
 }
 
 // GET /state - reconstruct full state from DynamoDB
@@ -315,7 +332,7 @@ async function handleUpdateUser(targetUser, reqUser, body) {
 
   const updates = body.updates || body;
   const allowed = ["passwordHash", "mustChange", "avatar"];
-  if (await isAdmin(reqUser)) allowed.push("isAdmin", "blocked", "name");
+  if (await isAdmin(reqUser)) allowed.push("isAdmin", "blocked", "name", "porras", "adminRoles");
 
   const merged = { ...existing };
   for (const key of allowed) {
@@ -414,13 +431,14 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
 
 async function handleAddUser(reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
-  const { name, passwordHash, isAdmin: isAdm } = body;
+  const { name, passwordHash, isAdmin: isAdm, porras } = body;
   if (!name) return badReq("Falta nombre");
   const existing = await getItem(`USER#${name}`, "PROFILE");
   if (existing) return badReq("El usuario ya existe");
   await putItem(`USER#${name}`, "PROFILE", {
     name, passwordHash: passwordHash || "", mustChange: true,
     isAdmin: !!isAdm, blocked: false, createdAt: new Date().toISOString(),
+    porras: porras || { f1: true, futbol: true },
   });
   return res(200, { ok: true });
 }
@@ -430,6 +448,242 @@ async function handleDeleteUser(targetUser, reqUser) {
   if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
   await deleteItem(`USER#${targetUser}`, "PROFILE");
   return res(200, { ok: true });
+}
+
+// ─── Group management ───
+
+function generateCode(len = 8) {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  let code = "";
+  const arr = new Uint8Array(len);
+  globalThis.crypto?.getRandomValues?.(arr) || arr.forEach((_, i) => { arr[i] = Math.floor(Math.random() * 256); });
+  for (const b of arr) code += chars[b % chars.length];
+  return code;
+}
+
+async function handleCreateGroup(body) {
+  const { name, adminUser, adminPasswordHash, sports } = body;
+  if (!name?.trim()) return badReq("Falta nombre del grupo");
+  if (!adminUser?.trim()) return badReq("Falta nombre de admin");
+  if (!adminPasswordHash) return badReq("Falta contraseña");
+  if (!Array.isArray(sports) || !sports.length) return badReq("Selecciona al menos un deporte");
+
+  const groupId = generateCode(10);
+  const inviteCode = generateCode(8);
+  const now = new Date().toISOString();
+
+  await putItem("GROUPS", `G#${groupId}`, {
+    name: name.trim(), groupId, inviteCode, sports,
+    createdAt: now, adminUser: adminUser.trim(), memberCount: 1,
+  });
+  await putItem(`INVITE#${inviteCode}`, "META", { groupId, groupName: name.trim() });
+
+  const gpk = `G#${groupId}`;
+  await putItem(gpk, "META|CONFIG", {
+    adminSecretHash: adminPasswordHash, seeded: true,
+    drivers: [], teams: [], championships: {}, basePoints: {},
+  });
+  await putItem(gpk, `USER#${adminUser.trim()}|PROFILE`, {
+    name: adminUser.trim(), passwordHash: adminPasswordHash,
+    mustChange: false, isAdmin: true, blocked: false, createdAt: now,
+    porras: { f1: sports.includes("f1"), futbol: sports.includes("futbol") },
+  });
+  await writeUIDX(adminUser.trim(), groupId, name.trim());
+
+  return res(201, { ok: true, groupId, inviteCode, name: name.trim() });
+}
+
+async function handleGetInvite(code) {
+  const item = await getItem(`INVITE#${code}`, "META");
+  if (!item) return notFound("Código de invitación no válido");
+  return res(200, { groupId: item.groupId, groupName: item.groupName });
+}
+
+async function handleJoinGroup(groupId, body) {
+  const { name, passwordHash } = body;
+  if (!name?.trim()) return badReq("Falta nombre de usuario");
+  if (!passwordHash) return badReq("Falta contraseña");
+
+  const groupMeta = await getItem("GROUPS", `G#${groupId}`);
+  if (!groupMeta) return notFound("Grupo no encontrado");
+
+  const gpk = `G#${groupId}`;
+  const existing = await getItem(gpk, `USER#${name.trim()}|PROFILE`);
+  if (existing) return badReq("Ese nombre de usuario ya existe en el grupo");
+
+  const now = new Date().toISOString();
+  await putItem(gpk, `USER#${name.trim()}|PROFILE`, {
+    name: name.trim(), passwordHash, mustChange: false,
+    isAdmin: false, blocked: false, createdAt: now,
+    porras: { f1: (groupMeta.sports || []).includes("f1"), futbol: (groupMeta.sports || []).includes("futbol") },
+  });
+  await writeUIDX(name.trim(), groupId, groupMeta.name);
+
+  const updated = { ...groupMeta, memberCount: (groupMeta.memberCount || 1) + 1 };
+  await putItem("GROUPS", `G#${groupId}`, updated);
+
+  return res(200, { ok: true, groupId, userName: name.trim() });
+}
+
+async function getGroupState(groupId) {
+  const items = await queryByPk(`G#${groupId}`);
+  const state = {
+    users: {}, participants: {}, bets: {}, results: {},
+    betHistory: {}, betsWindow: {}, betsReveal: {},
+    scoreAdjustments: {}, questionOwner: {}, questions: {},
+    questionsStatus: {}, meta: {}, futbol: {
+      order: [], jornadas: {}, bets: {}, results: {},
+      betsWindow: {}, betsReveal: {}, betHistory: {},
+    },
+  };
+
+  for (const item of items) {
+    const { pk: _pk, sk, ...data } = item;
+    const pipeIdx = sk.indexOf("|");
+    if (pipeIdx === -1) continue;
+    const ePk = sk.substring(0, pipeIdx);
+    const eSk = sk.substring(pipeIdx + 1);
+
+    if (ePk === "META" && eSk === "CONFIG") {
+      Object.assign(state.meta, data);
+    } else if (ePk === "META" && eSk === "OVERRIDES") {
+      state.meta.raceOverrides = data.raceOverrides || {};
+    } else if (ePk === "META" && eSk === "AVATARS") {
+      state.meta.avatars = data.avatars || {};
+    } else if (ePk === "META" && eSk === "QUESTIONS") {
+      state.questionOwner = data.questionOwner || {};
+      state.questions = data.questions || {};
+      state.questionsStatus = data.questionsStatus || {};
+    } else if (ePk.startsWith("USER#")) {
+      const name = ePk.replace("USER#", "");
+      state.users[name] = data;
+      state.participants[name] = { name, createdAt: data.createdAt };
+    } else if (ePk.startsWith("F1#") && eSk === "RESULT") {
+      state.results[ePk.replace("F1#", "")] = data;
+    } else if (ePk.startsWith("F1#") && eSk.startsWith("BET#")) {
+      const rk = ePk.replace("F1#", "");
+      if (!state.bets[rk]) state.bets[rk] = {};
+      state.bets[rk][eSk.replace("BET#", "")] = data;
+    } else if (ePk.startsWith("F1#") && eSk.startsWith("HISTORY#")) {
+      const rk = ePk.replace("F1#", "");
+      if (!state.betHistory[rk]) state.betHistory[rk] = {};
+      state.betHistory[rk][eSk.replace("HISTORY#", "")] = data.log || [];
+    } else if (ePk.startsWith("F1#") && eSk === "WINDOW") {
+      state.betsWindow[ePk.replace("F1#", "")] = data;
+    } else if (ePk.startsWith("F1#") && eSk === "REVEAL") {
+      state.betsReveal[ePk.replace("F1#", "")] = data;
+    } else if (ePk.startsWith("F1#") && eSk === "ADJUST") {
+      state.scoreAdjustments[ePk.replace("F1#", "")] = data.adjustments || {};
+    } else if (ePk === "FUT" && eSk === "CONFIG") {
+      state.futbol.order = data.order || [];
+      if (data.jornadasV3) state.meta.futbolJornadasV3 = true;
+    } else if (ePk.startsWith("FUT#") && eSk === "CONFIG") {
+      state.futbol.jornadas[ePk.replace("FUT#", "")] = data;
+    } else if (ePk.startsWith("FUT#") && eSk === "RESULT") {
+      state.futbol.results[ePk.replace("FUT#", "")] = data;
+    } else if (ePk.startsWith("FUT#") && eSk.startsWith("BET#")) {
+      const jId = ePk.replace("FUT#", "");
+      if (!state.futbol.bets[jId]) state.futbol.bets[jId] = {};
+      state.futbol.bets[jId][eSk.replace("BET#", "")] = data;
+    } else if (ePk.startsWith("FUT#") && eSk.startsWith("HISTORY#")) {
+      const jId = ePk.replace("FUT#", "");
+      if (!state.futbol.betHistory[jId]) state.futbol.betHistory[jId] = {};
+      state.futbol.betHistory[jId][eSk.replace("HISTORY#", "")] = data.log || [];
+    } else if (ePk.startsWith("FUT#") && eSk === "WINDOW") {
+      state.futbol.betsWindow[ePk.replace("FUT#", "")] = data;
+    } else if (ePk.startsWith("FUT#") && eSk === "REVEAL") {
+      state.futbol.betsReveal[ePk.replace("FUT#", "")] = data;
+    }
+  }
+
+  state.meta.seeded = true;
+  return state;
+}
+
+async function resolveUserInGroup(groupId, inputName) {
+  if (!inputName) return "";
+  const gpk = `G#${groupId}`;
+  const exact = await getItem(gpk, `USER#${inputName}|PROFILE`);
+  if (exact) return inputName;
+  const items = await queryByPk(gpk);
+  const userItems = items.filter(i => i.sk.startsWith("USER#") && i.sk.endsWith("|PROFILE"));
+  const match = userItems.find(i => {
+    const name = i.sk.substring(5, i.sk.indexOf("|"));
+    return name.toLowerCase() === inputName.trim().toLowerCase();
+  });
+  return match ? match.sk.substring(5, match.sk.indexOf("|")) : "";
+}
+
+async function isAdminInGroup(groupId, userName) {
+  const user = await getItem(`G#${groupId}`, `USER#${userName}|PROFILE`);
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  const r = user.adminRoles;
+  return !!(r?.general || r?.f1 || r?.futbol);
+}
+
+// Group-aware item helpers
+function gItem(groupId, oldPk, oldSk) {
+  return { pk: `G#${groupId}`, sk: `${oldPk}|${oldSk}` };
+}
+
+async function gGetItem(gid, oldPk, oldSk) { return getItem(`G#${gid}`, `${oldPk}|${oldSk}`); }
+async function gPutItem(gid, oldPk, oldSk, data) { return putItem(`G#${gid}`, `${oldPk}|${oldSk}`, data); }
+async function gDeleteItem(gid, oldPk, oldSk) { return deleteItem(`G#${gid}`, `${oldPk}|${oldSk}`); }
+
+// ─── User Index (UIDX) — maps username → groups ───
+
+async function writeUIDX(username, groupId, groupName) {
+  await putItem(`UIDX#${username.trim().toLowerCase()}`, `G#${groupId}`, {
+    groupId, groupName: groupName || "",
+    joinedAt: new Date().toISOString(),
+    username: username.trim(),
+  });
+}
+
+async function deleteUIDX(username, groupId) {
+  await deleteItem(`UIDX#${username.trim().toLowerCase()}`, `G#${groupId}`);
+}
+
+async function getUserGroups(username) {
+  const items = await queryByPk(`UIDX#${username.trim().toLowerCase()}`);
+  return items.map(i => ({
+    groupId: i.groupId,
+    groupName: i.groupName || "",
+    joinedAt: i.joinedAt || "",
+    username: i.username || username.trim(),
+  })).sort((a, b) => (a.joinedAt || "").localeCompare(b.joinedAt || ""));
+}
+
+async function handleAuthLogin(body) {
+  const { username, passwordHash } = body;
+  if (!username?.trim()) return badReq("Falta nombre de usuario");
+  if (!passwordHash) return badReq("Falta contraseña");
+  const groups = await getUserGroups(username.trim());
+  if (!groups.length) return res(401, { error: "Usuario no encontrado" });
+  const validGroups = [];
+  let canonicalName = username.trim();
+  for (const g of groups) {
+    const input = username.trim();
+    const cap = input.charAt(0).toUpperCase() + input.slice(1).toLowerCase();
+    const namesToTry = [...new Set([cap, input, g.username])];
+    for (const tryName of namesToTry) {
+      const profile = await gGetItem(g.groupId, `USER#${tryName}`, "PROFILE");
+      if (!profile || profile.blocked) continue;
+      if (profile.passwordHash === passwordHash) {
+        canonicalName = profile.name || tryName;
+        validGroups.push({
+          groupId: g.groupId,
+          groupName: g.groupName,
+          joinedAt: g.joinedAt,
+          mustChange: !!profile.mustChange,
+        });
+        break;
+      }
+    }
+  }
+  if (!validGroups.length) return res(401, { error: "Contraseña incorrecta" });
+  return res(200, { username: canonicalName, groups: validGroups });
 }
 
 // ─── Main handler ───
@@ -447,7 +701,7 @@ export const handler = async (event) => {
     return forbidden("API secret invalido");
   }
 
-  const reqUser = hdrs["x-porra-user"] || "";
+  const rawUser = hdrs["x-porra-user"] || "";
   const path = rawPath.replace(/\/+$/, "") || "/";
   const segments = path.split("/").filter(Boolean);
 
@@ -469,9 +723,312 @@ export const handler = async (event) => {
       return res(200, { ok: true, items: count });
     }
 
+    // POST /auth/login
+    if (method === "POST" && segments[0] === "auth" && segments[1] === "login") {
+      return handleAuthLogin(body);
+    }
+    // GET /users/{name}/groups
+    if (method === "GET" && segments[0] === "users" && segments[1] && segments[2] === "groups") {
+      return res(200, { groups: await getUserGroups(decodeURIComponent(segments[1])) });
+    }
+    // GET /groups/list
+    if (method === "GET" && segments[0] === "groups" && segments[1] === "list") {
+      const items = await queryByPk("GROUPS");
+      return res(200, { groups: items.map(i => ({ groupId: i.groupId, name: i.name, memberCount: i.memberCount || 0, sports: i.sports || [] })) });
+    }
+    // POST /seed-uidx/{groupId} - one-time migration to create UIDX entries
+    if (method === "POST" && segments[0] === "seed-uidx" && segments[1]) {
+      const gid = segments[1];
+      const groupMeta = await getItem("GROUPS", `G#${gid}`);
+      if (!groupMeta) return notFound("Grupo no encontrado");
+      const state = await getGroupState(gid);
+      let count = 0;
+      for (const [name] of Object.entries(state.users || {})) {
+        await writeUIDX(name, gid, groupMeta.name);
+        count++;
+      }
+      return res(200, { ok: true, count });
+    }
+
+    // ─── Group routes ───
+    // POST /groups
+    if (method === "POST" && segments[0] === "groups" && !segments[1]) {
+      return handleCreateGroup(body);
+    }
+    // GET /invite/{code}
+    if (method === "GET" && segments[0] === "invite" && segments[1]) {
+      return handleGetInvite(segments[1]);
+    }
+    // POST /groups/{groupId}/join
+    if (method === "POST" && segments[0] === "groups" && segments[1] && segments[2] === "join") {
+      return handleJoinGroup(segments[1], body);
+    }
+    // GET /g/{groupId}/state
+    if (method === "GET" && segments[0] === "g" && segments[1] && segments[2] === "state") {
+      const state = await getGroupState(segments[1]);
+      return res(200, state);
+    }
+    // PUT /g/{groupId}/bets/f1/{raceKey}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "f1" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!reqUser) return forbidden("Falta x-porra-user o usuario no encontrado");
+      const rk = segments[4], ts = new Date().toISOString();
+      const bet = body.bet || body;
+      const betData = { pole: bet.pole || "", podium: bet.podium || ["","",""], q: bet.q || ["","",""], submittedAt: ts, late: !!bet.late };
+      await gPutItem(gid, `F1#${rk}`, `BET#${reqUser}`, betData);
+      const hist = await gGetItem(gid, `F1#${rk}`, `HISTORY#${reqUser}`);
+      const log = hist?.log || [];
+      log.push({ ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
+      await gPutItem(gid, `F1#${rk}`, `HISTORY#${reqUser}`, { log });
+      return res(200, { ok: true, submittedAt: ts });
+    }
+    // PUT /g/{groupId}/bets/futbol/{jId}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "futbol" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!reqUser) return forbidden("Falta x-porra-user");
+      const jId = segments[4], ts = new Date().toISOString();
+      const bet = body.bet || body;
+      const betData = { matches: bet.matches || [], submittedAt: ts, late: !!bet.late };
+      await gPutItem(gid, `FUT#${jId}`, `BET#${reqUser}`, betData);
+      const hist = await gGetItem(gid, `FUT#${jId}`, `HISTORY#${reqUser}`);
+      const log = hist?.log || [];
+      log.push({ ts, matches: betData.matches, late: betData.late });
+      await gPutItem(gid, `FUT#${jId}`, `HISTORY#${reqUser}`, { log });
+      return res(200, { ok: true, submittedAt: ts });
+    }
+    // PUT /g/{groupId}/users/{name}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "users" && segments[3]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!reqUser) return forbidden("Falta x-porra-user");
+      const targetUser = decodeURIComponent(segments[3]);
+      if (reqUser !== targetUser && !(await isAdminInGroup(gid, reqUser))) return forbidden("Solo puedes modificar tu propio perfil");
+      const existing = await gGetItem(gid, `USER#${targetUser}`, "PROFILE");
+      if (!existing) return notFound("Usuario no encontrado");
+      const updates = body.updates || body;
+      const allowed = ["passwordHash", "mustChange", "avatar"];
+      if (await isAdminInGroup(gid, reqUser)) allowed.push("isAdmin", "blocked", "name", "porras", "adminRoles");
+      const merged = { ...existing };
+      for (const key of allowed) { if (updates[key] !== undefined) merged[key] = updates[key]; }
+      await gPutItem(gid, `USER#${targetUser}`, "PROFILE", merged);
+      return res(200, { ok: true });
+    }
+    // PUT /g/{groupId}/meta
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "meta") {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
+      const meta = body.meta || body;
+      const { avatars, raceOverrides, ...metaRest } = meta;
+      if (metaRest && Object.keys(metaRest).length) {
+        const existing = await gGetItem(gid, "META", "CONFIG") || {};
+        await gPutItem(gid, "META", "CONFIG", { ...existing, ...metaRest });
+      }
+      if (raceOverrides !== undefined) await gPutItem(gid, "META", "OVERRIDES", { raceOverrides });
+      if (avatars !== undefined) await gPutItem(gid, "META", "AVATARS", { avatars });
+      return res(200, { ok: true });
+    }
+    // PUT /g/{groupId}/results/f1/{raceKey}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "results" && segments[3] === "f1" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin puede guardar resultados");
+      const result = body.result || body;
+      await gPutItem(gid, `F1#${segments[4]}`, "RESULT", { pole: result.pole || "", podium: result.podium || ["","",""] });
+      return res(200, { ok: true });
+    }
+    // PUT /g/{groupId}/results/futbol/{jId}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "results" && segments[3] === "futbol" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin puede guardar resultados");
+      const { pk: _pk, sk: _sk, ...resultData } = body.result || body;
+      await gPutItem(gid, `FUT#${segments[4]}`, "RESULT", resultData);
+      return res(200, { ok: true });
+    }
+    // POST /g/{groupId}/users (add user)
+    if (method === "POST" && segments[0] === "g" && segments[1] && segments[2] === "users" && !segments[3]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
+      const { name, passwordHash, isAdmin: isAdm, porras } = body;
+      if (!name) return badReq("Falta nombre");
+      const existing = await gGetItem(gid, `USER#${name}`, "PROFILE");
+      if (existing) return badReq("El usuario ya existe");
+      await gPutItem(gid, `USER#${name}`, "PROFILE", {
+        name, passwordHash: passwordHash || "", mustChange: true,
+        isAdmin: !!isAdm, blocked: false, createdAt: new Date().toISOString(),
+        porras: porras || { f1: true, futbol: true },
+      });
+      const groupInfo = await getItem("GROUPS", `G#${gid}`);
+      await writeUIDX(name, gid, groupInfo?.name || "");
+      return res(200, { ok: true });
+    }
+    // DELETE /g/{groupId}/users/{name}
+    if (method === "DELETE" && segments[0] === "g" && segments[1] && segments[2] === "users" && segments[3]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
+      const targetUser = decodeURIComponent(segments[3]);
+      if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
+      await gDeleteItem(gid, `USER#${targetUser}`, "PROFILE");
+      await deleteUIDX(targetUser, gid);
+      return res(200, { ok: true });
+    }
+    // PUT /g/{groupId}/admin/f1/{raceKey}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "admin" && segments[3] === "f1" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
+      const { type, data } = body;
+      if (!type) return badReq("Falta type");
+      const raceKey = segments[4];
+      switch (type) {
+        case "window": await gPutItem(gid, `F1#${raceKey}`, "WINDOW", data || {}); break;
+        case "reveal": await gPutItem(gid, `F1#${raceKey}`, "REVEAL", data || {}); break;
+        case "adjust": await gPutItem(gid, `F1#${raceKey}`, "ADJUST", { adjustments: data || {} }); break;
+        case "bet": {
+          const { userName, bet } = data;
+          if (!userName) return badReq("Falta userName");
+          await gPutItem(gid, `F1#${raceKey}`, `BET#${userName}`, bet);
+          break;
+        }
+        case "questions": {
+          const existing = await gGetItem(gid, "META", "QUESTIONS") || {};
+          await gPutItem(gid, "META", "QUESTIONS", { ...existing, ...data });
+          break;
+        }
+        default: return badReq(`Tipo desconocido: ${type}`);
+      }
+      return res(200, { ok: true });
+    }
+    // PUT /g/{groupId}/admin/futbol/{jId}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "admin" && segments[3] === "futbol" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
+      const { type, data } = body;
+      if (!type) return badReq("Falta type");
+      const jornadaId = segments[4];
+      switch (type) {
+        case "jornada":
+          await gPutItem(gid, `FUT#${jornadaId}`, "CONFIG", data || {});
+          if (data?.order) {
+            const futConf = await gGetItem(gid, "FUT", "CONFIG") || {};
+            await gPutItem(gid, "FUT", "CONFIG", { ...futConf, order: data.order });
+          }
+          break;
+        case "window": await gPutItem(gid, `FUT#${jornadaId}`, "WINDOW", data || {}); break;
+        case "reveal": await gPutItem(gid, `FUT#${jornadaId}`, "REVEAL", data || {}); break;
+        case "bet": {
+          const { userName, bet } = data;
+          if (!userName) return badReq("Falta userName");
+          await gPutItem(gid, `FUT#${jornadaId}`, `BET#${userName}`, bet);
+          break;
+        }
+        case "delete": {
+          const items = await queryByPk(`G#${gid}`);
+          const futItems = items.filter(i => i.sk.startsWith(`FUT#${jornadaId}|`));
+          for (const item of futItems) await deleteItem(item.pk, item.sk);
+          break;
+        }
+        default: return badReq(`Tipo desconocido: ${type}`);
+      }
+      return res(200, { ok: true });
+    }
+    // POST /migrate-to-group - migrates legacy data to a group
+    if (method === "POST" && segments[0] === "migrate-to-group") {
+      const { groupId: targetGroupId, groupName, inviteCode: customInvite } = body;
+      if (!targetGroupId) return badReq("Falta groupId");
+      const state = await getFullState();
+      if (!state.meta?.seeded) return badReq("No hay datos legacy para migrar");
+      const inviteCode = customInvite || generateCode(8);
+      const adminUser = Object.entries(state.users || {}).find(([_, u]) => u.isAdmin)?.[0] || "";
+      const now = new Date().toISOString();
+      await putItem("GROUPS", `G#${targetGroupId}`, {
+        name: groupName || "Grupo Migrado", groupId: targetGroupId, inviteCode,
+        sports: ["f1", "futbol"], createdAt: now, adminUser,
+        memberCount: Object.keys(state.users || {}).length,
+      });
+      await putItem(`INVITE#${inviteCode}`, "META", { groupId: targetGroupId, groupName: groupName || "Grupo Migrado" });
+      const ops = [];
+      const gpk = `G#${targetGroupId}`;
+      const { avatars, raceOverrides, ...metaRest } = state.meta || {};
+      ops.push({ pk: gpk, sk: "META|CONFIG", ...metaRest });
+      if (raceOverrides) ops.push({ pk: gpk, sk: "META|OVERRIDES", raceOverrides });
+      if (avatars) ops.push({ pk: gpk, sk: "META|AVATARS", avatars });
+      ops.push({ pk: gpk, sk: "META|QUESTIONS", questionOwner: state.questionOwner || {}, questions: state.questions || {}, questionsStatus: state.questionsStatus || {} });
+      for (const [name, u] of Object.entries(state.users || {})) {
+        ops.push({ pk: gpk, sk: `USER#${name}|PROFILE`, ...u, createdAt: state.participants?.[name]?.createdAt || u.createdAt });
+      }
+      for (const [rk, result] of Object.entries(state.results || {})) ops.push({ pk: gpk, sk: `F1#${rk}|RESULT`, ...result });
+      for (const [rk, raceBets] of Object.entries(state.bets || {})) {
+        for (const [name, bet] of Object.entries(raceBets || {})) ops.push({ pk: gpk, sk: `F1#${rk}|BET#${name}`, ...bet });
+      }
+      for (const [rk, rh] of Object.entries(state.betHistory || {})) {
+        for (const [name, log] of Object.entries(rh || {})) ops.push({ pk: gpk, sk: `F1#${rk}|HISTORY#${name}`, log });
+      }
+      for (const [rk, w] of Object.entries(state.betsWindow || {})) ops.push({ pk: gpk, sk: `F1#${rk}|WINDOW`, ...w });
+      for (const [rk, r] of Object.entries(state.betsReveal || {})) ops.push({ pk: gpk, sk: `F1#${rk}|REVEAL`, ...r });
+      for (const [rk, adj] of Object.entries(state.scoreAdjustments || {})) ops.push({ pk: gpk, sk: `F1#${rk}|ADJUST`, adjustments: adj });
+      const fut = state.futbol || {};
+      ops.push({ pk: gpk, sk: "FUT|CONFIG", order: fut.order || [], jornadasV3: true });
+      for (const [jId, j] of Object.entries(fut.jornadas || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|CONFIG`, ...j });
+      for (const [jId, r] of Object.entries(fut.results || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|RESULT`, ...r });
+      for (const [jId, jB] of Object.entries(fut.bets || {})) {
+        for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|BET#${name}`, ...bet });
+      }
+      for (let i = 0; i < ops.length; i += 25) {
+        const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
+        await client.send(new BatchWriteCommand({ RequestItems: { [TABLE]: batch } }));
+      }
+      return res(200, { ok: true, groupId: targetGroupId, inviteCode, items: ops.length });
+    }
+    // PUT /g/{groupId}/state (full state write for migration)
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "state") {
+      const gid = segments[1];
+      const state = body;
+      const ops = [];
+      const gpk = `G#${gid}`;
+      const { avatars, raceOverrides, ...metaRest } = state.meta || {};
+      ops.push({ pk: gpk, sk: "META|CONFIG", ...metaRest });
+      if (raceOverrides) ops.push({ pk: gpk, sk: "META|OVERRIDES", raceOverrides });
+      if (avatars) ops.push({ pk: gpk, sk: "META|AVATARS", avatars });
+      ops.push({ pk: gpk, sk: "META|QUESTIONS", questionOwner: state.questionOwner || {}, questions: state.questions || {}, questionsStatus: state.questionsStatus || {} });
+      for (const [name, u] of Object.entries(state.users || {})) {
+        ops.push({ pk: gpk, sk: `USER#${name}|PROFILE`, ...u, createdAt: state.participants?.[name]?.createdAt || u.createdAt });
+      }
+      for (const [rk, result] of Object.entries(state.results || {})) ops.push({ pk: gpk, sk: `F1#${rk}|RESULT`, ...result });
+      for (const [rk, raceBets] of Object.entries(state.bets || {})) {
+        for (const [name, bet] of Object.entries(raceBets || {})) ops.push({ pk: gpk, sk: `F1#${rk}|BET#${name}`, ...bet });
+      }
+      for (const [rk, rh] of Object.entries(state.betHistory || {})) {
+        for (const [name, log] of Object.entries(rh || {})) ops.push({ pk: gpk, sk: `F1#${rk}|HISTORY#${name}`, log });
+      }
+      for (const [rk, w] of Object.entries(state.betsWindow || {})) ops.push({ pk: gpk, sk: `F1#${rk}|WINDOW`, ...w });
+      for (const [rk, r] of Object.entries(state.betsReveal || {})) ops.push({ pk: gpk, sk: `F1#${rk}|REVEAL`, ...r });
+      for (const [rk, adj] of Object.entries(state.scoreAdjustments || {})) ops.push({ pk: gpk, sk: `F1#${rk}|ADJUST`, adjustments: adj });
+      const fut = state.futbol || {};
+      ops.push({ pk: gpk, sk: "FUT|CONFIG", order: fut.order || [], jornadasV3: true });
+      for (const [jId, j] of Object.entries(fut.jornadas || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|CONFIG`, ...j });
+      for (const [jId, r] of Object.entries(fut.results || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|RESULT`, ...r });
+      for (const [jId, jB] of Object.entries(fut.bets || {})) {
+        for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|BET#${name}`, ...bet });
+      }
+      for (let i = 0; i < ops.length; i += 25) {
+        const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
+        await client.send(new BatchWriteCommand({ RequestItems: { [TABLE]: batch } }));
+      }
+      return res(200, { ok: true, items: ops.length });
+    }
+
+    const reqUser = rawUser ? await resolveUser(rawUser) : "";
+
     // PUT /bets/f1/{raceKey}
     if (method === "PUT" && segments[0] === "bets" && segments[1] === "f1" && segments[2]) {
-      if (!reqUser) return forbidden("Falta x-porra-user");
+      if (!reqUser) return forbidden("Falta x-porra-user o usuario no encontrado");
       return handleSaveBetF1(segments[2], reqUser, body);
     }
 

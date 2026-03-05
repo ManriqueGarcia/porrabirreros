@@ -4,6 +4,39 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-05] — Multi-tenancy por usuario, login global y admin granular
+
+### Multi-tenancy
+- **Indice de usuarios (UIDX)**: nueva estructura en DynamoDB (`UIDX#nombre → G#groupId`) que mapea cada usuario a los grupos a los que pertenece.
+- **Login global** (`POST /auth/login`): el usuario se autentica una vez con nombre + contraseña. El backend busca en todos sus grupos y devuelve los que coincidan. Lookup case-insensitive con prioridad al nombre capitalizado.
+- **Grupo automatico**: si el usuario pertenece a un solo grupo, entra directamente. Si tiene varios, se muestra un selector de grupo.
+- **Selector de grupo en header**: dropdown para cambiar entre grupos sin cerrar sesion (desktop y mobile).
+- **Rutas multi-tenant**: todos los endpoints existentes duplicados con prefijo `/g/{groupId}/` para aislar datos por grupo.
+- **Migracion UIDX**: endpoint `POST /seed-uidx/{groupId}` para crear entradas UIDX de usuarios existentes.
+- **`GET /groups/list`**: lista todos los grupos disponibles (para admin).
+- **`GET /users/{name}/groups`**: devuelve los grupos de un usuario.
+
+### Admin granular
+- **Roles por funcion**: `adminRoles: { general, f1, futbol }` reemplaza el booleano `isAdmin`. Backward-compatible.
+- **AdminPanel unificado**: tabs General / F1 / Futbol visibles segun roles del usuario.
+- **UserManagement**: toggles individuales por rol admin (GEN, F1, FUT) y por porra (F1, FUT).
+- **Gestion de grupos**: boton "Grupos" en cada usuario para ver/añadir/quitar de grupos.
+- **Helpers**: `admin-roles.js` con `isAdminFor()`, `hasAnyAdminRole()`, `getAdminRoles()`.
+- **Migracion automatica**: usuarios con `isAdmin: true` sin `adminRoles` migran automaticamente a roles completos.
+
+### Login y sesion
+- **GlobalLogin**: pantalla de login centralizada en `#/` que autentica via API (no depende del estado del grupo).
+- **Sesion con grupos**: `createSession(user, groups)` almacena la lista de grupos en la sesion.
+- **mustChange**: si el usuario debe cambiar contraseña, se muestra modal `forceChange` al entrar (sin pedir contraseña actual).
+- **Logout con redirect**: al cerrar sesion se redirige al login global y se limpia `porra_group_id`.
+
+### Robustez
+- **ErrorBoundary global**: componente React que captura errores de renderizado y muestra pantalla de recuperacion.
+- **Fix React crash**: refactorizado `togglePorra` para evitar `toast.error()` dentro de state updater.
+- **CloudFront**: añadidas rutas `/auth/*`, `/seed-uidx/*` para los nuevos endpoints.
+
+---
+
 ## [2026-03-05] — DynamoDB, repositorio agnostico y seguridad server-side
 
 ### Backend DynamoDB

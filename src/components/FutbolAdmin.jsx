@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNow, nowISO, parseLocalDateTime, toLocalDateTimeInput, nextFridayAt1500, betsAreEqual, verifyAdminSecret } from "../utils.js";
+import { useNow, nowISO, parseLocalDateTime, toLocalDateTimeInput, nextFridayAt1500, betsAreEqual } from "../utils.js";
 import { toast } from "../toast.jsx";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { FUTBOL_BASE_TEAMS } from "../config.js";
 import { Avatar } from "./Avatar.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
+import { isAdminFor } from "../admin-roles.js";
 
 export function FutbolAdmin({db,setDb,currentUser}){
-  const isAdmin=!!db.users?.[currentUser]?.isAdmin;
-  const [pass,setPass]=useState("");
-  const [ok,setOk]=useState(()=>sessionStorage.getItem("admin_ok")==="1");
   const futbol=db.futbol||defaultFutbolState();
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
@@ -59,9 +58,8 @@ export function FutbolAdmin({db,setDb,currentUser}){
       setScores((res?.matches?.length?res.matches:baseMatches.map(()=>({home:"",away:""}))).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)})));
     }
   },[editUser,selected,editingMode,futbol,matches]);
-  const participants=useMemo(()=>Object.keys(db.participants||{}).sort((a,b)=>a.localeCompare(b)),[db.participants]);
-  if(!isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin fútbol</h2><p className="text-sm text-white/40">Inicia sesión como admin.</p></div>;
-  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin fútbol</h2><form className="flex gap-2" onSubmit={async(e)=>{e.preventDefault(); if(await verifyAdminSecret(pass,db.meta)){setOk(true);sessionStorage.setItem("admin_ok","1");} else toast.error("Contraseña admin incorrecta");}}><input type="password" autoComplete="off" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
+  const participants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
+  if(!isAdminFor(db.users?.[currentUser], "futbol")) return null;
   const ensureId=()=>{
     const id=(jId||jName||"").trim();
     return id || "";
@@ -153,9 +151,8 @@ export function FutbolAdmin({db,setDb,currentUser}){
   return (
     <div className="card p-4 md:p-5 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="section-title">⚙ Admin fútbol</h2>
+        <h2 className="section-title">Administración Fútbol</h2>
         <div className="flex gap-2 items-center">
-          <button onClick={()=>{sessionStorage.removeItem("admin_ok"); setOk(false); setPass("");}} className="text-xs text-white/40 hover:text-white/70 transition-colors">Cerrar sesión admin</button>
           <select className="select border rounded px-3 py-2" value={selected} onChange={e=>setSelected(e.target.value)}>
             <option value="">— Nueva jornada —</option>
             {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}

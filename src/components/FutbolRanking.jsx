@@ -3,11 +3,12 @@ import { exportCSV, exportPDF } from "../utils.js";
 import { PILOT_COLORS, FALLBACK_COLORS } from "../config.js";
 import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
 
 export function FutbolRanking({db}){
   const futbol=db.futbol||defaultFutbolState();
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
-  const participants=useMemo(()=>Object.keys(db.participants||{}),[db.participants]);
+  const participants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
   const [scope,setScope]=useState("all");
   const [expandedRow,setExpandedRow]=useState(null);
   useEffect(()=>{ if(scope!=="all" && !jornadas.find(j=>j.id===scope)) setScope("all"); },[scope,jornadas]);
@@ -108,7 +109,7 @@ export function FutbolRanking({db}){
 
 export function FutbolEvolutionChart({db}){
   const futbol=db.futbol||defaultFutbolState();
-  const participants=useMemo(()=>Object.keys(db.participants||{}),[db.participants]);
+  const participants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const chartData=useMemo(()=>{
     if(participants.length<2) return null;

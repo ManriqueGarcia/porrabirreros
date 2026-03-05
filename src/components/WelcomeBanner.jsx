@@ -3,15 +3,16 @@ import { CONFIG } from "../config.js";
 import { scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { defaultFutbolState, listFutbolJornadas, computeFutbolStandings } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
 
 function WelcomeBanner({user,db,races,mode,onDismiss}){
+  const porraParticipants=useMemo(()=>getParticipantsForPorra(db,mode==="f1"?"f1":"futbol"),[db.participants,db.users,mode]);
   const standings=useMemo(()=>{
-    if(mode==="f1") return computeGlobalStandings(db,races);
+    if(mode==="f1") return computeGlobalStandings(db,races,porraParticipants);
     const futbol=db.futbol||defaultFutbolState();
     const jornadas=listFutbolJornadas(futbol);
-    const parts=Object.keys(db.participants||{});
-    return computeFutbolStandings(futbol,parts,jornadas);
-  },[db,races,mode]);
+    return computeFutbolStandings(futbol,porraParticipants,jornadas);
+  },[db,races,mode,porraParticipants]);
   const total=standings.length;
   const myIdx=standings.findIndex(s=>s.name===user);
   const pos=myIdx>=0?myIdx+1:null;
@@ -22,13 +23,13 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     if(completedRaces.length<2) return null;
     const allButLast=completedRaces.slice(0,-1);
     const lastRace=completedRaces[completedRaces.length-1];
-    const prevStandings=computeGlobalStandings(db,allButLast);
+    const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants);
     const prevPos=prevStandings.findIndex(s=>s.name===user)+1;
     const currPos=pos;
     if(!prevPos||!currPos) return null;
     const diff=prevPos-currPos;
     return diff;
-  },[db,races,mode,user,pos]);
+  },[db,races,mode,user,pos,porraParticipants]);
   const nextRaceInfo=useMemo(()=>{
     if(mode!=="f1") return null;
     const now=Date.now();

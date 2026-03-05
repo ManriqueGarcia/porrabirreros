@@ -3,6 +3,7 @@ import { useNow, nowISO, shareBet, betsAreEqual, parseLocalDateTime, formatDateT
 import { MADRID_TZ } from "../config.js";
 import { saveBetFutbol } from "../api.js";
 import { toast } from "../toast.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
 import { FutbolBetForm } from "./FutbolBetForm.jsx";
@@ -69,7 +70,8 @@ export function FutbolParticipante({user,db,setDb}){
   const canViewFull=manualReveal?.forceShow || (!!revealAt && now>revealAt);
   const bet=jornada ? (futbol.bets?.[selected]?.[user]||{matches:[],submittedAt:null,late:false}) : null;
   const res=jornada ? futbol.results?.[selected] : null;
-  const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
+  const futbolParticipants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
+  const others=futbolParticipants.filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
   const myScore=jornada && res ? scoreFutbolJornada(db,selected,user) : null;
   const betsStatus=jornada ? (manualWindow?.forceClosed?"Cerrado por admin":(isFutbolLate?`Fuera de plazo (penalización -2 pts)`:(deadline?`Cierre: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto"))) : "—";
   const saveBet=(payload)=>{

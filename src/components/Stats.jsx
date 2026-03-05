@@ -1,11 +1,13 @@
 import { useMemo, useState, useEffect } from "react";
 import { buildStats, scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { PILOT_COLORS, FALLBACK_COLORS } from "../config.js";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
 
 function Stats({db,races}){
-  const stats=useMemo(()=>buildStats(db,races),[db,races]);
+  const f1Participants=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
+  const stats=useMemo(()=>buildStats(db,races,f1Participants),[db,races,f1Participants]);
   const beerHistory=useMemo(()=>{
-    const participants=Object.keys(db.participants||{});
+    const participants=f1Participants;
     if(participants.length<2) return [];
     return (races||[]).filter(r=>db.results?.[r.key]).map(race=>{
       const scores=participants.map(name=>({name,...scoreForRace(db,race.key,name)}));
@@ -87,14 +89,13 @@ function Stats({db,races}){
   },[whatIfRaceKey,db.results]);
   const whatIfStandings=useMemo(()=>{
     if(!whatIfRaceKey||!whatIfResult) return null;
-    const participants=Object.keys(db.participants||{});
-    if(participants.length<2) return null;
+    if(f1Participants.length<2) return null;
     const modifiedDb={
       ...db,
       results:{...db.results,[whatIfRaceKey]:{...db.results[whatIfRaceKey],pole:whatIfResult.pole,podium:whatIfResult.podium}}
     };
-    const original=computeGlobalStandings(db,races);
-    const modified=computeGlobalStandings(modifiedDb,races);
+    const original=computeGlobalStandings(db,races,f1Participants);
+    const modified=computeGlobalStandings(modifiedDb,races,f1Participants);
     return modified.map((m,newPos)=>{
       const oldPos=original.findIndex(o=>o.name===m.name);
       const origEntry=original[oldPos];

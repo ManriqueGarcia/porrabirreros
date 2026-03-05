@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { App } from "./components/App.jsx";
+import { App, ErrorBoundary } from "./components/App.jsx";
 
 try {
   if (!document.getElementById("root")) {
@@ -8,7 +8,7 @@ try {
     document.body.innerHTML = '<div style="padding:20px;color:red;background:white;">Error: No se encontró el elemento #root</div>';
   } else {
     const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(React.createElement(App));
+    root.render(React.createElement(ErrorBoundary, null, React.createElement(App)));
     console.info("[Porra] Aplicación renderizada correctamente");
   }
 } catch (error) {

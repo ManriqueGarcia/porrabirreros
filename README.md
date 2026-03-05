@@ -47,9 +47,9 @@ graph TB
         CF["🌍 CloudFront (CDN)"]
         S3H["📦 S3 — Static Hosting<br/>dist/"]
         APIGW["🔌 API Gateway"]
-        LState["λ Lambda — Estado<br/>GET/PUT JSON"]
+        LState["λ Lambda — Estado<br/>porra-state-api.mjs"]
         LAI["λ Lambda — AI<br/>ManriBot backend"]
-        S3D["📦 S3 — Datos<br/>Estado JSON"]
+        DDB["🗄️ DynamoDB<br/>Multi-tenant (UIDX + Groups)"]
     end
 
     subgraph External["🌐 APIs externas"]
@@ -72,7 +72,7 @@ graph TB
     App -->|REST API| APIGW
     APIGW --> LState
     APIGW --> LAI
-    LState --> S3D
+    LState --> DDB
     LAI --> GoogleAI
     ManriBot -->|Client-side F1| Jolpica
     ManriBot -->|Fútbol AI| LAI
@@ -97,7 +97,8 @@ src/
 ├── index.jsx              Punto de entrada React
 ├── config.js              Configuracion generica (plantilla para forks)
 ├── config.local.js        ⛔ Configuracion real (gitignored)
-├── api.js                 Comunicacion con backend (fetch/save estado remoto)
+├── api.js                 Comunicacion con backend (auth, fetch/save estado remoto)
+├── admin-roles.js         Helpers para roles de admin granulares
 ├── scoring.js             Logica de puntuacion F1 (scoreForRace, standings, stats)
 ├── futbol-utils.js        Logica de puntuacion futbol (scoreFutbolJornada, standings)
 ├── utils.js               Utilidades (hash, fechas, sesion, export CSV/PDF, share)
@@ -116,8 +117,12 @@ src/
     ├── FutbolRanking.jsx   Ranking futbol + grafico evolucion
     ├── Stats.jsx           Estadisticas, birras, tendencia, suerte, simulador
     ├── Charts.jsx          Grafico de evolucion de posiciones F1
+    ├── AdminPanel.jsx      Panel admin unificado (tabs General/F1/Futbol)
+    ├── UserManagement.jsx  Gestion de usuarios y grupos
     ├── Admin.jsx           Panel admin F1
     ├── FutbolAdmin.jsx     Panel admin futbol
+    ├── CreateGroup.jsx     Formulario creacion de grupo
+    ├── JoinGroup.jsx       Formulario para unirse a grupo
     ├── Rules.jsx           Normas F1 y futbol
     ├── Historico.jsx       Historico de temporadas anteriores
     ├── AIAssistant.jsx     Asistente AI (chat F1/futbol)
@@ -147,7 +152,7 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 | **Build** | esbuild (bundle + minify), @tailwindcss/cli |
 | **Backend** | AWS Lambda (Node.js), API Gateway |
 | **AI** | Google AI API (Gemma / Gemini), client-side Jolpica/Ergast |
-| **Storage** | AWS S3 (estado remoto) + localStorage (cache local) |
+| **Storage** | AWS DynamoDB (multi-tenant) + localStorage (cache local) |
 | **Hosting** | S3 + CloudFront (CDN) |
 | **CI/CD** | GitHub Actions (build + deploy en push a main) |
 
@@ -180,6 +185,13 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 - **Simulador "Que habria pasado si..."**: modifica resultados y recalcula ranking
 - **Resumen post-carrera**: ganador, perdedor, aciertos de pole, plenos
 - **Grafico de evolucion**: posiciones por carrera/jornada
+
+### Multi-tenancy
+- **Login global**: un usuario se autentica una vez y accede a todos sus grupos
+- **Selector de grupo**: si perteneces a varios grupos, puedes cambiar desde el header
+- **Admin granular**: roles independientes para general (usuarios), F1 y futbol
+- **Gestion de grupos**: desde el panel de admin puedes ver/añadir/quitar usuarios de grupos
+- **Aislamiento de datos**: cada grupo tiene sus propios usuarios, apuestas y resultados
 
 ### Calidad de vida
 - **Mini-dashboard**: posicion, tendencia, estado de apuesta al entrar
@@ -226,38 +238,61 @@ Los datos reales de la aplicacion (participantes, apuestas, resultados, usuarios
 
 El backend (`porra-state-api.mjs`) expone rutas granulares con validacion server-side:
 
+#### Autenticacion y grupos
+
 | Metodo | Ruta | Descripcion | Permisos |
 |--------|------|-------------|----------|
-| `GET` | `/state` | Estado completo (reconstruido desde DynamoDB) | Todos |
-| `PUT` | `/bets/f1/{raceKey}` | Guardar apuesta F1 | Solo propietario |
-| `PUT` | `/bets/futbol/{jornadaId}` | Guardar apuesta futbol | Solo propietario |
-| `PUT` | `/results/f1/{raceKey}` | Guardar resultado F1 | Solo admin |
-| `PUT` | `/results/futbol/{jornadaId}` | Guardar resultado futbol | Solo admin |
-| `PUT` | `/users/{name}` | Modificar perfil usuario | Propio o admin |
-| `POST` | `/users` | Crear usuario | Solo admin |
-| `DELETE` | `/users/{name}` | Eliminar usuario | Solo admin |
-| `PUT` | `/meta` | Configuracion general | Solo admin |
-| `PUT` | `/admin/f1/{raceKey}` | Operaciones admin F1 | Solo admin |
-| `PUT` | `/admin/futbol/{jornadaId}` | Operaciones admin futbol | Solo admin |
+| `POST` | `/auth/login` | Login global (devuelve grupos del usuario) | Todos |
+| `GET` | `/users/{name}/groups` | Grupos de un usuario | Todos |
+| `GET` | `/groups/list` | Lista de todos los grupos | Todos |
+| `POST` | `/groups` | Crear nuevo grupo | Todos |
+| `POST` | `/groups/{groupId}/join` | Unirse a un grupo | Todos |
+| `GET` | `/invite/{code}` | Validar codigo de invitacion | Todos |
+
+#### Rutas multi-tenant (prefijo `/g/{groupId}/`)
+
+| Metodo | Ruta | Descripcion | Permisos |
+|--------|------|-------------|----------|
+| `GET` | `/g/{gid}/state` | Estado completo del grupo | Todos |
+| `PUT` | `/g/{gid}/bets/f1/{raceKey}` | Guardar apuesta F1 | Solo propietario |
+| `PUT` | `/g/{gid}/bets/futbol/{jornadaId}` | Guardar apuesta futbol | Solo propietario |
+| `PUT` | `/g/{gid}/results/f1/{raceKey}` | Guardar resultado F1 | Solo admin |
+| `PUT` | `/g/{gid}/results/futbol/{jornadaId}` | Guardar resultado futbol | Solo admin |
+| `PUT` | `/g/{gid}/users/{name}` | Modificar perfil usuario | Propio o admin |
+| `POST` | `/g/{gid}/users` | Crear usuario en grupo | Solo admin |
+| `DELETE` | `/g/{gid}/users/{name}` | Eliminar usuario de grupo | Solo admin |
+| `PUT` | `/g/{gid}/meta` | Configuracion general | Solo admin |
+| `PUT` | `/g/{gid}/admin/f1/{raceKey}` | Operaciones admin F1 | Solo admin |
+| `PUT` | `/g/{gid}/admin/futbol/{jornadaId}` | Operaciones admin futbol | Solo admin |
 
 Cada peticion incluye `x-porra-user` para identificar al usuario. Las operaciones de escritura validan permisos en el servidor.
 
 ### Esquema DynamoDB
 
-Tabla unica con clave compuesta (`pk`, `sk`):
+Tabla unica con clave compuesta (`pk`, `sk`). Diseño multi-tenant con prefijo `G#{groupId}`:
+
+#### Indice de usuarios (lookup global)
 
 | pk | sk | Contenido |
 |----|-----|-----------|
-| `META` | `CONFIG` | drivers, teams, championships, basePoints |
-| `META` | `AVATARS` | avatares base64 por usuario |
-| `META` | `QUESTIONS` | preguntas F1 por carrera |
-| `USER#nombre` | `PROFILE` | passwordHash, isAdmin, blocked, createdAt |
-| `F1#raceKey` | `RESULT` | pole, podium |
-| `F1#raceKey` | `BET#nombre` | apuesta: pole, podium, q, submittedAt |
-| `F1#raceKey` | `WINDOW` | forceClosed, forceOpen |
-| `FUT#jornadaId` | `CONFIG` | partidos, deadline |
-| `FUT#jornadaId` | `RESULT` | resultados por partido |
-| `FUT#jornadaId` | `BET#nombre` | predicciones, submittedAt |
+| `UIDX#nombre_lower` | `G#groupId` | groupId, groupName, joinedAt, username |
+| `GROUPS` | `G#groupId` | name, inviteCode, sports, memberCount |
+| `INVITE#code` | `META` | groupId, groupName |
+
+#### Datos por grupo (pk = `G#{groupId}`, sk = `{entidad}\|{sub}`)
+
+| sk (dentro del grupo) | Contenido |
+|------------------------|-----------|
+| `META\|CONFIG` | drivers, teams, championships, basePoints |
+| `META\|AVATARS` | avatares base64 por usuario |
+| `META\|QUESTIONS` | preguntas F1 por carrera |
+| `USER#nombre\|PROFILE` | passwordHash, isAdmin, adminRoles, blocked, porras |
+| `F1#raceKey\|RESULT` | pole, podium |
+| `F1#raceKey\|BET#nombre` | apuesta: pole, podium, q, submittedAt |
+| `F1#raceKey\|WINDOW` | forceClosed, forceOpen |
+| `FUT#jornadaId\|CONFIG` | partidos, deadline |
+| `FUT#jornadaId\|RESULT` | resultados por partido |
+| `FUT#jornadaId\|BET#nombre` | predicciones, submittedAt |
 
 ## 🚀 Como usar este proyecto (Fork)
 
@@ -345,7 +380,7 @@ Ver [DEPLOY.md](DEPLOY.md) para instrucciones detalladas.
 | Recurso AWS | Funcion |
 |-------------|---------|
 | **S3 Hosting** | Bucket para servir `dist/` (SPA estatica) |
-| **DynamoDB** | Tabla `PorraBirreros` (bets, results, users, meta) |
+| **DynamoDB** | Tabla multi-tenant: UIDX (indice usuarios), GROUPS, datos por grupo |
 | **API Gateway + Lambda State** | `porra-state-api.mjs` — API REST con rutas granulares |
 | **API Gateway + Lambda AI** | `porra-ai.mjs` — ManriBot (opcional) |
 | **CloudFront + ACM** | CDN + HTTPS + dominio personalizado |

@@ -5,6 +5,12 @@ export const API_BASE_URL = (window.PORRA_API_BASE || "").replace(/\/$/, "");
 export const API_SECRET = window.PORRA_API_SECRET || "";
 export const API_HEADERS = API_SECRET ? { "x-porra-secret": API_SECRET } : {};
 
+let _groupId = null;
+export function setActiveGroupId(gid) { _groupId = gid || null; }
+export function getActiveGroupId() { return _groupId; }
+
+function groupPrefix() { return _groupId ? `/g/${_groupId}` : ""; }
+
 function userHeaders(user) {
   return { ...API_HEADERS, "x-porra-user": user || "" };
 }
@@ -16,7 +22,8 @@ async function apiCall(method, path, user, body) {
     headers: { "Content-Type": "application/json", Accept: "application/json", ...userHeaders(user) },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
-  const res = await fetch(`${API_BASE_URL}${path}`, opts);
+  const fullPath = `${API_BASE_URL}${groupPrefix()}${path}`;
+  const res = await fetch(fullPath, opts);
   if (!res.ok) {
     const err = await res.text().catch(() => "");
     throw new Error(`API ${method} ${path}: ${res.status} ${err}`);
@@ -24,11 +31,12 @@ async function apiCall(method, path, user, body) {
   return res.json();
 }
 
-// ─── State (backward compat) ───
+// ─── State ───
 
 export async function fetchRemoteState() {
   if (!API_BASE_URL) return null;
-  const res = await fetch(`${API_BASE_URL}/state`, { headers: { Accept: "application/json", ...API_HEADERS } });
+  const url = `${API_BASE_URL}${groupPrefix()}/state`;
+  const res = await fetch(url, { headers: { Accept: "application/json", ...API_HEADERS } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Fetch remoto fallido");
   return res.json();
@@ -36,7 +44,8 @@ export async function fetchRemoteState() {
 
 export async function saveRemoteState(payload) {
   if (!API_BASE_URL) return;
-  await fetch(`${API_BASE_URL}/state`, { method: "PUT", headers: { "Content-Type": "application/json", ...API_HEADERS }, body: JSON.stringify(payload) });
+  const url = `${API_BASE_URL}${groupPrefix()}/state`;
+  await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json", ...API_HEADERS }, body: JSON.stringify(payload) });
 }
 
 export const saveRemoteDebounced = debounce((db) => {
@@ -109,4 +118,35 @@ export async function loadHistorical(year) {
   const r = await fetch(`./assets/historical_${year}.json?${CACHE_BUST}`);
   if (!r.ok) { const e = new Error(`HTTP ${r.status}`); e.status = r.status; throw e; }
   return r.json();
+}
+
+// ─── Auth ───
+
+export async function authLogin(username, passwordHash) {
+  const resp = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...API_HEADERS },
+    body: JSON.stringify({ username, passwordHash }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || "Error de autenticación");
+  return data;
+}
+
+export async function fetchUserGroups(username) {
+  const resp = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/groups`, {
+    headers: { Accept: "application/json", ...API_HEADERS },
+  });
+  if (!resp.ok) return [];
+  const data = await resp.json();
+  return data.groups || [];
+}
+
+export async function fetchGroupsList() {
+  const resp = await fetch(`${API_BASE_URL}/groups/list`, {
+    headers: { Accept: "application/json", ...API_HEADERS },
+  });
+  if (!resp.ok) return [];
+  const data = await resp.json();
+  return data.groups || [];
 }

@@ -53,7 +53,7 @@ export function ChangeAvatarModal({ open, onClose, db, setDb, user }) {
   );
 }
 
-export function ChangePasswordModal({ open, onClose, db, setDb, user }) {
+export function ChangePasswordModal({ open, onClose, db, setDb, user, forceChange = false }) {
   const [curr, setCurr] = useState("");
   const [n1, setN1] = useState("");
   const [n2, setN2] = useState("");
@@ -63,8 +63,10 @@ export function ChangePasswordModal({ open, onClose, db, setDb, user }) {
     e.preventDefault(); if (busy) return; setBusy(true);
     try {
       const u = db.users?.[user]; if (!u) return toast.error("Usuario no válido");
-      const ok = await passwordMatches(u, curr);
-      if (!ok) return toast.error("Contraseña actual incorrecta");
+      if (!forceChange) {
+        const ok = await passwordMatches(u, curr);
+        if (!ok) return toast.error("Contraseña actual incorrecta");
+      }
       if (n1.length < 6) return toast.error("Mínimo 6 caracteres");
       if (n1 !== n2) return toast.error("Las contraseñas no coinciden");
       const hash = await hashPassword(n1);
@@ -74,18 +76,25 @@ export function ChangePasswordModal({ open, onClose, db, setDb, user }) {
     } finally { setBusy(false); }
   };
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="pwd-modal-title" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="pwd-modal-title" onClick={e => { if (!forceChange && e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white text-slate-900 rounded-xl p-5 w-full max-w-sm">
-        <div id="pwd-modal-title" className="font-semibold mb-2">Cambiar contraseña</div>
+        <div id="pwd-modal-title" className="font-semibold mb-2">{forceChange ? "Cambia tu contraseña" : "Cambiar contraseña"}</div>
+        {forceChange && <div className="text-sm text-amber-600 mb-3">Es tu primer acceso. Debes cambiar tu contraseña.</div>}
         <form onSubmit={submit} className="grid gap-2">
-          <label htmlFor="pwd-curr" className="text-sm">Actual</label><input id="pwd-curr" type="password" autoComplete="current-password" className="border rounded px-3 py-2" value={curr} onChange={e => setCurr(e.target.value)} />
+          {!forceChange && <><label htmlFor="pwd-curr" className="text-sm">Actual</label><input id="pwd-curr" type="password" autoComplete="current-password" className="border rounded px-3 py-2" value={curr} onChange={e => setCurr(e.target.value)} /></>}
           <label htmlFor="pwd-new" className="text-sm">Nueva</label><input id="pwd-new" type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n1} onChange={e => setN1(e.target.value)} />
           <label htmlFor="pwd-repeat" className="text-sm">Repetir nueva</label><input id="pwd-repeat" type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n2} onChange={e => setN2(e.target.value)} />
-          <div className="flex gap-2 mt-2 justify-end"><button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button><button disabled={busy} className="px-3 py-2 rounded bg-slate-900 text-white disabled:opacity-50">{busy ? "Guardando..." : "Guardar"}</button></div>
+          <div className="flex gap-2 mt-2 justify-end">{!forceChange && <button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button>}<button disabled={busy} className="px-3 py-2 rounded bg-slate-900 text-white disabled:opacity-50">{busy ? "Guardando..." : "Guardar"}</button></div>
         </form>
       </div>
     </div>
   );
+}
+
+function findUser(users, input) {
+  if (!users || !input) return null;
+  const key = Object.keys(users).find(k => k.toLowerCase() === input.trim().toLowerCase());
+  return key || null;
 }
 
 export function Login({ db, setDb, onLogged }) {
@@ -98,14 +107,17 @@ export function Login({ db, setDb, onLogged }) {
   const [recoverN1, setRecoverN1] = useState("");
   const [recoverN2, setRecoverN2] = useState("");
   const [recoverStep, setRecoverStep] = useState(1);
+  const [resolvedRecoverUser, setResolvedRecoverUser] = useState("");
 
-  const tryLogin = async (e) => { e && e.preventDefault(); if (busy) return; const rl = checkLoginRateLimit(); if (!rl.allowed) return toast.error(rl.msg); setBusy(true); try { const u = db.users?.[name]; if (!u) { recordLoginFailure(); return toast.error("Usuario no encontrado"); } const ok = await passwordMatches(u, pass); if (!ok) { recordLoginFailure(); return toast.error("Contraseña incorrecta"); } if (u.blocked) return toast.error("Usuario bloqueado temporalmente"); resetLoginAttempts(); if (u.mustChange) { setNeedsChange(true); return; } if (u.password && !u.passwordHash) { const hash = await hashPassword(pass); setDb(prev => { const users = { ...(prev.users || {}) }; users[name] = { ...users[name], passwordHash: hash }; delete users[name].password; return { ...prev, users }; }); } onLogged(name); } finally { setBusy(false); } };
-  const doChange = async (e) => { e.preventDefault(); if (busy) return; setBusy(true); try { if (n1.length < 6) return toast.error("Mínimo 6 caracteres"); if (n1 !== n2) return toast.error("Las contraseñas no coinciden"); const hash = await hashPassword(n1); setDb(prev => { const users = { ...(prev.users || {}) }; users[name] = { ...users[name], passwordHash: hash, mustChange: false, changedAt: nowISO() }; delete users[name].password; return { ...prev, users }; }); updateUser(name, name, { passwordHash: hash, mustChange: false }).catch(err => console.error("Error sync password:", err)); onLogged(name); } finally { setBusy(false); } };
+  const tryLogin = async (e) => { e && e.preventDefault(); if (busy) return; const rl = checkLoginRateLimit(); if (!rl.allowed) return toast.error(rl.msg); setBusy(true); try { const realName = findUser(db.users, name); if (!realName) { recordLoginFailure(); return toast.error("Usuario no encontrado"); } const u = db.users[realName]; const ok = await passwordMatches(u, pass); if (!ok) { recordLoginFailure(); return toast.error("Contraseña incorrecta"); } if (u.blocked) return toast.error("Usuario bloqueado temporalmente"); resetLoginAttempts(); setName(realName); if (u.mustChange) { setNeedsChange(true); return; } if (u.password && !u.passwordHash) { const hash = await hashPassword(pass); setDb(prev => { const users = { ...(prev.users || {}) }; users[realName] = { ...users[realName], passwordHash: hash }; delete users[realName].password; return { ...prev, users }; }); } onLogged(realName); } finally { setBusy(false); } };
+  const doChange = async (e) => { e.preventDefault(); if (busy) return; setBusy(true); try { const realName = findUser(db.users, name) || name; if (n1.length < 6) return toast.error("Mínimo 6 caracteres"); if (n1 !== n2) return toast.error("Las contraseñas no coinciden"); const hash = await hashPassword(n1); setDb(prev => { const users = { ...(prev.users || {}) }; users[realName] = { ...users[realName], passwordHash: hash, mustChange: false, changedAt: nowISO() }; delete users[realName].password; return { ...prev, users }; }); updateUser(realName, realName, { passwordHash: hash, mustChange: false }).catch(err => console.error("Error sync password:", err)); onLogged(realName); } finally { setBusy(false); } };
 
   const verifyRecoverCode = async (e) => {
     e.preventDefault();
-    if (!recoverUser) return toast.error("Selecciona tu usuario");
-    if (!db.users?.[recoverUser]) return toast.error("Usuario no encontrado");
+    if (!recoverUser) return toast.error("Escribe tu nombre de usuario");
+    const realName = findUser(db.users, recoverUser);
+    if (!realName) return toast.error("Usuario no encontrado");
+    setResolvedRecoverUser(realName);
     const inputHash = await hashPassword(recoverCode);
     if (inputHash !== RECOVERY_CODE_HASH) return toast.error("Código de recuperación incorrecto");
     setRecoverStep(2);
@@ -114,23 +126,24 @@ export function Login({ db, setDb, onLogged }) {
   const doRecover = async (e) => {
     e.preventDefault();
     if (busy) return; setBusy(true);
+    const targetUser = resolvedRecoverUser;
     try {
       if (recoverN1.length < 6) return toast.error("Mínimo 6 caracteres");
       if (recoverN1 !== recoverN2) return toast.error("Las contraseñas no coinciden");
       const hash = await hashPassword(recoverN1);
       setDb(prev => {
         const users = { ...(prev.users || {}) };
-        users[recoverUser] = { ...users[recoverUser], passwordHash: hash, mustChange: false, blocked: false, changedAt: nowISO() };
-        delete users[recoverUser].password;
+        users[targetUser] = { ...users[targetUser], passwordHash: hash, mustChange: false, blocked: false, changedAt: nowISO() };
+        delete users[targetUser].password;
         return { ...prev, users };
       });
-      updateUser(recoverUser, recoverUser, { passwordHash: hash, mustChange: false, blocked: false }).catch(err => console.error("Error sync recover:", err));
+      updateUser(targetUser, targetUser, { passwordHash: hash, mustChange: false, blocked: false }).catch(err => console.error("Error sync recover:", err));
       toast.success("Contraseña actualizada. Ya puedes entrar.");
       setShowRecover(false); setRecoverStep(1); setRecoverUser(""); setRecoverCode(""); setRecoverN1(""); setRecoverN2("");
     } finally { setBusy(false); }
   };
 
-  const resetRecover = () => { setShowRecover(false); setRecoverStep(1); setRecoverUser(""); setRecoverCode(""); setRecoverN1(""); setRecoverN2(""); };
+  const resetRecover = () => { setShowRecover(false); setRecoverStep(1); setRecoverUser(""); setResolvedRecoverUser(""); setRecoverCode(""); setRecoverN1(""); setRecoverN2(""); };
 
   if (showRecover) {
     return (
@@ -156,7 +169,7 @@ export function Login({ db, setDb, onLogged }) {
           </form>
         ) : (
           <form onSubmit={doRecover} className="grid gap-3">
-            <div className="text-sm text-emerald-300/80">✅ Código correcto. Elige tu nueva contraseña, <b>{recoverUser}</b>.</div>
+            <div className="text-sm text-emerald-300/80">✅ Código correcto. Elige tu nueva contraseña, <b>{resolvedRecoverUser}</b>.</div>
             <div>
               <label htmlFor="recover-n1" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label>
               <input id="recover-n1" type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN1} onChange={e => setRecoverN1(e.target.value)} />

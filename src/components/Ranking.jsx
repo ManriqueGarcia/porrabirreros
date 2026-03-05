@@ -4,9 +4,10 @@ import { exportCSV, exportPDF } from "../utils.js";
 import { toast } from "../toast.jsx";
 import { Avatar } from "./Avatar.jsx";
 import { PositionEvolutionChart } from "./Charts.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
 
 function Ranking({db,races,setDb,currentUser}){
-  const [scope,setScope]=useState("all"); const participants=Object.keys(db.participants||{});
+  const [scope,setScope]=useState("all"); const participants=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
   const isAdmin=!!db.users?.[currentUser]?.isAdmin;
   const forceAuto=!!db.meta?.forceAutoStandings;
   const basePoints=db.meta?.basePoints||{};
@@ -42,7 +43,7 @@ function Ranking({db,races,setDb,currentUser}){
   const manualActive=scope==="all" && manualStandings.length>0 && !forceAuto;
   const data=manualActive?manualStandings.map((item,idx)=>({name:item.name,points:item.points,wins:"—",hits:"—",exact:"—",pen:"—",manualRank:item.rank??(idx+1)})):computedData;
   const latestRaceSummary=useMemo(()=>{
-    const parts=Object.keys(db.participants||{});
+    const parts=participants;
     const completed=(races||[]).filter(r=>db.results?.[r.key]).sort((a,b)=>b.round-a.round);
     if(!completed.length||parts.length<2) return null;
     const race=completed[0];

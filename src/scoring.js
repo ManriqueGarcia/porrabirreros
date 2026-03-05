@@ -49,8 +49,8 @@ export function computeAvgSubmitTime(db, races, name) {
   return count > 0 ? total / count : Infinity;
 }
 
-export function computeGlobalStandings(db, races) {
-  const participants = Object.keys(db.participants || {});
+export function computeGlobalStandings(db, races, participantsOverride) {
+  const participants = participantsOverride || Object.keys(db.participants || {});
   const keys = (races || []).map(r => r.key);
   const gpWins = computeGPWins(db, races, participants);
   return participants.map(name => {
@@ -66,8 +66,8 @@ export function topList(obj, limit = 5) {
   return Object.entries(obj || {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([name, value]) => ({ name, value }));
 }
 
-export function buildStats(db, races) {
-  const participants = Object.keys(db.participants || {});
+export function buildStats(db, races, participantsOverride) {
+  const participants = participantsOverride || Object.keys(db.participants || {});
   const wins = {}; const fulls = {}; const hitsTotals = {};
   const best = []; const worst = [];
   const votes = { pole: {}, p1: {}, p2: {}, p3: {} };

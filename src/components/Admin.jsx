@@ -1,17 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNow, nowISO, hashPassword, verifyAdminSecret, betsAreEqual, getSession } from "../utils.js";
+import { useNow, nowISO, hashPassword, betsAreEqual, getSession } from "../utils.js";
 import { DEFAULT_PASSWORD_HASH, MADRID_TZ } from "../config.js";
 import { toast } from "../toast.jsx";
 import { scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { Avatar } from "./Avatar.jsx";
 import { SelectDriver } from "./BetForm.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
+import { isAdminFor } from "../admin-roles.js";
 
-export function Admin({db,setDb,races,drivers,teams,calendar}){
-  const [pass,setPass]=useState("");
-  const [ok,setOk]=useState(()=>sessionStorage.getItem("admin_ok")==="1");
+export function Admin({db,setDb,races,drivers,teams,calendar,currentUser}){
   const [selected,setSelected]=useState(()=> (races&&races[0]?.key)||"");
-  const [newUserName,setNewUserName]=useState("");
-  const [newUserPass,setNewUserPass]=useState("");
   const [importText,setImportText]=useState("");
   const now=useNow();
   const [editName,setEditName]=useState("");
@@ -52,8 +50,7 @@ const baseCalendar=baseCal;
     setTzInput(tz);
   },[selected,db.meta?.raceOverrides,baseCal]);
   const user=getSession()?.user||"";
-  const userList=useMemo(()=>Object.values(db.users||{}).sort((a,b)=>a.name.localeCompare(b.name)),[db.users]);
-  const participantNames=useMemo(()=>Object.keys(db.participants||{}).sort((a,b)=>a.localeCompare(b)),[db.participants]);
+  const participantNames=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
   const computedStandings=useMemo(()=>computeGlobalStandings(db,races).map((row,idx)=>({name:row.name,points:row.points,rank:idx+1})),[db,races]);
   const manualStandingsExists=Object.keys(db.standings||{}).length>0;
   const standingsObject=useMemo(()=>{
@@ -62,8 +59,7 @@ const baseCalendar=baseCal;
   },[manualStandingsExists,db.standings,computedStandings]);
   const exportPayload=useMemo(()=>({...db, standings:standingsObject}),[db,standingsObject]);
   const exportJson=useMemo(()=>JSON.stringify(exportPayload,null,2),[exportPayload]);
-  if(!db.users?.[user]?.isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin</h2><p className="text-sm text-white/40">Inicia sesión como admin.</p></div>;
-  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin</h2><form className="flex gap-2" onSubmit={async(e)=>{e.preventDefault(); if(await verifyAdminSecret(pass,db.meta)){setOk(true);sessionStorage.setItem("admin_ok","1");} else toast.error("Contraseña admin incorrecta");}}><input type="password" autoComplete="off" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
+  if(!isAdminFor(db.users?.[user], "f1")) return null;
   const driversText=(db.meta?.drivers||[]).join("\n");
   const teamsText=(db.meta?.teams||[]).join("\n");
   const driverList=(db.meta?.drivers?.length?db.meta.drivers:drivers)||[];
@@ -110,62 +106,6 @@ const baseCalendar=baseCal;
     setRaceTimeInput(base.race_time_local||"");
     setTzInput(base.timezone||"");
     toast("Horario restablecido al calendario");
-  };
-  const handleAddUser=async (e)=>{
-    e.preventDefault();
-    const name=newUserName.trim();
-    if(!name) return toast.error("Introduce un nombre");
-    if(db.users?.[name]) return toast.error("Ese usuario ya existe");
-    const passValue=newUserPass.trim();
-    const hash=passValue ? await hashPassword(passValue) : DEFAULT_PASSWORD_HASH;
-    setDb(prev=>{
-      const users={...(prev.users||{})};
-      users[name]={name,passwordHash:hash,mustChange:true,isAdmin:false,blocked:false,createdAt:nowISO()};
-      const participants={...(prev.participants||{})};
-      if(!participants[name]) participants[name]={name,createdAt:nowISO()};
-      return {...prev, users, participants};
-    });
-    setNewUserName("");
-    setNewUserPass("");
-    toast.success(`Usuario ${name} creado`);
-  };
-  const resetPasswordFor=(name)=>{
-    if(!window.confirm(`¿Resetear la contraseña de ${name}?`)) return;
-    setDb(prev=>{
-      const users={...(prev.users||{})};
-      if(users[name]){ users[name]={...users[name],passwordHash:DEFAULT_PASSWORD_HASH,mustChange:true,blocked:false,changedAt:null}; delete users[name].password; }
-      return {...prev,users};
-    });
-    toast.success("Contraseña reseteada");
-  };
-  const toggleBlockUser=(name)=>{
-    if(name===user) return;
-    setDb(prev=>{
-      const users={...(prev.users||{})};
-      if(users[name]) users[name]={...users[name],blocked:!users[name].blocked};
-      return {...prev,users};
-    });
-  };
-  const removeUser=(name)=>{
-    if(db.users?.[name]?.isAdmin) return toast.error("No puedes borrar un admin");
-    if(name===user) return toast.error("No puedes borrarte a ti mismo");
-    if(!window.confirm(`¿Eliminar a ${name}?`)) return;
-    setDb(prev=>{
-      const users={...(prev.users||{})};
-      delete users[name];
-      const participants={...(prev.participants||{})};
-      delete participants[name];
-      const nextBets={};
-      Object.entries(prev.bets||{}).forEach(([raceKey,raceBets])=>{
-        const copy={...(raceBets||{})};
-        delete copy[name];
-        if(Object.keys(copy).length) nextBets[raceKey]=copy;
-      });
-      const questionOwner={...(prev.questionOwner||{})};
-      Object.keys(questionOwner).forEach((raceKey)=>{ if(questionOwner[raceKey]===name) delete questionOwner[raceKey]; });
-      return {...prev, users, participants, bets:nextBets, questionOwner};
-    });
-    toast.success("Usuario eliminado");
   };
   const updateChampionship=(name,value)=>{
     const parsed=Math.max(0,Number.isNaN(value)?0:value);
@@ -237,7 +177,7 @@ const baseCalendar=baseCal;
     event.target.value="";
   };
   return (<div className="card p-4 md:p-5 space-y-4">
-    <div className="flex items-center justify-between"><h2 className="section-title">⚙ Admin</h2><button onClick={()=>{sessionStorage.removeItem("admin_ok"); setOk(false); setPass("");}} className="text-xs text-white/40 hover:text-white/70 transition-colors">Cerrar sesión admin</button></div>
+    <h2 className="section-title">Administración F1</h2>
     <div className="border border-white/10 rounded p-3">
       <h3 className="font-semibold mb-2">Gran Premio seleccionado</h3>
       <div className="grid gap-2 md:grid-cols-[2fr,1fr] md:items-center">
@@ -260,29 +200,6 @@ const baseCalendar=baseCal;
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Editar apuestas de participantes</h3><div className="grid gap-2 md:grid-cols-[2fr,1fr]"><select className="select border rounded px-3 py-2" value={editName} onChange={e=>setEditName(e.target.value)}><option value="">— Elige participante —</option>{participantNames.map(n=><option key={n} value={n}>{n}</option>)}</select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!editBet.late} onChange={e=>setEditBet(prev=>({...prev, late:e.target.checked}))} /><span>Marcar como fuera de plazo</span></label></div><div className="grid gap-2 mt-3"><label className="text-sm">Pole</label><SelectDriver value={editBet.pole} onChange={(val)=>setEditBet(prev=>({...prev, pole:val}))} drivers={driverList} placeholder="Selecciona piloto" /><label className="text-sm">Podio</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><SelectDriver key={i} value={editBet.podium?.[i]||""} onChange={(val)=>setEditBet(prev=>{ const next=[...(prev.podium||["","",""])]; next[i]=val; return {...prev, podium:next}; })} drivers={driverList} placeholder={`P${i+1}`} />)}</div><label className="text-sm">Preguntas adicionales</label><div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" value={editBet.q?.[i]||""} onChange={e=>setEditBet(prev=>{ const next=[...(prev.q||["","",""])]; next[i]=e.target.value; return {...prev, q:next}; })} placeholder={`Respuesta ${i+1}`}/>)}</div><button className="mt-2 px-3 py-2 rounded bg-emerald-700 text-white" onClick={saveAdminBet}>Guardar apuesta</button></div><p className="text-xs text-slate-400 mt-2">Guarda una apuesta tal cual la haría el usuario y decide si computa como tarde.</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Ajustes manuales de puntuación ({selected||"—"})</h3><p className="text-xs text-slate-400 mb-2">Suma o resta puntos de esta carrera. Afecta ranking, detalle y estadísticas.</p><div className="grid gap-2 md:grid-cols-2">{participantNames.map(name=>{ const val=Number(scoreAdjustments[name]||0); return (<label key={name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900 text-sm"><span>{name}</span><input type="number" className="w-24 text-right select border rounded px-2 py-1" value={val} onChange={e=>{ const parsed=parseInt(e.target.value,10); updateScoreAdjustment(name, Number.isNaN(parsed)?0:parsed); }} /></label>); })}</div><p className="text-[11px] text-slate-500 mt-2">Deja en 0 para eliminar ajustes.</p></div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Autor y publicación de preguntas</h3><p className="text-xs text-slate-400 mb-2">Orden por clasificación 2025: Pere → Antonio → Manrique → Toni → Carlos (cíclico)</p><div className="flex gap-2 items-center"><span className="text-sm">Autor asignado:</span><select className="select border rounded px-3 py-2" value={db.questionOwner?.[selected]||""} onChange={e=>setDb(prev=>({...prev, questionOwner:{...(prev.questionOwner||{}), [selected]:e.target.value}}))}><option value="">— Sin asignar —</option>{Object.keys(db.participants||{}).map(n=><option key={n} value={n}>{n}</option>)}</select></div><div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">{[0,1,2].map(i=><input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={(db.questions?.[selected]?.[i]||"")} onChange={e=>{const next=[...(db.questions?.[selected]||["","",""])]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [selected]: next}}));}}/>)}</div><div className="flex flex-wrap items-center gap-2 mt-2"><button className="px-3 py-2 rounded bg-emerald-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:true, force:true}}})); toast.success("Publicación forzada"); }}>Forzar publicar</button><button className="px-3 py-2 rounded bg-gray-700 text-white" onClick={()=>{ setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), published:false, force:false}}})); toast("Despublicado"); }}>Despublicar</button><button className="px-3 py-2 rounded bg-red-700 text-white" onClick={()=>{ const v=!(db.questionsStatus?.[selected]?.locked); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [selected]:{...(prev.questionsStatus?.[selected]||{}), locked:v}}})); toast(v?"Edición bloqueada":"Edición desbloqueada"); }}>{db.questionsStatus?.[selected]?.locked ? "Desbloquear edición" : "Bloquear edición"}</button><button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ if(!confirm("¿Borrar preguntas de Las Vegas, Qatar y Abu Dhabi (GP 22–24)? Son datos de 2025 que no deberían mostrarse en 2026.")) return; const keys=["las_vegas","qatar","abu_dhabi"]; setDb(prev=>{ const q={...(prev.questions||{})}; const qs={...(prev.questionsStatus||{})}; const qo={...(prev.questionOwner||{})}; keys.forEach(k=>{ delete q[k]; delete qs[k]; delete qo[k]; }); return {...prev, questions:q, questionsStatus:qs, questionOwner:qo}; }); toast.success("Preguntas de GP 22–24 borradas"); }}>Limpiar GP 22–24 (legacy)</button></div></div>
-    <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Gestión de usuarios</h3>
-      <form onSubmit={handleAddUser} className="grid gap-2 md:grid-cols-[2fr,2fr,auto]">
-        <input className="select border rounded px-3 py-2" placeholder="Nombre" value={newUserName} onChange={e=>setNewUserName(e.target.value)} />
-        <input className="select border rounded px-3 py-2" placeholder="Contraseña inicial (dejar vacío = defecto)" value={newUserPass} onChange={e=>setNewUserPass(e.target.value)} />
-        <button className="px-3 py-2 rounded bg-slate-900 text-white">Añadir</button>
-      </form>
-      <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
-        {userList.map(u=>{
-          const isSelf=u.name===user;
-          return (<div key={u.name} className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 border border-white/10 rounded px-3 py-2 bg-neutral-900">
-            <div>
-              <div className="font-medium flex flex-wrap items-center gap-2">{u.name}{u.isAdmin && <span className="px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-200">Admin</span>}{u.blocked && <span className="px-2 py-0.5 text-xs rounded-full bg-amber-600/20 text-amber-200 border border-amber-400/40">Bloqueado</span>}</div>
-              <div className="text-xs text-slate-400">{u.blocked?"Bloqueado temporalmente":"Activo"}{u.mustChange?" · debe cambiar contraseña":""}</div>
-            </div>
-            <div className="flex flex-wrap gap-2 text-sm">
-              <button type="button" className="px-3 py-1.5 rounded bg-slate-800 text-white" onClick={()=>resetPasswordFor(u.name)}>Reset pass</button>
-              <button type="button" className={`px-3 py-1.5 rounded ${u.blocked?"bg-emerald-700":"bg-amber-600"} text-white`} disabled={isSelf} onClick={()=>toggleBlockUser(u.name)}>{u.blocked?"Desbloquear":"Bloquear"}</button>
-              {!u.isAdmin && !isSelf && <button type="button" className="px-3 py-1.5 rounded bg-red-700 text-white" onClick={()=>removeUser(u.name)}>Borrar</button>}
-            </div>
-          </div>);
-        })}
-      </div>
-    </div>
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Historial de apuestas ({selected||"—"})</h3>{historyLocked ? (
       <p className="text-sm text-slate-300">Disponible al inicio de la quali ({selectedRace?.labels?.qMadrid||"hora España"}).</p>
     ) : Object.keys(historyForRace).length ? (

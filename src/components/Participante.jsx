@@ -3,6 +3,7 @@ import { useNow, nowISO, shareBet, betsAreEqual, formatDateTime, formatTime } fr
 import { CURRENT_SEASON_YEAR, MADRID_TZ, REAL_HISTORICAL_2025_KEYS } from "../config.js";
 import { loadHistorical, saveBetF1 } from "../api.js";
 import { toast } from "../toast.jsx";
+import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { scoreForRace } from "../scoring.js";
 import { Avatar } from "./Avatar.jsx";
 import { CircuitCard } from "./CircuitCard.jsx";
@@ -87,7 +88,8 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const isAdmin=!!db.users?.[user]?.isAdmin;
   const canViewFull=race && (manualReveal?.forceShow || now>race.showBetsAt);
   const showStatusOnly=isAdmin && race && !canViewFull;
-  const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
+  const f1Participants=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
+  const others=f1Participants.filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
   const handleBetSubmit=useCallback((b)=>{
     const late=new Date()>=race?.cutoff;
