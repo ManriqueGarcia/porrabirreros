@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNow, nowISO, shareBet, betsAreEqual, parseLocalDateTime, formatDateTime } from "../utils.js";
 import { MADRID_TZ } from "../config.js";
+import { saveBetFutbol } from "../api.js";
 import { toast } from "../toast.jsx";
 import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
@@ -75,12 +76,13 @@ export function FutbolParticipante({user,db,setDb}){
     if(!jornada) return;
     const ts=nowISO();
     const late=deadline ? new Date()>=deadline : false;
+    const nextBet={matches:payload.matches, submittedAt:ts, late};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const raceBets={...(futbolPrev.bets?.[selected]||{})};
       const prevBet=raceBets[user];
-      const nextBet={...prevBet, matches:payload.matches, submittedAt:ts, late};
-      const nextBets={...(futbolPrev.bets||{}), [selected]:{...raceBets, [user]:nextBet}};
+      const fullBet={...prevBet, ...nextBet};
+      const nextBets={...(futbolPrev.bets||{}), [selected]:{...raceBets, [user]:fullBet}};
       let betHistory=futbolPrev.betHistory||{};
       const sameMatch=JSON.stringify(prevBet?.matches||[])===JSON.stringify(payload.matches||[]);
       if(!prevBet || !sameMatch || (!!prevBet?.late)!==late){
@@ -91,6 +93,7 @@ export function FutbolParticipante({user,db,setDb}){
       }
       return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
     });
+    saveBetFutbol(selected, user, nextBet).catch(err => { console.error("Error guardando apuesta futbol:", err); toast.error("Error al sincronizar apuesta"); });
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
   };
   const showOthersPanel=showOthers && !!jornada;

@@ -4,6 +4,29 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-05] — DynamoDB, repositorio agnostico y seguridad server-side
+
+### Backend DynamoDB
+- **Migracion de S3 a DynamoDB**: el estado ya no se guarda como un unico JSON en S3, sino como items estructurados en DynamoDB.
+- **Nueva Lambda `porra-state-api.mjs`**: API REST con rutas granulares (`/bets/f1/{race}`, `/results/f1/{race}`, `/users/{name}`, etc.).
+- **Validacion server-side**: un usuario solo puede guardar sus propias apuestas; resultados y configuracion solo accesibles para admin.
+- **Escrituras atomicas**: cada apuesta es un item independiente en DynamoDB, sin riesgo de sobreescritura.
+- **Script de migracion**: `scripts/migrate-s3-to-dynamodb.mjs` para migrar datos existentes.
+
+### Repositorio agnostico
+- `src/config.js` ahora tiene valores genericos (Jugador1-5, hashes placeholder).
+- Configuracion real en `src/config.local.js` (gitignored), con plugin esbuild que lo redirige transparentemente.
+- URLs de produccion en `.env` (gitignored), inyectadas por `build.mjs` en el HTML.
+- Avatares personales en `.gitignore` (solo `default.svg` en el repo).
+- Eliminados todos los dominios, nombres y hashes del codigo fuente trackeado.
+
+### Documentacion
+- Diagrama SVG/PNG de infraestructura AWS con iconos y colores oficiales.
+- README con documentacion completa del esquema DynamoDB y API endpoints.
+- Guia de fork actualizada con nuevo flujo de configuracion local.
+
+---
+
 ## [2026-03-05] — Desempates fútbol, birras condicionales y documentación
 
 ### Desempates fútbol

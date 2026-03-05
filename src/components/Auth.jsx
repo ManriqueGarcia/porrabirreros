@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { toast } from "../toast.jsx";
 import { hashPassword, passwordMatches, nowISO, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts, readFileAsDataUrl, resizeImageToDataUrl, MAX_AVATAR_BASE64 } from "../utils.js";
 import { DEFAULT_PASSWORD_HASH, RECOVERY_CODE_HASH } from "../config.js";
+import { updateUser, saveMeta } from "../api.js";
 import { Avatar } from "./Avatar.jsx";
 
 export function ChangeAvatarModal({ open, onClose, db, setDb, user }) {
@@ -68,6 +69,7 @@ export function ChangePasswordModal({ open, onClose, db, setDb, user }) {
       if (n1 !== n2) return toast.error("Las contraseñas no coinciden");
       const hash = await hashPassword(n1);
       setDb(prev => { const users = { ...(prev.users || {}) }; users[user] = { ...users[user], passwordHash: hash, mustChange: false, changedAt: new Date().toISOString() }; delete users[user].password; return { ...prev, users }; });
+      updateUser(user, user, { passwordHash: hash, mustChange: false }).catch(err => console.error("Error sync password:", err));
       toast.success("Contraseña actualizada"); onClose();
     } finally { setBusy(false); }
   };
@@ -98,7 +100,7 @@ export function Login({ db, setDb, onLogged }) {
   const [recoverStep, setRecoverStep] = useState(1);
 
   const tryLogin = async (e) => { e && e.preventDefault(); if (busy) return; const rl = checkLoginRateLimit(); if (!rl.allowed) return toast.error(rl.msg); setBusy(true); try { const u = db.users?.[name]; if (!u) { recordLoginFailure(); return toast.error("Usuario no encontrado"); } const ok = await passwordMatches(u, pass); if (!ok) { recordLoginFailure(); return toast.error("Contraseña incorrecta"); } if (u.blocked) return toast.error("Usuario bloqueado temporalmente"); resetLoginAttempts(); if (u.mustChange) { setNeedsChange(true); return; } if (u.password && !u.passwordHash) { const hash = await hashPassword(pass); setDb(prev => { const users = { ...(prev.users || {}) }; users[name] = { ...users[name], passwordHash: hash }; delete users[name].password; return { ...prev, users }; }); } onLogged(name); } finally { setBusy(false); } };
-  const doChange = async (e) => { e.preventDefault(); if (busy) return; setBusy(true); try { if (n1.length < 6) return toast.error("Mínimo 6 caracteres"); if (n1 !== n2) return toast.error("Las contraseñas no coinciden"); const hash = await hashPassword(n1); setDb(prev => { const users = { ...(prev.users || {}) }; users[name] = { ...users[name], passwordHash: hash, mustChange: false, changedAt: nowISO() }; delete users[name].password; return { ...prev, users }; }); onLogged(name); } finally { setBusy(false); } };
+  const doChange = async (e) => { e.preventDefault(); if (busy) return; setBusy(true); try { if (n1.length < 6) return toast.error("Mínimo 6 caracteres"); if (n1 !== n2) return toast.error("Las contraseñas no coinciden"); const hash = await hashPassword(n1); setDb(prev => { const users = { ...(prev.users || {}) }; users[name] = { ...users[name], passwordHash: hash, mustChange: false, changedAt: nowISO() }; delete users[name].password; return { ...prev, users }; }); updateUser(name, name, { passwordHash: hash, mustChange: false }).catch(err => console.error("Error sync password:", err)); onLogged(name); } finally { setBusy(false); } };
 
   const verifyRecoverCode = async (e) => {
     e.preventDefault();
@@ -122,6 +124,7 @@ export function Login({ db, setDb, onLogged }) {
         delete users[recoverUser].password;
         return { ...prev, users };
       });
+      updateUser(recoverUser, recoverUser, { passwordHash: hash, mustChange: false, blocked: false }).catch(err => console.error("Error sync recover:", err));
       toast.success("Contraseña actualizada. Ya puedes entrar.");
       setShowRecover(false); setRecoverStep(1); setRecoverUser(""); setRecoverCode(""); setRecoverN1(""); setRecoverN2("");
     } finally { setBusy(false); }

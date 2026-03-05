@@ -220,7 +220,44 @@ El repositorio es completamente agnostico: no contiene datos personales, URLs de
 
 ### Datos en runtime
 
-Los datos reales de la aplicacion (participantes, apuestas, resultados, usuarios con passwords hasheados) se almacenan en **S3** como `state.json` y se sincronizan con el frontend via API Gateway + Lambda. El `config.local.js` solo define la configuracion inicial de seed (nombres, hashes de password por defecto, colores).
+Los datos reales de la aplicacion (participantes, apuestas, resultados, usuarios con passwords hasheados) se almacenan en **DynamoDB** y se sincronizan con el frontend via API Gateway + Lambda. El `config.local.js` solo define la configuracion inicial de seed (nombres, hashes de password por defecto, colores).
+
+### API endpoints
+
+El backend (`porra-state-api.mjs`) expone rutas granulares con validacion server-side:
+
+| Metodo | Ruta | Descripcion | Permisos |
+|--------|------|-------------|----------|
+| `GET` | `/state` | Estado completo (reconstruido desde DynamoDB) | Todos |
+| `PUT` | `/bets/f1/{raceKey}` | Guardar apuesta F1 | Solo propietario |
+| `PUT` | `/bets/futbol/{jornadaId}` | Guardar apuesta futbol | Solo propietario |
+| `PUT` | `/results/f1/{raceKey}` | Guardar resultado F1 | Solo admin |
+| `PUT` | `/results/futbol/{jornadaId}` | Guardar resultado futbol | Solo admin |
+| `PUT` | `/users/{name}` | Modificar perfil usuario | Propio o admin |
+| `POST` | `/users` | Crear usuario | Solo admin |
+| `DELETE` | `/users/{name}` | Eliminar usuario | Solo admin |
+| `PUT` | `/meta` | Configuracion general | Solo admin |
+| `PUT` | `/admin/f1/{raceKey}` | Operaciones admin F1 | Solo admin |
+| `PUT` | `/admin/futbol/{jornadaId}` | Operaciones admin futbol | Solo admin |
+
+Cada peticion incluye `x-porra-user` para identificar al usuario. Las operaciones de escritura validan permisos en el servidor.
+
+### Esquema DynamoDB
+
+Tabla unica con clave compuesta (`pk`, `sk`):
+
+| pk | sk | Contenido |
+|----|-----|-----------|
+| `META` | `CONFIG` | drivers, teams, championships, basePoints |
+| `META` | `AVATARS` | avatares base64 por usuario |
+| `META` | `QUESTIONS` | preguntas F1 por carrera |
+| `USER#nombre` | `PROFILE` | passwordHash, isAdmin, blocked, createdAt |
+| `F1#raceKey` | `RESULT` | pole, podium |
+| `F1#raceKey` | `BET#nombre` | apuesta: pole, podium, q, submittedAt |
+| `F1#raceKey` | `WINDOW` | forceClosed, forceOpen |
+| `FUT#jornadaId` | `CONFIG` | partidos, deadline |
+| `FUT#jornadaId` | `RESULT` | resultados por partido |
+| `FUT#jornadaId` | `BET#nombre` | predicciones, submittedAt |
 
 ## 🚀 Como usar este proyecto (Fork)
 
@@ -308,10 +345,18 @@ Ver [DEPLOY.md](DEPLOY.md) para instrucciones detalladas.
 | Recurso AWS | Funcion |
 |-------------|---------|
 | **S3 Hosting** | Bucket para servir `dist/` (SPA estatica) |
-| **S3 Datos** | Bucket para `state.json` (bets, results, users) |
-| **API Gateway + Lambda State** | GET/PUT del estado JSON desde S3 |
-| **API Gateway + Lambda AI** | ManriBot (`porra-ai.mjs`) — opcional |
+| **DynamoDB** | Tabla `PorraBirreros` (bets, results, users, meta) |
+| **API Gateway + Lambda State** | `porra-state-api.mjs` — API REST con rutas granulares |
+| **API Gateway + Lambda AI** | `porra-ai.mjs` — ManriBot (opcional) |
 | **CloudFront + ACM** | CDN + HTTPS + dominio personalizado |
+
+Variables de entorno de la Lambda State (`porra-state-api.mjs`):
+
+| Variable | Descripcion |
+|----------|-------------|
+| `TABLE_NAME` | Nombre de la tabla DynamoDB (default: `PorraBirreros`) |
+| `ALLOWED_ORIGIN` | Tu dominio para CORS |
+| `API_SECRET` | (opcional) Secret compartido con el frontend |
 
 Variables de entorno de la Lambda AI (`porra-ai.mjs`):
 
@@ -319,7 +364,30 @@ Variables de entorno de la Lambda AI (`porra-ai.mjs`):
 |----------|-------------|
 | `GEMINI_API_KEY` | API key de Google AI Studio (gratis en [aistudio.google.com](https://aistudio.google.com)) |
 | `ALLOWED_ORIGIN` | Tu dominio de produccion para CORS |
-| `API_SECRET` | (opcional) Secret compartido con el frontend |
+
+#### Crear tabla DynamoDB
+
+```bash
+aws dynamodb create-table \
+  --table-name PorraBirreros \
+  --attribute-definitions \
+    AttributeName=pk,AttributeType=S \
+    AttributeName=sk,AttributeType=S \
+  --key-schema \
+    AttributeName=pk,KeyType=HASH \
+    AttributeName=sk,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST
+```
+
+#### Migrar datos de S3 a DynamoDB
+
+Si ya tienes datos en S3 (`state.json`), usa el script de migracion:
+
+```bash
+PORRA_API_BASE=https://tu-api-antigua.com \
+NEW_API_BASE=https://tu-api-nueva.com \
+node scripts/migrate-s3-to-dynamodb.mjs
+```
 
 ### 6. Configura CI/CD (GitHub Actions)
 
@@ -371,11 +439,14 @@ git push origin main
 
 ## 🔐 Seguridad
 
+- **Validacion server-side**: cada operacion de escritura valida permisos en la Lambda (DynamoDB)
+- **Separacion de datos**: un usuario no puede modificar apuestas de otro (validado en backend)
+- **Admin-only**: resultados, configuracion y gestion de usuarios solo accesibles para admin
 - Contrasenas hasheadas con SHA-256 (nunca se almacenan en texto plano)
 - Sesiones con token aleatorio en sessionStorage (expiran tras 30 min)
 - Rate limiting en login (5 intentos, cooldown 30s)
 - Panel admin protegido con secreto independiente
-- CSP (Content Security Policy) configurado en produccion (generado dinamicamente por `build.mjs` segun `.env`)
+- CSP (Content Security Policy) generado dinamicamente segun `.env`
 - Lambda AI con rate limiting (10 req/min/IP) y proteccion contra prompt injection
 - Datos personales (participantes, hashes, URLs) fuera del repositorio
 

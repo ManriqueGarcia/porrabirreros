@@ -5,9 +5,30 @@ export const API_BASE_URL = (window.PORRA_API_BASE || "").replace(/\/$/, "");
 export const API_SECRET = window.PORRA_API_SECRET || "";
 export const API_HEADERS = API_SECRET ? { "x-porra-secret": API_SECRET } : {};
 
+function userHeaders(user) {
+  return { ...API_HEADERS, "x-porra-user": user || "" };
+}
+
+async function apiCall(method, path, user, body) {
+  if (!API_BASE_URL) return null;
+  const opts = {
+    method,
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...userHeaders(user) },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE_URL}${path}`, opts);
+  if (!res.ok) {
+    const err = await res.text().catch(() => "");
+    throw new Error(`API ${method} ${path}: ${res.status} ${err}`);
+  }
+  return res.json();
+}
+
+// ─── State (backward compat) ───
+
 export async function fetchRemoteState() {
   if (!API_BASE_URL) return null;
-  const res = await fetch(`${API_BASE_URL}/state`, { headers: { "Accept": "application/json", ...API_HEADERS } });
+  const res = await fetch(`${API_BASE_URL}/state`, { headers: { Accept: "application/json", ...API_HEADERS } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Fetch remoto fallido");
   return res.json();
@@ -21,6 +42,64 @@ export async function saveRemoteState(payload) {
 export const saveRemoteDebounced = debounce((db) => {
   saveRemoteState(db).catch(err => console.warn("No se pudo guardar estado remoto", err));
 }, 1500);
+
+// ─── F1 Bets ───
+
+export async function saveBetF1(raceKey, user, bet) {
+  return apiCall("PUT", `/bets/f1/${raceKey}`, user, { bet });
+}
+
+// ─── Futbol Bets ───
+
+export async function saveBetFutbol(jornadaId, user, bet) {
+  return apiCall("PUT", `/bets/futbol/${jornadaId}`, user, { bet });
+}
+
+// ─── F1 Results (admin) ───
+
+export async function saveResultF1(raceKey, user, result) {
+  return apiCall("PUT", `/results/f1/${raceKey}`, user, { result });
+}
+
+// ─── Futbol Results (admin) ───
+
+export async function saveResultFutbol(jornadaId, user, result) {
+  return apiCall("PUT", `/results/futbol/${jornadaId}`, user, { result });
+}
+
+// ─── Users ───
+
+export async function updateUser(targetUser, reqUser, updates) {
+  return apiCall("PUT", `/users/${encodeURIComponent(targetUser)}`, reqUser, { updates });
+}
+
+export async function addUser(reqUser, userData) {
+  return apiCall("POST", "/users", reqUser, userData);
+}
+
+export async function deleteUser(targetUser, reqUser) {
+  return apiCall("DELETE", `/users/${encodeURIComponent(targetUser)}`, reqUser);
+}
+
+// ─── Meta (admin) ───
+
+export async function saveMeta(user, meta) {
+  return apiCall("PUT", "/meta", user, { meta });
+}
+
+// ─── Admin F1 ───
+
+export async function adminF1(raceKey, user, type, data) {
+  return apiCall("PUT", `/admin/f1/${raceKey}`, user, { type, data });
+}
+
+// ─── Admin Futbol ───
+
+export async function adminFutbol(jornadaId, user, type, data) {
+  return apiCall("PUT", `/admin/futbol/${jornadaId}`, user, { type, data });
+}
+
+// ─── Static assets ───
 
 export async function loadCalendar() { const r = await fetch(`./assets/calendar_2026.json?${CACHE_BUST}`); return r.json(); }
 export async function loadDrivers() { const r = await fetch(`./assets/drivers_2026.json?${CACHE_BUST}`); return r.json(); }

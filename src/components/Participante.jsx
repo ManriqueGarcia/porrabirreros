@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNow, nowISO, shareBet, betsAreEqual, formatDateTime, formatTime } from "../utils.js";
 import { CURRENT_SEASON_YEAR, MADRID_TZ, REAL_HISTORICAL_2025_KEYS } from "../config.js";
-import { loadHistorical } from "../api.js";
+import { loadHistorical, saveBetF1 } from "../api.js";
 import { toast } from "../toast.jsx";
 import { scoreForRace } from "../scoring.js";
 import { Avatar } from "./Avatar.jsx";
@@ -91,12 +91,12 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
   const handleBetSubmit=useCallback((b)=>{
     const late=new Date()>=race?.cutoff;
+    const timestamp=nowISO();
+    const rk=race?.key; if(!rk) return;
+    const nextBet={...b,submittedAt:timestamp,late};
     setDb(prev=>{
-      const timestamp=nowISO();
-      const rk=race?.key; if(!rk) return prev;
       const prevRaceBets={...(prev.bets?.[rk]||{})};
       const prevBet=prevRaceBets[user];
-      const nextBet={...prevBet,...b,submittedAt:timestamp,late};
       const nextBets={...(prev.bets||{}), [rk]:{...prevRaceBets, [user]:nextBet}};
       let betHistory=prev.betHistory||{};
       if(!prevBet || !betsAreEqual(prevBet,b)){
@@ -107,6 +107,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       }
       return {...prev, bets:nextBets, betHistory};
     });
+    saveBetF1(rk, user, nextBet).catch(err => { console.error("Error guardando apuesta F1:", err); toast.error("Error al sincronizar apuesta"); });
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
   },[race?.key,race?.cutoff,user,setDb]);
   const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
