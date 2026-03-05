@@ -4,6 +4,27 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-05] — Auditoria de seguridad y hardening
+
+### Vulnerabilidades corregidas
+- **CRITICA — Hashes de contrasena expuestos**: `GET /state` y `GET /g/{gid}/state` devolvian `passwordHash` y `adminSecretHash` a todos los usuarios. Ahora se sanitizan con `sanitizeState()` antes de enviar la respuesta.
+- **CRITICA — Join sin invite code**: `POST /groups/{gid}/join` no verificaba el codigo de invitacion. Cualquiera que conociera un `groupId` podia unirse sin invitacion. Ahora requiere `inviteCode` en el body y lo valida contra el almacenado.
+- **CRITICA — PUT /state sin autenticacion**: `PUT /state` y `PUT /g/{gid}/state` permitian a cualquiera sobrescribir todo el estado. Ahora requieren admin. Ademas, preservan `passwordHash` existente si el payload no lo incluye.
+- **ALTA — Endpoints destructivos sin auth**: `POST /seed-uidx/{gid}` y `POST /migrate-to-group` no requerian autenticacion. Ahora requieren admin.
+- **ALTA — Enumeracion de grupos/usuarios**: `GET /users/{name}/groups` ahora requiere que el solicitante sea el propio usuario o admin. `GET /groups/list` ahora requiere admin.
+- **ALTA — passwordHash en localStorage**: `saveGroupDB()` ahora elimina `passwordHash` y `adminSecretHash` antes de guardar en localStorage.
+- **MEDIA — Inyeccion en claves DynamoDB**: añadida funcion `isValidId()` que valida que `groupId` solo contenga `[a-zA-Z0-9_-]` (max 50 chars). Validacion centralizada para todas las rutas `/g/{gid}/`.
+- **BAJA — Error 500 filtraba detalles**: eliminado `detail: err.message` de la respuesta de error 500.
+
+### Nuevas funcionalidades de seguridad
+- **`POST /auth/verify`**: nuevo endpoint para verificar contraseña actual server-side, sin exponer el hash al frontend.
+- **`sanitizeState()`**: funcion reutilizable que elimina campos sensibles (`passwordHash`, `adminSecretHash`) de objetos de estado.
+- **`isValidId()`**: validacion de formato de IDs para prevenir inyeccion en claves DynamoDB.
+- **ChangePasswordModal**: verificacion de contraseña actual via API (`POST /auth/verify`) en lugar de comparacion local con hash.
+- **`setSaveRemoteUser()`**: el sync remoto debounced ahora envia `x-porra-user` para cumplir con la autenticacion requerida.
+
+---
+
 ## [2026-03-05] — Multi-tenancy por usuario, login global y admin granular
 
 ### Multi-tenancy

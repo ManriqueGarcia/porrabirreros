@@ -42,14 +42,19 @@ export async function fetchRemoteState() {
   return res.json();
 }
 
-export async function saveRemoteState(payload) {
+export async function saveRemoteState(payload, user) {
   if (!API_BASE_URL) return;
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
-  await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json", ...API_HEADERS }, body: JSON.stringify(payload) });
+  const hdrs = { "Content-Type": "application/json", ...API_HEADERS };
+  if (user) hdrs["x-porra-user"] = user;
+  await fetch(url, { method: "PUT", headers: hdrs, body: JSON.stringify(payload) });
 }
 
+let _saveRemoteUser = "";
+export function setSaveRemoteUser(u) { _saveRemoteUser = u || ""; }
+
 export const saveRemoteDebounced = debounce((db) => {
-  saveRemoteState(db).catch(err => console.warn("No se pudo guardar estado remoto", err));
+  saveRemoteState(db, _saveRemoteUser).catch(err => console.warn("No se pudo guardar estado remoto", err));
 }, 1500);
 
 // ─── F1 Bets ───
@@ -122,6 +127,16 @@ export async function loadHistorical(year) {
 
 // ─── Auth ───
 
+export async function verifyPassword(username, passwordHash, groupId) {
+  const resp = await fetch(`${API_BASE_URL}/auth/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...API_HEADERS },
+    body: JSON.stringify({ username, passwordHash, groupId: groupId || getActiveGroupId() }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  return !!data.valid;
+}
+
 export async function authLogin(username, passwordHash) {
   const resp = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -133,18 +148,18 @@ export async function authLogin(username, passwordHash) {
   return data;
 }
 
-export async function fetchUserGroups(username) {
+export async function fetchUserGroups(username, reqUser) {
   const resp = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/groups`, {
-    headers: { Accept: "application/json", ...API_HEADERS },
+    headers: { Accept: "application/json", ...API_HEADERS, "x-porra-user": reqUser || username || "" },
   });
   if (!resp.ok) return [];
   const data = await resp.json();
   return data.groups || [];
 }
 
-export async function fetchGroupsList() {
+export async function fetchGroupsList(reqUser) {
   const resp = await fetch(`${API_BASE_URL}/groups/list`, {
-    headers: { Accept: "application/json", ...API_HEADERS },
+    headers: { Accept: "application/json", ...API_HEADERS, "x-porra-user": reqUser || "" },
   });
   if (!resp.ok) return [];
   const data = await resp.json();

@@ -109,6 +109,7 @@ export function JoinGroup({ inviteCode: inviteCodeProp, onJoined, onBack }) {
           body: JSON.stringify({
             name: userName.trim(),
             passwordHash,
+            inviteCode: inviteCode.trim(),
           }),
         }
       );

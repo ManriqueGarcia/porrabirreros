@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, loadDB, saveDB, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
-import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin } from "../api.js";
+import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser } from "../api.js";
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
@@ -205,7 +205,24 @@ function GroupApp({ groupId }) {
   useEffect(() => { setActiveGroupId(groupId); return () => setActiveGroupId(null); }, [groupId]);
   const dbKey = groupId ? `porra_db_${groupId}` : "porra_db";
   const loadGroupDB = () => { try { const s = localStorage.getItem(dbKey); return s ? JSON.parse(s) : {}; } catch { return {}; } };
-  const saveGroupDB = (data) => { try { localStorage.setItem(dbKey, JSON.stringify(data)); } catch { /* */ } };
+  const saveGroupDB = (data) => {
+    try {
+      const safe = { ...data };
+      if (safe.users) {
+        const users = {};
+        for (const [name, u] of Object.entries(safe.users)) {
+          const { passwordHash, ...rest } = u;
+          users[name] = rest;
+        }
+        safe.users = users;
+      }
+      if (safe.meta) {
+        const { adminSecretHash, adminSecret, ...safeMeta } = safe.meta;
+        safe.meta = safeMeta;
+      }
+      localStorage.setItem(dbKey, JSON.stringify(safe));
+    } catch { /* */ }
+  };
 
   const [lang, setLang] = useState(() => localStorage.getItem("porra_lang") || "es");
   useEffect(() => { localStorage.setItem("porra_lang", lang); }, [lang]);
@@ -213,6 +230,7 @@ function GroupApp({ groupId }) {
   useEffect(() => { localStorage.setItem("porra_theme", theme); document.documentElement.dataset.theme = theme; }, [theme]);
   const [db, setDb] = useState(loadGroupDB); const [cal, setCal] = useState([]); const [drivers, setDrivers] = useState([]); const [teams, setTeams] = useState([]); const [circuits, setCircuits] = useState({}); const [selectedRaceKey, setSelectedRaceKey] = useState(() => sessionStorage.getItem("porra_selected_race") || ""); useEffect(() => { if (selectedRaceKey && !cal?.find(r => r.key === selectedRaceKey) && cal?.length) setSelectedRaceKey(cal[0].key); }, [cal, selectedRaceKey]); useEffect(() => { if (selectedRaceKey) sessionStorage.setItem("porra_selected_race", selectedRaceKey); }, [selectedRaceKey]); const [user, setUser] = useState(() => { const s = getSession(); return s?.user || sessionStorage.getItem("porra_session_user") || ""; }); const [view, setView] = useState("participante"); const [mode, setMode] = useState(() => localStorage.getItem("porra_mode") || "f1"); const [showPass, setShowPass] = useState(false); const [showAvatar, setShowAvatar] = useState(false); const [showAI, setShowAI] = useState(false); const [hydrated, setHydrated] = useState(false); const [defaultPwdHash, setDefaultPwdHash] = useState("");
   const [showBanner, setShowBanner] = useState(false);
+  useEffect(() => { setSaveRemoteUser(user); }, [user]);
   const userActionRef = useRef(false);
   const setDbUser = useCallback((updater) => { userActionRef.current = true; setDb(prev => typeof updater === "function" ? updater(prev) : updater); }, []);
   const userGroups = useMemo(() => getSession()?.groups || [], [user]);

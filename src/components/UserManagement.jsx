@@ -146,10 +146,10 @@ export function UserManagement({ db, setDb, currentUser }) {
     if (expandedUser === name) { setExpandedUser(null); return; }
     setExpandedUser(name);
     try {
-      const groups = await fetchUserGroups(name);
+      const groups = await fetchUserGroups(name, currentUser);
       setUserGroupsMap(prev => ({ ...prev, [name]: groups }));
       if (!allGroups) {
-        const gl = await fetchGroupsList();
+        const gl = await fetchGroupsList(currentUser);
         setAllGroups(gl);
       }
     } catch { toast.error("Error cargando grupos"); }
@@ -161,11 +161,11 @@ export function UserManagement({ db, setDb, currentUser }) {
       const resp = await fetch(`${API_BASE_URL}/g/${targetGroupId}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...API_HEADERS, "x-porra-user": currentUser },
-        body: JSON.stringify({ name: userName, passwordHash: db.users?.[userName]?.passwordHash || DEFAULT_PASSWORD_HASH, porras: db.users?.[userName]?.porras || { f1: true, futbol: true } }),
+        body: JSON.stringify({ name: userName, passwordHash: DEFAULT_PASSWORD_HASH, mustChange: true, porras: db.users?.[userName]?.porras || { f1: true, futbol: true } }),
       });
       if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error"); }
       toast.success(`${userName} añadido al grupo`);
-      const groups = await fetchUserGroups(userName);
+      const groups = await fetchUserGroups(userName, currentUser);
       setUserGroupsMap(prev => ({ ...prev, [userName]: groups }));
     } catch (err) { toast.error(err.message); }
     finally { setAddingToGroup(false); }
@@ -180,7 +180,7 @@ export function UserManagement({ db, setDb, currentUser }) {
       });
       if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error"); }
       toast.success(`${userName} quitado del grupo`);
-      const groups = await fetchUserGroups(userName);
+      const groups = await fetchUserGroups(userName, currentUser);
       setUserGroupsMap(prev => ({ ...prev, [userName]: groups }));
     } catch (err) { toast.error(err.message); }
   };

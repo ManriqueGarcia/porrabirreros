@@ -17,6 +17,27 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
 
+function sanitizeState(state) {
+  const s = { ...state };
+  if (s.users) {
+    const users = {};
+    for (const [name, u] of Object.entries(s.users)) {
+      const { passwordHash, ...safe } = u;
+      users[name] = safe;
+    }
+    s.users = users;
+  }
+  if (s.meta) {
+    const { adminSecretHash, adminSecret, ...safeMeta } = s.meta;
+    s.meta = safeMeta;
+  }
+  return s;
+}
+
+function isValidId(id) {
+  return typeof id === "string" && /^[a-zA-Z0-9_-]{1,50}$/.test(id);
+}
+
 function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
@@ -500,12 +521,14 @@ async function handleGetInvite(code) {
 }
 
 async function handleJoinGroup(groupId, body) {
-  const { name, passwordHash } = body;
+  const { name, passwordHash, inviteCode } = body;
   if (!name?.trim()) return badReq("Falta nombre de usuario");
   if (!passwordHash) return badReq("Falta contraseña");
+  if (!inviteCode) return badReq("Falta código de invitación");
 
   const groupMeta = await getItem("GROUPS", `G#${groupId}`);
   if (!groupMeta) return notFound("Grupo no encontrado");
+  if (groupMeta.inviteCode !== inviteCode) return forbidden("Código de invitación incorrecto");
 
   const gpk = `G#${groupId}`;
   const existing = await getItem(gpk, `USER#${name.trim()}|PROFILE`);
@@ -714,11 +737,19 @@ export const handler = async (event) => {
     // GET /state
     if (method === "GET" && path === "/state") {
       const state = await getFullState();
-      return res(200, state);
+      return res(200, sanitizeState(state));
     }
 
-    // PUT /state (backward compat / migration)
+    // PUT /state (admin-only, preserves existing passwordHash)
     if (method === "PUT" && path === "/state") {
+      const reqUser = rawUser ? await resolveUser(rawUser) : "";
+      if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede sobrescribir estado");
+      for (const [name, u] of Object.entries(body.users || {})) {
+        if (!u.passwordHash) {
+          const existing = await getItem(`USER#${name}`, "PROFILE");
+          if (existing?.passwordHash) u.passwordHash = existing.passwordHash;
+        }
+      }
       const count = await writeFullState(body);
       return res(200, { ok: true, items: count });
     }
@@ -727,18 +758,66 @@ export const handler = async (event) => {
     if (method === "POST" && segments[0] === "auth" && segments[1] === "login") {
       return handleAuthLogin(body);
     }
-    // GET /users/{name}/groups
-    if (method === "GET" && segments[0] === "users" && segments[1] && segments[2] === "groups") {
-      return res(200, { groups: await getUserGroups(decodeURIComponent(segments[1])) });
+    // POST /auth/verify — server-side password verification
+    if (method === "POST" && segments[0] === "auth" && segments[1] === "verify") {
+      const { username, passwordHash, groupId } = body;
+      if (!username?.trim() || !passwordHash) return badReq("Faltan datos");
+      if (groupId) {
+        if (!isValidId(groupId)) return badReq("groupId inválido");
+        const resolved = await resolveUserInGroup(groupId, username.trim());
+        if (!resolved) return res(200, { valid: false });
+        const profile = await gGetItem(groupId, `USER#${resolved}`, "PROFILE");
+        return res(200, { valid: !!(profile && profile.passwordHash === passwordHash) });
+      }
+      const groups = await getUserGroups(username.trim());
+      for (const g of groups) {
+        const input = username.trim();
+        const cap = input.charAt(0).toUpperCase() + input.slice(1).toLowerCase();
+        const namesToTry = [...new Set([cap, input, g.username])];
+        for (const tryName of namesToTry) {
+          const profile = await gGetItem(g.groupId, `USER#${tryName}`, "PROFILE");
+          if (profile && profile.passwordHash === passwordHash) return res(200, { valid: true });
+        }
+      }
+      return res(200, { valid: false });
     }
-    // GET /groups/list
+    // GET /users/{name}/groups (requires matching user or admin)
+    if (method === "GET" && segments[0] === "users" && segments[1] && segments[2] === "groups") {
+      const targetName = decodeURIComponent(segments[1]);
+      if (!rawUser) return forbidden("Autenticación requerida");
+      if (rawUser.trim().toLowerCase() !== targetName.trim().toLowerCase()) {
+        const callerGroups = await getUserGroups(rawUser.trim());
+        let callerIsAdmin = false;
+        for (const g of callerGroups) {
+          if (await isAdminInGroup(g.groupId, await resolveUserInGroup(g.groupId, rawUser.trim()))) {
+            callerIsAdmin = true; break;
+          }
+        }
+        if (!callerIsAdmin) return forbidden("No tienes permiso");
+      }
+      return res(200, { groups: await getUserGroups(targetName) });
+    }
+    // GET /groups/list (requires admin in any group)
     if (method === "GET" && segments[0] === "groups" && segments[1] === "list") {
+      if (!rawUser) return forbidden("Autenticación requerida");
+      const callerGroups = await getUserGroups(rawUser.trim());
+      let callerIsAdmin = false;
+      for (const g of callerGroups) {
+        if (await isAdminInGroup(g.groupId, await resolveUserInGroup(g.groupId, rawUser.trim()))) {
+          callerIsAdmin = true; break;
+        }
+      }
+      if (!callerIsAdmin) return forbidden("Solo admin");
       const items = await queryByPk("GROUPS");
       return res(200, { groups: items.map(i => ({ groupId: i.groupId, name: i.name, memberCount: i.memberCount || 0, sports: i.sports || [] })) });
     }
-    // POST /seed-uidx/{groupId} - one-time migration to create UIDX entries
+    // POST /seed-uidx/{groupId} - admin-only migration endpoint
     if (method === "POST" && segments[0] === "seed-uidx" && segments[1]) {
       const gid = segments[1];
+      if (!isValidId(gid)) return badReq("groupId inválido");
+      if (!rawUser) return forbidden("Autenticación requerida");
+      const reqUser = await resolveUserInGroup(gid, rawUser);
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
       const groupMeta = await getItem("GROUPS", `G#${gid}`);
       if (!groupMeta) return notFound("Grupo no encontrado");
       const state = await getGroupState(gid);
@@ -761,12 +840,18 @@ export const handler = async (event) => {
     }
     // POST /groups/{groupId}/join
     if (method === "POST" && segments[0] === "groups" && segments[1] && segments[2] === "join") {
+      if (!isValidId(segments[1])) return badReq("groupId inválido");
       return handleJoinGroup(segments[1], body);
     }
+    // Validate groupId for all /g/ routes
+    if (segments[0] === "g" && segments[1] && !isValidId(segments[1])) {
+      return badReq("groupId inválido");
+    }
+
     // GET /g/{groupId}/state
     if (method === "GET" && segments[0] === "g" && segments[1] && segments[2] === "state") {
       const state = await getGroupState(segments[1]);
-      return res(200, state);
+      return res(200, sanitizeState(state));
     }
     // PUT /g/{groupId}/bets/f1/{raceKey}
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "f1" && segments[4]) {
@@ -938,10 +1023,13 @@ export const handler = async (event) => {
       }
       return res(200, { ok: true });
     }
-    // POST /migrate-to-group - migrates legacy data to a group
+    // POST /migrate-to-group - admin-only, migrates legacy data to a group
     if (method === "POST" && segments[0] === "migrate-to-group") {
+      const reqUser = rawUser ? await resolveUser(rawUser) : "";
+      if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede migrar datos");
       const { groupId: targetGroupId, groupName, inviteCode: customInvite } = body;
       if (!targetGroupId) return badReq("Falta groupId");
+      if (!isValidId(targetGroupId)) return badReq("groupId inválido");
       const state = await getFullState();
       if (!state.meta?.seeded) return badReq("No hay datos legacy para migrar");
       const inviteCode = customInvite || generateCode(8);
@@ -986,10 +1074,19 @@ export const handler = async (event) => {
       }
       return res(200, { ok: true, groupId: targetGroupId, inviteCode, items: ops.length });
     }
-    // PUT /g/{groupId}/state (full state write for migration)
+    // PUT /g/{groupId}/state (admin-only, preserves existing passwordHash)
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "state") {
       const gid = segments[1];
+      if (!isValidId(gid)) return badReq("groupId inválido");
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin puede sobrescribir estado");
       const state = body;
+      for (const [name, u] of Object.entries(state.users || {})) {
+        if (!u.passwordHash) {
+          const existing = await gGetItem(gid, `USER#${name}`, "PROFILE");
+          if (existing?.passwordHash) u.passwordHash = existing.passwordHash;
+        }
+      }
       const ops = [];
       const gpk = `G#${gid}`;
       const { avatars, raceOverrides, ...metaRest } = state.meta || {};
@@ -1089,6 +1186,6 @@ export const handler = async (event) => {
     return notFound(`Ruta no encontrada: ${method} ${path}`);
   } catch (err) {
     console.error("Error:", err);
-    return res(500, { error: "Error interno", detail: err.message });
+    return res(500, { error: "Error interno" });
   }
 };

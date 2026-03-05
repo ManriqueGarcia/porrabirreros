@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { toast } from "../toast.jsx";
 import { hashPassword, passwordMatches, nowISO, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts, readFileAsDataUrl, resizeImageToDataUrl, MAX_AVATAR_BASE64 } from "../utils.js";
 import { DEFAULT_PASSWORD_HASH, RECOVERY_CODE_HASH } from "../config.js";
-import { updateUser, saveMeta } from "../api.js";
+import { updateUser, saveMeta, verifyPassword } from "../api.js";
 import { Avatar } from "./Avatar.jsx";
 
 export function ChangeAvatarModal({ open, onClose, db, setDb, user }) {
@@ -64,7 +64,8 @@ export function ChangePasswordModal({ open, onClose, db, setDb, user, forceChang
     try {
       const u = db.users?.[user]; if (!u) return toast.error("Usuario no válido");
       if (!forceChange) {
-        const ok = await passwordMatches(u, curr);
+        const currHash = await hashPassword(curr);
+        const ok = await verifyPassword(user, currHash);
         if (!ok) return toast.error("Contraseña actual incorrecta");
       }
       if (n1.length < 6) return toast.error("Mínimo 6 caracteres");

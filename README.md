@@ -243,10 +243,11 @@ El backend (`porra-state-api.mjs`) expone rutas granulares con validacion server
 | Metodo | Ruta | Descripcion | Permisos |
 |--------|------|-------------|----------|
 | `POST` | `/auth/login` | Login global (devuelve grupos del usuario) | Todos |
-| `GET` | `/users/{name}/groups` | Grupos de un usuario | Todos |
-| `GET` | `/groups/list` | Lista de todos los grupos | Todos |
+| `POST` | `/auth/verify` | Verificar contrasena actual (server-side) | Todos |
+| `GET` | `/users/{name}/groups` | Grupos de un usuario | Propio o admin |
+| `GET` | `/groups/list` | Lista de todos los grupos | Solo admin |
 | `POST` | `/groups` | Crear nuevo grupo | Todos |
-| `POST` | `/groups/{groupId}/join` | Unirse a un grupo | Todos |
+| `POST` | `/groups/{groupId}/join` | Unirse a un grupo (requiere inviteCode) | Todos |
 | `GET` | `/invite/{code}` | Validar codigo de invitacion | Todos |
 
 #### Rutas multi-tenant (prefijo `/g/{groupId}/`)
@@ -474,9 +475,16 @@ git push origin main
 
 ## 🔐 Seguridad
 
+- **Sanitizacion de estado**: `passwordHash` y `adminSecretHash` nunca se envian al cliente (eliminados en `sanitizeState()`)
 - **Validacion server-side**: cada operacion de escritura valida permisos en la Lambda (DynamoDB)
 - **Separacion de datos**: un usuario no puede modificar apuestas de otro (validado en backend)
-- **Admin-only**: resultados, configuracion y gestion de usuarios solo accesibles para admin
+- **Admin-only**: resultados, configuracion, gestion de usuarios, PUT /state y endpoints de migracion solo accesibles para admin
+- **Verificacion de contrasena server-side**: `POST /auth/verify` permite validar la contrasena actual sin exponer hashes al frontend
+- **Invite code obligatorio**: unirse a un grupo requiere el codigo de invitacion correcto
+- **Validacion de IDs**: `groupId` validado con `isValidId()` (`[a-zA-Z0-9_-]{1,50}`) para prevenir inyeccion en claves DynamoDB
+- **Proteccion de endpoints de enumeracion**: `GET /users/{name}/groups` requiere ser el propio usuario o admin; `GET /groups/list` requiere admin
+- **localStorage limpio**: no se almacenan `passwordHash` ni `adminSecretHash` en la cache local del navegador
+- **Error 500 opaco**: las respuestas de error no exponen detalles internos (`err.message`)
 - Contrasenas hasheadas con SHA-256 (nunca se almacenan en texto plano)
 - Sesiones con token aleatorio en sessionStorage (expiran tras 30 min)
 - Rate limiting en login (5 intentos, cooldown 30s)
