@@ -84,6 +84,77 @@ graph TB
 
 > Diagrama editable en detalle: abrir [`architecture.drawio.xml`](./architecture.drawio.xml) en [draw.io](https://app.diagrams.net/).
 
+### Infraestructura AWS
+
+```mermaid
+graph TB
+    subgraph Internet["🌐 Internet"]
+        User["👤 Usuario<br/>(navegador)"]
+        Dev["👨‍💻 Desarrollador<br/>(git push)"]
+    end
+
+    subgraph GitHub["🐙 GitHub"]
+        Repo["📁 Repositorio"]
+        Actions["⚡ GitHub Actions<br/>build → deploy"]
+    end
+
+    subgraph AWS["☁️ AWS"]
+        subgraph Edge["🌍 Edge — CloudFront"]
+            CF["CloudFront<br/>CDN + HTTPS + Custom Domain"]
+            ACM["🔒 ACM<br/>Certificado SSL"]
+        end
+
+        subgraph Compute["⚙️ Compute"]
+            APIGW["🔌 API Gateway<br/>(HTTP API)"]
+            subgraph Lambdas["λ Lambda Functions"]
+                LState["lambda-state<br/>GET/PUT estado JSON"]
+                LAI["lambda-ai<br/>ManriBot (porra-ai.mjs)"]
+            end
+        end
+
+        subgraph Storage["📦 Storage — S3"]
+            S3Host["🪣 S3 Hosting<br/>dist/ (SPA estática)<br/>index.html · app.[hash].js · styles.[hash].css"]
+            S3Data["🪣 S3 Datos<br/>state.json<br/>(bets, results, users)"]
+        end
+
+        subgraph IAM["🔐 IAM"]
+            IAMUser["IAM User / Role<br/>s3:PutObject · s3:GetObject<br/>cloudfront:CreateInvalidation"]
+        end
+    end
+
+    subgraph External["🌐 APIs Externas"]
+        Google["🧠 Google AI API<br/>Gemma 3 / Gemini"]
+        Jolpica["📊 Jolpica (Ergast) API<br/>F1 histórico"]
+    end
+
+    User -->|"HTTPS"| CF
+    CF -->|"Origin"| S3Host
+    CF -.->|"SSL"| ACM
+    User -->|"REST API"| APIGW
+    APIGW -->|"/state"| LState
+    APIGW -->|"/assistant"| LAI
+    LState -->|"GET/PUT"| S3Data
+    LAI -->|"Gemini/Gemma"| Google
+    User -->|"client-side fetch"| Jolpica
+
+    Dev -->|"git push main"| Repo
+    Repo -->|"trigger"| Actions
+    Actions -->|"npm ci → build → s3 sync"| S3Host
+    Actions -->|"create-invalidation"| CF
+    Actions -.->|"credentials"| IAMUser
+
+    style AWS fill:#232F3E,stroke:#FF9900,stroke-width:2px,color:#fff
+    style Edge fill:#8C4FFF,stroke:#fff,stroke-width:1px,color:#fff
+    style Compute fill:#E7157B,stroke:#fff,stroke-width:1px,color:#fff
+    style Storage fill:#3F8624,stroke:#fff,stroke-width:1px,color:#fff
+    style IAM fill:#DD344C,stroke:#fff,stroke-width:1px,color:#fff
+    style GitHub fill:#24292F,stroke:#fff,stroke-width:1px,color:#fff
+    style External fill:#1a1a2e,stroke:#888,stroke-width:1px,color:#fff
+    style Internet fill:#0d1117,stroke:#888,stroke-width:1px,color:#fff
+```
+
+> **Flujo**: El usuario accede vía CloudFront (CDN + HTTPS). La SPA se carga desde S3 Hosting. Las llamadas a `/state` y `/assistant` van a API Gateway → Lambda. GitHub Actions despliega automáticamente en cada push a `main`.
+
 ### Estructura de archivos
 
 ```
