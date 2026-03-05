@@ -110,14 +110,14 @@ export function Login({ db, setDb, onLogged }) {
   const [recoverStep, setRecoverStep] = useState(1);
   const [resolvedRecoverUser, setResolvedRecoverUser] = useState("");
 
-  const tryLogin = async (e) => { e && e.preventDefault(); if (busy) return; const rl = checkLoginRateLimit(); if (!rl.allowed) return toast.error(rl.msg); setBusy(true); try { const realName = findUser(db.users, name); if (!realName) { recordLoginFailure(); return toast.error("Usuario no encontrado"); } const u = db.users[realName]; const ok = await passwordMatches(u, pass); if (!ok) { recordLoginFailure(); return toast.error("Contraseña incorrecta"); } if (u.blocked) return toast.error("Usuario bloqueado temporalmente"); resetLoginAttempts(); setName(realName); if (u.mustChange) { setNeedsChange(true); return; } if (u.password && !u.passwordHash) { const hash = await hashPassword(pass); setDb(prev => { const users = { ...(prev.users || {}) }; users[realName] = { ...users[realName], passwordHash: hash }; delete users[realName].password; return { ...prev, users }; }); } onLogged(realName); } finally { setBusy(false); } };
+  const tryLogin = async (e) => { e && e.preventDefault(); if (busy) return; const rl = checkLoginRateLimit(); if (!rl.allowed) return toast.error(rl.msg); setBusy(true); try { const realName = findUser(db.users, name); if (!realName) { recordLoginFailure(); return toast.error("Credenciales incorrectas"); } const u = db.users[realName]; const ok = await passwordMatches(u, pass); if (!ok) { recordLoginFailure(); return toast.error("Credenciales incorrectas"); } if (u.blocked) return toast.error("Usuario bloqueado temporalmente"); resetLoginAttempts(); setName(realName); if (u.mustChange) { setNeedsChange(true); return; } if (u.password && !u.passwordHash) { const hash = await hashPassword(pass); setDb(prev => { const users = { ...(prev.users || {}) }; users[realName] = { ...users[realName], passwordHash: hash }; delete users[realName].password; return { ...prev, users }; }); } onLogged(realName); } finally { setBusy(false); } };
   const doChange = async (e) => { e.preventDefault(); if (busy) return; setBusy(true); try { const realName = findUser(db.users, name) || name; if (n1.length < 6) return toast.error("Mínimo 6 caracteres"); if (n1 !== n2) return toast.error("Las contraseñas no coinciden"); const hash = await hashPassword(n1); setDb(prev => { const users = { ...(prev.users || {}) }; users[realName] = { ...users[realName], passwordHash: hash, mustChange: false, changedAt: nowISO() }; delete users[realName].password; return { ...prev, users }; }); updateUser(realName, realName, { passwordHash: hash, mustChange: false }).catch(err => console.error("Error sync password:", err)); onLogged(realName); } finally { setBusy(false); } };
 
   const verifyRecoverCode = async (e) => {
     e.preventDefault();
     if (!recoverUser) return toast.error("Escribe tu nombre de usuario");
     const realName = findUser(db.users, recoverUser);
-    if (!realName) return toast.error("Usuario no encontrado");
+    if (!realName) return toast.error("Credenciales incorrectas");
     setResolvedRecoverUser(realName);
     const inputHash = await hashPassword(recoverCode);
     if (inputHash !== RECOVERY_CODE_HASH) return toast.error("Código de recuperación incorrecto");

@@ -4,6 +4,21 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-05] — Segunda auditoria: bugs y seguridad
+
+### Bugs corregidos
+- **`queryByPk` sin paginacion**: si un grupo tenia mas de 1MB de items en DynamoDB, los items excedentes se perdian. Ahora usa `LastEvaluatedKey` para paginar correctamente.
+- **`BatchWriteCommand` sin reintentos**: DynamoDB puede devolver `UnprocessedItems` en escrituras masivas. Ahora se reintentan hasta 3 veces con backoff, evitando perdida de datos.
+- **`exportPDF` vulnerable a XSS**: los valores de celdas se inyectaban como HTML sin escapar. Ahora se usa `escapeHtml()` para sanitizar titulo, headers y contenido de celdas.
+- **`processFutbolQuery` sin `x-porra-secret`**: las peticiones al ManriBot de futbol no incluian el header de autenticacion. Si se configura `API_SECRET` en la Lambda AI, el futbol dejaria de funcionar.
+
+### Seguridad
+- **Rate limiting server-side en auth**: `POST /auth/login`, `POST /auth/verify`, `POST /groups` (crear grupo) y `POST /groups/{gid}/join` ahora tienen rate limiting de 10 req/min/IP en el servidor, impidiendo ataques de fuerza bruta incluso sin frontend.
+- **Mensajes de error genericos en login**: el backend ya no diferencia entre "usuario no encontrado" y "contraseña incorrecta". Ambos devuelven "Credenciales incorrectas", evitando enumeracion de usuarios.
+- **Validacion de sports en creacion de grupo**: solo se aceptan "f1" y "futbol" como deportes validos, y se limita la longitud del nombre de grupo a 100 caracteres.
+
+---
+
 ## [2026-03-05] — Auditoria de seguridad y hardening
 
 ### Vulnerabilidades corregidas

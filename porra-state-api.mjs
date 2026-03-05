@@ -13,6 +13,26 @@ const TABLE = process.env.TABLE_NAME || "PorraBirreros";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const API_SECRET = process.env.API_SECRET || "";
 
+const AUTH_RATE_WINDOW_MS = 60_000;
+const AUTH_RATE_MAX = 10;
+const _authBuckets = new Map();
+
+function checkAuthRateLimit(key) {
+  const now = Date.now();
+  let bucket = _authBuckets.get(key);
+  if (!bucket || now - bucket.start > AUTH_RATE_WINDOW_MS) {
+    bucket = { start: now, count: 0 };
+    _authBuckets.set(key, bucket);
+  }
+  bucket.count++;
+  if (_authBuckets.size > 1000) {
+    for (const [k, v] of _authBuckets) {
+      if (now - v.start > AUTH_RATE_WINDOW_MS) _authBuckets.delete(k);
+    }
+  }
+  return bucket.count <= AUTH_RATE_MAX;
+}
+
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
@@ -71,12 +91,18 @@ async function deleteItem(pk, sk) {
 }
 
 async function queryByPk(pk) {
-  const r = await client.send(new QueryCommand({
-    TableName: TABLE,
-    KeyConditionExpression: "pk = :pk",
-    ExpressionAttributeValues: { ":pk": pk },
-  }));
-  return r.Items || [];
+  let items = [], lastKey;
+  do {
+    const r = await client.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: { ":pk": pk },
+      ExclusiveStartKey: lastKey,
+    }));
+    items = items.concat(r.Items || []);
+    lastKey = r.LastEvaluatedKey;
+  } while (lastKey);
+  return items;
 }
 
 async function scanAll() {
@@ -89,6 +115,21 @@ async function scanAll() {
     lastKey = r.LastEvaluatedKey;
   } while (lastKey);
   return items;
+}
+
+async function batchWriteWithRetry(requestItems, maxRetries = 3) {
+  let result = await client.send(new BatchWriteCommand({ RequestItems: requestItems }));
+  let unprocessed = result.UnprocessedItems;
+  let attempt = 0;
+  while (unprocessed && Object.keys(unprocessed).length && attempt < maxRetries) {
+    attempt++;
+    await new Promise(r => setTimeout(r, attempt * 200));
+    result = await client.send(new BatchWriteCommand({ RequestItems: unprocessed }));
+    unprocessed = result.UnprocessedItems;
+  }
+  if (unprocessed && Object.keys(unprocessed).length) {
+    console.error("BatchWrite: items no procesados tras reintentos", JSON.stringify(Object.keys(unprocessed)));
+  }
 }
 
 async function resolveUser(inputName) {
@@ -270,14 +311,11 @@ async function writeFullState(state) {
     ops.push({ pk: `FUT#${jId}`, sk: "REVEAL", ...r });
   }
 
-  // BatchWrite (25 items max per batch)
   for (let i = 0; i < ops.length; i += 25) {
     const batch = ops.slice(i, i + 25).map(item => ({
       PutRequest: { Item: item },
     }));
-    await client.send(new BatchWriteCommand({
-      RequestItems: { [TABLE]: batch },
-    }));
+    await batchWriteWithRetry({ [TABLE]: batch });
   }
 
   return ops.length;
@@ -488,6 +526,10 @@ async function handleCreateGroup(body) {
   if (!adminUser?.trim()) return badReq("Falta nombre de admin");
   if (!adminPasswordHash) return badReq("Falta contraseña");
   if (!Array.isArray(sports) || !sports.length) return badReq("Selecciona al menos un deporte");
+  const validSports = ["f1", "futbol"];
+  if (sports.some(s => !validSports.includes(s))) return badReq("Deporte no válido");
+  if (name.trim().length > 100) return badReq("Nombre de grupo demasiado largo");
+  if (adminUser.trim().length > 50) return badReq("Nombre de admin demasiado largo");
 
   const groupId = generateCode(10);
   const inviteCode = generateCode(8);
@@ -683,7 +725,7 @@ async function handleAuthLogin(body) {
   if (!username?.trim()) return badReq("Falta nombre de usuario");
   if (!passwordHash) return badReq("Falta contraseña");
   const groups = await getUserGroups(username.trim());
-  if (!groups.length) return res(401, { error: "Usuario no encontrado" });
+  if (!groups.length) return res(401, { error: "Credenciales incorrectas" });
   const validGroups = [];
   let canonicalName = username.trim();
   for (const g of groups) {
@@ -705,7 +747,7 @@ async function handleAuthLogin(body) {
       }
     }
   }
-  if (!validGroups.length) return res(401, { error: "Contraseña incorrecta" });
+  if (!validGroups.length) return res(401, { error: "Credenciales incorrectas" });
   return res(200, { username: canonicalName, groups: validGroups });
 }
 
@@ -756,10 +798,18 @@ export const handler = async (event) => {
 
     // POST /auth/login
     if (method === "POST" && segments[0] === "auth" && segments[1] === "login") {
+      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
+      if (!checkAuthRateLimit(`login:${clientIp}`)) {
+        return res(429, { error: "Demasiados intentos. Espera un minuto." });
+      }
       return handleAuthLogin(body);
     }
     // POST /auth/verify — server-side password verification
     if (method === "POST" && segments[0] === "auth" && segments[1] === "verify") {
+      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
+      if (!checkAuthRateLimit(`verify:${clientIp}`)) {
+        return res(429, { error: "Demasiados intentos. Espera un minuto." });
+      }
       const { username, passwordHash, groupId } = body;
       if (!username?.trim() || !passwordHash) return badReq("Faltan datos");
       if (groupId) {
@@ -832,6 +882,10 @@ export const handler = async (event) => {
     // ─── Group routes ───
     // POST /groups
     if (method === "POST" && segments[0] === "groups" && !segments[1]) {
+      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
+      if (!checkAuthRateLimit(`create:${clientIp}`)) {
+        return res(429, { error: "Demasiados intentos. Espera un minuto." });
+      }
       return handleCreateGroup(body);
     }
     // GET /invite/{code}
@@ -841,6 +895,10 @@ export const handler = async (event) => {
     // POST /groups/{groupId}/join
     if (method === "POST" && segments[0] === "groups" && segments[1] && segments[2] === "join") {
       if (!isValidId(segments[1])) return badReq("groupId inválido");
+      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
+      if (!checkAuthRateLimit(`join:${clientIp}`)) {
+        return res(429, { error: "Demasiados intentos. Espera un minuto." });
+      }
       return handleJoinGroup(segments[1], body);
     }
     // Validate groupId for all /g/ routes
@@ -1070,7 +1128,7 @@ export const handler = async (event) => {
       }
       for (let i = 0; i < ops.length; i += 25) {
         const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
-        await client.send(new BatchWriteCommand({ RequestItems: { [TABLE]: batch } }));
+        await batchWriteWithRetry({ [TABLE]: batch });
       }
       return res(200, { ok: true, groupId: targetGroupId, inviteCode, items: ops.length });
     }
@@ -1116,7 +1174,7 @@ export const handler = async (event) => {
       }
       for (let i = 0; i < ops.length; i += 25) {
         const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
-        await client.send(new BatchWriteCommand({ RequestItems: { [TABLE]: batch } }));
+        await batchWriteWithRetry({ [TABLE]: batch });
       }
       return res(200, { ok: true, items: ops.length });
     }

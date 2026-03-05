@@ -135,7 +135,12 @@ export function nextFridayAt1500() {
   return target;
 }
 
+function escapeHtml(str) {
+  return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 export function exportPDF(title, headers, rows) {
+  const safeTitle = escapeHtml(title);
   const style = `<style>
     body{font-family:system-ui,sans-serif;padding:20px;color:#222}
     h1{font-size:18px;margin-bottom:12px}
@@ -146,11 +151,11 @@ export function exportPDF(title, headers, rows) {
     .footer{margin-top:16px;font-size:10px;color:#999}
   </style>`;
   const tableRows = rows.map(r =>
-    `<tr>${r.map(c => `<td>${c ?? ""}</td>`).join("")}</tr>`
+    `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`
   ).join("");
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>${style}</head><body>
-    <h1>${title}</h1>
-    <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title>${style}</head><body>
+    <h1>${safeTitle}</h1>
+    <table><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table>
     <div class="footer">Porra Birreros — Generado el ${new Date().toLocaleDateString("es-ES")}</div>
     <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);}<\/script>
   </body></html>`;

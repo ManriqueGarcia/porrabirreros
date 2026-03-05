@@ -487,10 +487,13 @@ git push origin main
 - **Error 500 opaco**: las respuestas de error no exponen detalles internos (`err.message`)
 - Contrasenas hasheadas con SHA-256 (nunca se almacenan en texto plano)
 - Sesiones con token aleatorio en sessionStorage (expiran tras 30 min)
-- Rate limiting en login (5 intentos, cooldown 30s)
+- Rate limiting en login: 5 intentos client-side (cooldown 30s) + 10 req/min/IP server-side en `/auth/login`, `/auth/verify`, `/groups` y `/groups/{gid}/join`
+- Mensajes de error genericos en login (no revelan si el usuario existe)
 - Panel admin protegido con secreto independiente
 - CSP (Content Security Policy) generado dinamicamente segun `.env`
 - Lambda AI con rate limiting (10 req/min/IP) y proteccion contra prompt injection
+- `queryByPk` con paginacion completa y `BatchWriteCommand` con reintentos para `UnprocessedItems`
+- `exportPDF` con escape HTML para prevenir XSS
 - Datos personales (participantes, hashes, URLs) fuera del repositorio
 
 ## 📝 Notas
