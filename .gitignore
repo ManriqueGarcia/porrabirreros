@@ -32,6 +32,7 @@ npm-debug.log*
 # Build
 dist/
 build/
+.entry_build.jsx
 
 # Archivos de backup
 *.bak

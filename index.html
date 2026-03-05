@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https://images.unsplash.com; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com https://api.jolpi.ca; font-src 'self' data:; object-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https://images.unsplash.com; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com https://api.jolpi.ca; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
   <title>Porra de los birreros — F1 y Fútbol</title>
   <link rel="icon" href="data:,">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -34,8 +34,8 @@
     #bg-f1::after,#bg-futbol::after{content:'';position:absolute;inset:0;background:rgba(6,6,14,.68);z-index:1;}
     #root{position:relative;z-index:2;}
 
-    body[data-porra-mode="f1"] #bg-f1{display:block} body[data-porra-mode="f1"] #bg-futbol{display:none}
-    body[data-porra-mode="futbol"] #bg-f1{display:none} body[data-porra-mode="futbol"] #bg-futbol{display:block}
+    body[data-porra-mode="f1"] #bg-f1{display:block !important} body[data-porra-mode="f1"] #bg-futbol{display:none !important}
+    body[data-porra-mode="futbol"] #bg-f1{display:none !important} body[data-porra-mode="futbol"] #bg-futbol{display:block !important}
 
     /* === GLASSMORPHISM CORE === */
     .card,.sidebar{
@@ -89,7 +89,7 @@
     .porra-nav button{
       padding:8px 14px;border-radius:10px !important;font-size:.8rem;font-weight:500;
       background:transparent !important;border:1px solid transparent !important;
-      color:rgba(255,255,255,.5);transition:all .2s ease;white-space:nowrap;
+      color:rgba(255,255,255,.6);transition:all .2s ease;white-space:nowrap;
       position:relative;
     }
     .porra-nav button:hover{background:rgba(255,255,255,.06) !important;color:rgba(255,255,255,.9);}
@@ -127,6 +127,9 @@
     input[type="password"],input[type="text"],input[type="number"],input[type="datetime-local"],textarea{
       border-radius:10px !important;transition:all .2s ease;
     }
+    input[type="number"]{-moz-appearance:textfield;}
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
     input:focus,textarea:focus{border-color:rgba(225,6,0,.4) !important;box-shadow:0 0 0 3px rgba(225,6,0,.08);outline:none;}
     body[data-porra-mode="futbol"] input:focus,body[data-porra-mode="futbol"] textarea:focus,
     body[data-porra-mode="futbol"] select:focus,body[data-porra-mode="futbol"] .select:focus{
@@ -138,7 +141,7 @@
     thead th{
       background:rgba(255,255,255,.04);backdrop-filter:blur(8px);
       border-bottom:1px solid rgba(255,255,255,.06);
-      font-weight:700;text-transform:uppercase;font-size:.63rem;letter-spacing:.1em;color:rgba(255,255,255,.35);
+      font-weight:700;text-transform:uppercase;font-size:.63rem;letter-spacing:.1em;color:rgba(255,255,255,.50);
       padding:10px 12px;position:sticky;top:0;z-index:2;
     }
     tbody td{padding:10px 12px;vertical-align:middle;}
@@ -177,7 +180,7 @@
     .bg-neutral-900{background:rgba(255,255,255,.03) !important;}
     .border-white\/10{border-color:rgba(255,255,255,.05) !important;}
     .border-t.border-white\/10{border-color:rgba(255,255,255,.05) !important;}
-    footer{opacity:.35;transition:all .4s ease;}
+    footer{opacity:.85;transition:all .4s ease;}
     footer:hover{opacity:1;}
     footer .beer-icon{display:inline-block;animation:bubble-float 3s ease-in-out infinite;}
     footer .beer-icon:nth-child(2){animation-delay:.5s;}
@@ -276,14 +279,81 @@
     .pulse-live{animation:pulse-soft 2s ease-in-out infinite;}
     .bubble-float{animation:bubble-float 3s ease-in-out infinite;}
 
+    /* === FOOTBALL MATCH CARD === */
+    .match-card{
+      position:relative;overflow:hidden;
+      background:linear-gradient(135deg,rgba(34,197,94,.03) 0%,rgba(10,10,20,.4) 50%,rgba(34,197,94,.02) 100%);
+      border:1px solid rgba(34,197,94,.12);border-radius:16px;
+      padding:16px;transition:all .25s ease;
+    }
+    .match-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,rgba(34,197,94,.4) 30%,rgba(34,197,94,.4) 70%,transparent);
+    }
+    .match-card:hover{border-color:rgba(34,197,94,.25);background:linear-gradient(135deg,rgba(34,197,94,.05) 0%,rgba(10,10,20,.4) 50%,rgba(34,197,94,.04) 100%);}
+    .match-card .field-lines{position:absolute;inset:0;opacity:.03;pointer-events:none;
+      background:linear-gradient(0deg,transparent 48%,rgba(255,255,255,.5) 49%,rgba(255,255,255,.5) 51%,transparent 52%);
+    }
+    .score-input{
+      width:52px !important;height:52px !important;text-align:center !important;
+      font-size:1.4rem !important;font-weight:800 !important;
+      background:rgba(255,255,255,.95) !important;color:#0f172a !important;
+      border:2px solid rgba(34,197,94,.2) !important;border-radius:12px !important;
+      box-shadow:0 2px 8px rgba(0,0,0,.15),inset 0 1px 2px rgba(0,0,0,.05) !important;
+      transition:all .2s ease !important;padding:0 !important;
+    }
+    .score-input:focus{border-color:rgba(34,197,94,.5) !important;box-shadow:0 0 0 3px rgba(34,197,94,.12),0 2px 8px rgba(0,0,0,.15) !important;}
+    .score-input:disabled{opacity:.4 !important;background:rgba(255,255,255,.6) !important;}
+    .team-name{font-weight:700;font-size:.85rem;letter-spacing:-.01em;line-height:1.2;}
+    .vs-badge{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:28px;height:28px;border-radius:50%;font-size:.6rem;font-weight:800;
+      background:rgba(34,197,94,.12);color:rgba(34,197,94,.8);border:1px solid rgba(34,197,94,.2);
+      flex-shrink:0;
+    }
+    .futbol-result-card{
+      position:relative;overflow:hidden;
+      background:linear-gradient(135deg,rgba(34,197,94,.04) 0%,rgba(10,10,20,.3) 100%);
+      border:1px solid rgba(34,197,94,.1);border-radius:14px;padding:12px 16px;
+    }
+    .futbol-result-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,rgba(34,197,94,.3),transparent);
+    }
+    .futbol-score-badge{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:32px;height:28px;padding:0 8px;border-radius:8px;
+      font-weight:800;font-size:.9rem;font-variant-numeric:tabular-nums;
+    }
+    .futbol-score-exact{background:rgba(34,197,94,.15);color:#6ee7a0;border:1px solid rgba(34,197,94,.25);}
+    .futbol-score-sign{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+    .futbol-score-miss{background:rgba(255,255,255,.04);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.06);}
+    .futbol-info-panel{
+      position:relative;overflow:hidden;
+      background:linear-gradient(135deg,rgba(34,197,94,.04) 0%,rgba(10,10,20,.3) 50%,rgba(34,197,94,.02) 100%);
+      border:1px solid rgba(34,197,94,.1);border-radius:16px;padding:16px;
+    }
+    .futbol-info-panel::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,rgba(34,197,94,.35) 20%,rgba(34,197,94,.35) 80%,transparent);
+    }
+    @media(max-width:420px){
+      .score-input{width:44px !important;height:44px !important;font-size:1.2rem !important;}
+      .team-name{font-size:.75rem;}
+      .match-card{padding:12px;}
+      .section-title{font-size:1rem;}
+    }
+
     /* === RESPONSIVE === */
     @media(max-width:640px){
       .porra-nav{
         flex-wrap:wrap;justify-content:center;
         gap:4px;padding:6px;
       }
-      .porra-nav button{padding:8px 12px;font-size:.73rem;flex-shrink:0;min-height:36px;}
-      button,a,.select{min-height:36px;}
+      .porra-nav button{padding:8px 12px;font-size:.73rem;flex-shrink:0;min-height:44px;}
+      button,a,.select{min-height:44px;}
+      .hero{padding:12px !important;}
+      .card{padding:12px !important;}
     }
   </style>
 </head>

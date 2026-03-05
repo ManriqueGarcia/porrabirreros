@@ -4,6 +4,58 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-04] — ManriBot para fútbol (Gemma 3 27B)
+
+- ManriBot ahora disponible en la sección de fútbol con sugerencias específicas.
+- Lambda `porra-ai` acepta `mode: "futbol"` con system prompt especializado en fútbol.
+- Modelo principal cambiado a **Gemma 3 27B IT** con fallback a Gemini Flash.
+- `systemInstruction` separado del contenido de usuario para mejores respuestas.
+- Componente `AIAssistant` adaptado con texto, sugerencias y estilo según el modo (F1/fútbol).
+
+## [2026-03-04] — Mejora de opacidad y contraste en fondos y menús
+
+- Overlay del fondo incrementado de `.68` a `.78` para mayor legibilidad.
+- Cards y sidebar con fondo oscuro sólido (`rgba(12,12,24,.75)`) en vez de blanco semitransparente (`.035`).
+- Hero, navegación, tablas y paneles de fútbol con fondos más opacos.
+- Bordes más visibles en todos los modos.
+
+## [2026-03-04] — Build pipeline con esbuild y Tailwind v4
+
+- Nuevo `build.mjs`: compila `app.jsx` con esbuild (bundle + minify + React incluido) y CSS con Tailwind CLI v4.
+- **Eliminados de producción**: Babel (~3 MB), Tailwind CDN (~100 KB), vendor scripts.
+- **Resultado**: carga reducida de ~3.5 MB a ~391 KB (~90% menos).
+- `src.css` con todo el CSS custom + `@import "tailwindcss"`.
+- `index.html` de producción limpio: sin CDN, sin `unsafe-eval`, CSP endurecido.
+- GitHub Actions actualizado: `npm ci` → `node build.mjs` → `aws s3 sync dist/`.
+- Cache headers optimizados: assets inmutables con max-age 1 año, index.html sin caché.
+
+## [2026-03-04] — Optimizaciones de rendimiento
+
+- `saveDB` (localStorage) debounced a 300ms, `saveRemoteState` debounced a 1500ms.
+- Componentes `Avatar`, `RuleCard` y `CircuitCard` envueltos con `React.memo`.
+- Hook `useNow` centralizado para `setInterval` de reloj (antes duplicado en 3 componentes).
+- Consolidación de `last3WithResults`/`last3RacesDisplay` en `Participante`.
+- Estado `ok` de Admin F1 inicializado desde `sessionStorage` (elimina flash de UI).
+- Dependencia `exclude` estabilizada en `SelectDriver` `useMemo`.
+- `readFileAsDataUrl` simplificado.
+
+## [2026-03-04] — Revisión integral: seguridad, visibilidad, usabilidad
+
+- Contraseñas hasheadas con SHA-256 (antes en texto plano en localStorage).
+- Admin protegido con secreto hasheado + sesión temporal.
+- Rate limiting en login (5 intentos, cooldown 30s).
+- Sesiones con token aleatorio en sessionStorage (expiran 30 min).
+- Datos sensibles (`users`, `adminSecret`) eliminados del localStorage.
+- Footer más visible: color `text-amber-200`, opacidad `.85`, drop-shadow.
+- WelcomeBanner adaptado para fútbol (clasificación y terminología correctas).
+
+## [2026-03-04] — Avatares fútbol, UX fútbol y protección Admin
+
+- Nuevos avatares SVG de futbolistas para cada usuario.
+- Formulario de apuestas de fútbol: validación completa, modo solo-lectura tras guardar, botón "cambiar apuesta".
+- Admin de fútbol protegido igual que F1.
+- Avatar actualizado inmediatamente al cambiar de modo F1/fútbol.
+
 ## [2026-03-04] — Rediseño visual: estética racing y emoción de competición
 
 `99654a5`

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+  <defs>
+    <linearGradient id="tf-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a0a0a"/><stop offset="100%" stop-color="#0a0a12"/></linearGradient>
+    <linearGradient id="tf-jersey-l" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#DA121A"/><stop offset="100%" stop-color="#A00E14"/></linearGradient>
+    <linearGradient id="tf-jersey-r" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#C60B1E"/><stop offset="100%" stop-color="#8B0710"/></linearGradient>
+    <linearGradient id="tf-shorts" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="100%" stop-color="#0f0f1a"/></linearGradient>
+    <radialGradient id="tf-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#F5D4B8"/><stop offset="100%" stop-color="#DDA882"/></radialGradient>
+    <radialGradient id="tf-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F5A0A0" stop-opacity=".4"/><stop offset="100%" stop-color="#F5A0A0" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="220" height="240" rx="24" fill="url(#tf-bg)"/>
+  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#DA121A" stroke-width="1" opacity=".2"/>
+  <!-- Cataluña + Burgos accent -->
+  <rect x="8" y="210" width="102" height="5" rx="2.5" fill="#FCDD09" opacity=".4"/>
+  <rect x="110" y="210" width="102" height="5" rx="2.5" fill="#C60B1E" opacity=".4"/>
+  <rect x="8" y="217" width="102" height="4" rx="2" fill="#DA121A" opacity=".3"/>
+  <rect x="110" y="217" width="102" height="4" rx="2" fill="white" opacity=".25"/>
+  <!-- Shorts -->
+  <rect x="78" y="192" width="26" height="20" rx="6" fill="url(#tf-shorts)"/>
+  <rect x="116" y="192" width="26" height="20" rx="6" fill="url(#tf-shorts)"/>
+  <!-- Body - split jersey (Cataluña / Burgos) -->
+  <clipPath id="tf-jl"><rect x="70" y="143" width="40" height="57"/></clipPath>
+  <clipPath id="tf-jr"><rect x="110" y="143" width="40" height="57"/></clipPath>
+  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#tf-jersey-l)" clip-path="url(#tf-jl)"/>
+  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#tf-jersey-r)" clip-path="url(#tf-jr)"/>
+  <path d="M110 143 L110 200" stroke="white" stroke-width="1.2" opacity=".3"/>
+  <!-- Collar -->
+  <path d="M95 143 Q110 150 125 143" stroke="#FCDD09" stroke-width="2.5" fill="none"/>
+  <!-- Senyera left, Burgos right -->
+  <rect x="70" y="155" width="35" height="3" rx="1" fill="#FCDD09" opacity=".6"/>
+  <rect x="115" y="155" width="30" height="3" rx="1" fill="white" opacity=".4"/>
+  <!-- Number -->
+  <text x="110" y="183" font-family="system-ui,sans-serif" font-size="14" font-weight="900" fill="#FCDD09" text-anchor="middle" opacity=".5">5</text>
+  <!-- Arms -->
+  <ellipse cx="58" cy="165" rx="14" ry="10" fill="url(#tf-jersey-l)"/>
+  <ellipse cx="162" cy="165" rx="14" ry="10" fill="url(#tf-jersey-r)"/>
+  <!-- BIG head -->
+  <ellipse cx="110" cy="80" rx="50" ry="48" fill="url(#tf-skin)"/>
+  <!-- Hair - styled, side part -->
+  <path d="M64 70 Q64 36 110 28 Q156 36 156 70" fill="#2D1B0E"/>
+  <ellipse cx="110" cy="48" rx="44" ry="22" fill="#2D1B0E"/>
+  <path d="M68 76 Q66 62 72 54" fill="#2D1B0E"/>
+  <path d="M152 76 Q154 62 148 54" fill="#2D1B0E"/>
+  <!-- Side part -->
+  <path d="M88 34 Q95 50 92 65" stroke="#1a0f08" stroke-width="1.5" fill="none" opacity=".4"/>
+  <!-- Hair shine -->
+  <ellipse cx="100" cy="42" rx="14" ry="6" fill="white" opacity=".07"/>
+  <!-- Cool eyes -->
+  <ellipse cx="93" cy="78" rx="8" ry="9" fill="white"/>
+  <ellipse cx="127" cy="78" rx="8" ry="9" fill="white"/>
+  <ellipse cx="95" cy="79" rx="5" ry="6" fill="#2D1B0E"/>
+  <ellipse cx="129" cy="79" rx="5" ry="6" fill="#2D1B0E"/>
+  <circle cx="97" cy="76" r="2.5" fill="white"/>
+  <circle cx="131" cy="76" r="2.5" fill="white"/>
+  <!-- Confident eyebrows -->
+  <path d="M82 66 Q93 63 102 67" stroke="#2D1B0E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M118 67 Q127 63 138 66" stroke="#2D1B0E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Nose -->
+  <ellipse cx="110" cy="88" rx="3.5" ry="2.5" fill="#C4956E" opacity=".7"/>
+  <!-- Cool smirk -->
+  <path d="M94 95 Q110 103 128 98" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M98 96 Q110 102 124 98" fill="white" opacity=".7"/>
+  <!-- Cheeks -->
+  <circle cx="80" cy="92" r="7" fill="url(#tf-cheek)"/>
+  <circle cx="140" cy="90" r="7" fill="url(#tf-cheek)"/>
+  <!-- Football at feet -->
+  <circle cx="140" cy="216" r="10" fill="white" stroke="#333" stroke-width="1"/>
+  <path d="M135 211 L140 216 L145 211 M133 216 L140 222 L147 216" fill="none" stroke="#333" stroke-width=".8" opacity=".5"/>
+  <!-- Name -->
+  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FCDD09" text-anchor="middle" opacity=".9">Toni</text>
+</svg>

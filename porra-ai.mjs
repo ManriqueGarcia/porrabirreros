@@ -119,17 +119,31 @@ async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-const SYSTEM_PROMPT = `Eres un asistente experto en Fórmula 1. Respondes en español de forma concisa y amigable.
+const SYSTEM_PROMPT_F1 = `Eres ManriBot, un asistente experto en Fórmula 1. Respondes en español de forma concisa y amigable.
 
 IMPORTANTE: El "Contexto de datos F1" que recibes contiene datos REALES. Si context.results tiene un array con objetos que incluyen "byYear" (año -> número de coches que acabaron), DEBES usar esas cifras para responder. Por ejemplo: si byYear es {"2024":18,"2023":19,"2022":18}, responde con esos números exactos (ej: "En 2024 acabaron 18 coches, en 2023 fueron 19..."). Solo di que no tienes datos si context.results está vacío o byYear no tiene valores.`;
 
-const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"];
+const SYSTEM_PROMPT_FUTBOL = `Eres ManriBot, un asistente experto en fútbol (soccer). Respondes en español de forma concisa y amigable, con pasión futbolera.
 
-async function callGemini(question, context) {
+Eres parte de la "Porra de los Birreros", un grupo de amigos que apuestan sobre resultados de partidos de fútbol (el que pierde, pone las birras 🍺).
+
+Puedes responder sobre:
+- Historia del fútbol: mundiales, Eurocopas, Champions League, ligas nacionales
+- Equipos: plantillas, palmarés, entrenadores, estadios
+- Jugadores: estadísticas, trayectoria, récords, comparativas
+- Tácticas y formaciones
+- Reglas del juego
+- Datos curiosos y anécdotas
+
+Si no tienes datos exactos sobre algo muy reciente, dilo honestamente. Usa emojis de fútbol (⚽🏆🥅) para hacer las respuestas más divertidas.`;
+
+const GEMINI_MODELS = ["gemma-3-27b-it", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+
+async function callGemini(question, context, systemPrompt) {
   if (!GEMINI_API_KEY) return null;
   const resultsSummary = context.results?.length ? `\nDatos de coches que acabaron (USA ESTOS NÚMEROS):\n${JSON.stringify(context.results, null, 2)}` : "";
-  const userContent = `Pregunta: ${question}${resultsSummary}\n\nContexto completo:\n${JSON.stringify(context, null, 2)}`;
-  const fullPrompt = `${SYSTEM_PROMPT}\n\n${userContent}`;
+  const contextStr = Object.keys(context).length ? `\n\nContexto:\n${JSON.stringify(context, null, 2)}` : "";
+  const userContent = `Pregunta: ${question}${resultsSummary}${contextStr}`;
   let lastErr = "";
   for (const model of GEMINI_MODELS) {
     try {
@@ -139,7 +153,8 @@ async function callGemini(question, context) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: userContent }] }],
             generationConfig: { maxOutputTokens: 800, temperature: 0.3 },
             safetySettings: [
               { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -148,7 +163,7 @@ async function callGemini(question, context) {
               { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
             ],
           }),
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(30000),
         }
       );
       const body = await res.text();
@@ -175,10 +190,11 @@ async function callGemini(question, context) {
   return null;
 }
 
-async function callOpenAI(question, context) {
+async function callOpenAI(question, context, systemPrompt) {
   if (!OPENAI_API_KEY) return null;
   const resultsSummary = context.results?.length ? `\nDatos de coches que acabaron (USA ESTOS NÚMEROS):\n${JSON.stringify(context.results, null, 2)}` : "";
-  const userContent = `Pregunta: ${question}${resultsSummary}\n\nContexto completo:\n${JSON.stringify(context, null, 2)}`;
+  const contextStr = Object.keys(context).length ? `\n\nContexto:\n${JSON.stringify(context, null, 2)}` : "";
+  const userContent = `Pregunta: ${question}${resultsSummary}${contextStr}`;
   const maxRetries = 2;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -191,7 +207,7 @@ async function callOpenAI(question, context) {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: systemPrompt },
             { role: "user", content: userContent },
           ],
           max_tokens: 800,
@@ -219,14 +235,14 @@ async function callOpenAI(question, context) {
   return null;
 }
 
-async function callAI(question, context) {
+async function callAI(question, context, systemPrompt) {
   let answer = null;
   if (GEMINI_API_KEY) {
-    answer = await callGemini(question, context);
+    answer = await callGemini(question, context, systemPrompt);
     if (!answer) await sleep(1000);
-    if (!answer) answer = await callGemini(question, context);
+    if (!answer) answer = await callGemini(question, context, systemPrompt);
   }
-  if (!answer && OPENAI_API_KEY) answer = await callOpenAI(question, context);
+  if (!answer && OPENAI_API_KEY) answer = await callOpenAI(question, context, systemPrompt);
   if (answer) return answer;
   if (!GEMINI_API_KEY && !OPENAI_API_KEY) {
     return "El asistente AI no está configurado. Añade GEMINI_API_KEY (gratis en aistudio.google.com) o OPENAI_API_KEY en la Lambda.";
@@ -273,8 +289,11 @@ export const handler = async (event) => {
     };
   }
   try {
-    const context = await gatherF1Context(question);
-    const answer = await callAI(question, context);
+    const mode = (body.mode || "f1").toLowerCase();
+    const isFutbol = mode === "futbol";
+    const systemPrompt = isFutbol ? SYSTEM_PROMPT_FUTBOL : SYSTEM_PROMPT_F1;
+    const context = isFutbol ? {} : await gatherF1Context(question);
+    const answer = await callAI(question, context, systemPrompt);
     return {
       statusCode: 200,
       headers: buildHeaders(),

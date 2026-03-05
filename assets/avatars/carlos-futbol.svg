@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+  <defs>
+    <linearGradient id="cf-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#081020"/><stop offset="100%" stop-color="#0a0a14"/></linearGradient>
+    <linearGradient id="cf-jersey" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#005DA6"/><stop offset="40%" stop-color="white"/><stop offset="60%" stop-color="white"/><stop offset="100%" stop-color="#005DA6"/></linearGradient>
+    <linearGradient id="cf-shorts" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#005DA6"/><stop offset="100%" stop-color="#003B6B"/></linearGradient>
+    <radialGradient id="cf-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#FDDCB5"/><stop offset="100%" stop-color="#E8B896"/></radialGradient>
+    <radialGradient id="cf-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFAAAA" stop-opacity=".5"/><stop offset="100%" stop-color="#FFAAAA" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="220" height="240" rx="24" fill="url(#cf-bg)"/>
+  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#005DA6" stroke-width="1" opacity=".25"/>
+  <!-- San Sebastián accent -->
+  <rect x="8" y="210" width="204" height="5" rx="2.5" fill="#005DA6" opacity=".4"/>
+  <rect x="8" y="217" width="204" height="4" rx="2" fill="white" opacity=".25"/>
+  <!-- Shorts -->
+  <rect x="78" y="192" width="26" height="20" rx="6" fill="url(#cf-shorts)"/>
+  <rect x="116" y="192" width="26" height="20" rx="6" fill="url(#cf-shorts)"/>
+  <!-- Body - Real Sociedad jersey -->
+  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#cf-jersey)"/>
+  <!-- Collar -->
+  <path d="M95 143 Q110 150 125 143" stroke="#005DA6" stroke-width="2.5" fill="none"/>
+  <!-- Blue stripes -->
+  <rect x="70" y="153" width="70" height="4" rx="2" fill="#005DA6" opacity=".5"/>
+  <rect x="70" y="160" width="70" height="3" rx="1.5" fill="white" opacity=".4"/>
+  <rect x="70" y="166" width="70" height="4" rx="2" fill="#005DA6" opacity=".5"/>
+  <!-- Wave pattern (Donostia) -->
+  <path d="M75 178 Q85 174 95 178 Q105 182 115 178 Q125 174 135 178 Q145 182 148 178" fill="none" stroke="#005DA6" stroke-width="1.5" opacity=".3"/>
+  <!-- Number -->
+  <text x="110" y="195" font-family="system-ui,sans-serif" font-size="14" font-weight="900" fill="#005DA6" text-anchor="middle" opacity=".5">21</text>
+  <!-- Arms -->
+  <ellipse cx="58" cy="165" rx="14" ry="10" fill="#005DA6"/>
+  <ellipse cx="162" cy="165" rx="14" ry="10" fill="#005DA6"/>
+  <!-- BIG head -->
+  <ellipse cx="110" cy="80" rx="50" ry="48" fill="url(#cf-skin)"/>
+  <!-- Curly hair -->
+  <path d="M64 72 Q64 36 110 28 Q156 36 156 72" fill="#5C3A20"/>
+  <ellipse cx="110" cy="48" rx="46" ry="24" fill="#5C3A20"/>
+  <!-- Curly hair texture -->
+  <circle cx="78" cy="46" r="8" fill="#4A2E18"/>
+  <circle cx="95" cy="38" r="9" fill="#4A2E18"/>
+  <circle cx="112" cy="35" r="9" fill="#4A2E18"/>
+  <circle cx="130" cy="38" r="9" fill="#4A2E18"/>
+  <circle cx="144" cy="46" r="8" fill="#4A2E18"/>
+  <circle cx="70" cy="58" r="7" fill="#4A2E18"/>
+  <circle cx="150" cy="58" r="7" fill="#4A2E18"/>
+  <!-- Curly bits peeking from sides -->
+  <path d="M62 78 Q56 72 58 66 Q60 60 64 64 Q62 70 64 75" fill="#5C3A20" opacity=".7"/>
+  <path d="M65 84 Q58 78 60 72 Q62 66 66 70 Q64 76 66 82" fill="#5C3A20" opacity=".5"/>
+  <path d="M158 78 Q164 72 162 66 Q160 60 156 64 Q158 70 156 75" fill="#5C3A20" opacity=".7"/>
+  <path d="M155 84 Q162 78 160 72 Q158 66 154 70 Q156 76 154 82" fill="#5C3A20" opacity=".5"/>
+  <!-- Hair shine -->
+  <ellipse cx="100" cy="40" rx="14" ry="6" fill="white" opacity=".06"/>
+  <!-- Big happy eyes -->
+  <ellipse cx="92" cy="78" rx="9" ry="10" fill="white"/>
+  <ellipse cx="128" cy="78" rx="9" ry="10" fill="white"/>
+  <ellipse cx="94" cy="79" rx="5.5" ry="6.5" fill="#2D1B0E"/>
+  <ellipse cx="130" cy="79" rx="5.5" ry="6.5" fill="#2D1B0E"/>
+  <circle cx="96" cy="76" r="2.5" fill="white"/>
+  <circle cx="132" cy="76" r="2.5" fill="white"/>
+  <!-- Happy eyebrows -->
+  <path d="M80 66 Q92 61 102 66" stroke="#4A3020" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M118 66 Q128 61 140 66" stroke="#4A3020" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Nose -->
+  <ellipse cx="110" cy="88" rx="4" ry="3" fill="#D4A574" opacity=".6"/>
+  <!-- Big laughing mouth -->
+  <path d="M88 94 Q110 114 132 94" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M92 96 Q110 110 128 96" fill="white" opacity=".9"/>
+  <path d="M96 102 Q110 108 124 102" fill="#E88" opacity=".35"/>
+  <!-- Cheeks -->
+  <circle cx="78" cy="92" r="9" fill="url(#cf-cheek)"/>
+  <circle cx="142" cy="92" r="9" fill="url(#cf-cheek)"/>
+  <!-- Football at feet -->
+  <circle cx="80" cy="218" r="10" fill="white" stroke="#333" stroke-width="1"/>
+  <path d="M75 213 L80 218 L85 213 M73 218 L80 224 L87 218" fill="none" stroke="#333" stroke-width=".8" opacity=".5"/>
+  <!-- Name -->
+  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#7DBCE8" text-anchor="middle" opacity=".9">Carlos</text>
+</svg>

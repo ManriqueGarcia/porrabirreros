@@ -5,14 +5,35 @@ const CACHE_BUST = "v20260301";
 console.info("[PorraF1] Versión carga", CACHE_BUST);
 
 const LS_KEY = "porra_f1_clean_v3";
-const DEFAULT_PASSWORD = "B1rr3r0s";
-const RECOVERY_CODE_HASH = "3c9aed6bcbf0ebf23367e34557722796f040290945a9abc608599bda30c4c0d3";
+const DEFAULT_PASSWORD_HASH = "3c9aed6bcbf0ebf23367e34557722796f040290945a9abc608599bda30c4c0d3";
+const RECOVERY_CODE_HASH = DEFAULT_PASSWORD_HASH;
+const ADMIN_SECRET_HASH = "3c456c5124d0660a8bc1b4a6c1e09f5e72c5de8fd36dd0c4ec4607bc22325652";
 const QUESTION_AUTHORS_ORDER = ["Pere","Antonio","Manrique","Toni","Carlos"];
 const MADRID_TZ = "Europe/Madrid";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const nowISO = ()=>new Date().toISOString();
 const loadDB = ()=>{ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch{return {};} };
-const saveDB = (db)=>localStorage.setItem(LS_KEY, JSON.stringify(db));
+function _saveDBNow(db){
+  try{
+    const safe={...db};
+    delete safe.users;
+    if(safe.meta){
+      const m={...safe.meta};
+      delete m.adminSecret;
+      delete m.adminSecretHash;
+      safe.meta=m;
+    }
+    localStorage.setItem(LS_KEY, JSON.stringify(safe));
+  }catch(e){ console.warn("No se pudo guardar en localStorage",e); }
+}
+let _saveDBTimer=null;
+function saveDB(db){ clearTimeout(_saveDBTimer); _saveDBTimer=setTimeout(()=>_saveDBNow(db),300); }
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+const saveRemoteDebounced=debounce((db)=>{ saveRemoteState(db).catch(err=>console.warn("No se pudo guardar estado remoto",err)); },1500);
+function generateSessionToken(){ return crypto.getRandomValues(new Uint8Array(16)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""); }
+function createSession(username){ const token=generateSessionToken(); const session={user:username,token,created:Date.now()}; sessionStorage.setItem("porra_session",JSON.stringify(session)); return session; }
+function getSession(){ try{ const s=JSON.parse(sessionStorage.getItem("porra_session")||"null"); if(!s?.user||!s?.token) return null; return s; }catch{ return null; } }
+function clearSession(){ sessionStorage.removeItem("porra_session"); sessionStorage.removeItem("porra_session_user"); }
 const API_BASE_URL = (window.PORRA_API_BASE || "").replace(/\/$/, "");
 const API_SECRET = window.PORRA_API_SECRET || "";
 const API_HEADERS = API_SECRET ? {"x-porra-secret":API_SECRET} : {};
@@ -67,6 +88,11 @@ function formatDateTime(date, timeZone){
 function formatTime(date, timeZone){
   return date.toLocaleTimeString([], {timeZone:timeZone||MADRID_TZ, hour:"2-digit", minute:"2-digit"});
 }
+function useNow(intervalMs=30000){
+  const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{const id=setInterval(()=>setNow(new Date()),intervalMs);return()=>clearInterval(id);},[intervalMs]);
+  return now;
+}
 /* === TOAST SYSTEM (global) === */
 const _toastListeners=[];
 function toast(msg,type="info",duration=3500){_toastListeners.forEach(fn=>fn(msg,type,duration));}
@@ -89,6 +115,13 @@ function ToastContainer(){
   return <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-xs" style={{pointerEvents:"none"}}>
     {toasts.map(t=><div key={t.id} className={`bg-gradient-to-r ${colors[t.type]||colors.info} text-white text-sm px-4 py-3 rounded-xl border shadow-lg backdrop-blur-sm`} style={{pointerEvents:"auto",animation:"fadeInUp .3s ease"}}>{t.msg}</div>)}
   </div>;
+}
+
+async function verifyAdminSecret(input, dbMeta){
+  const inputHash=await hashPassword(input);
+  if(dbMeta?.adminSecretHash) return inputHash===dbMeta.adminSecretHash;
+  if(dbMeta?.adminSecret) return input===dbMeta.adminSecret;
+  return inputHash===ADMIN_SECRET_HASH;
 }
 
 const FUTBOL_BASE_TEAMS=["Real Madrid","FC Barcelona","Real Sociedad","Real Sporting de Gijón"];
@@ -138,7 +171,6 @@ function scoreFutbolJornada(db,jornadaId,name){
   if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,latePenalty:0,late:!!bet?.late,goalDiff:0,items:[]};
   const hasBet=!!bet;
   const predictions=hasBet?(bet.matches||[]):[];
-  const questions=hasBet?(bet.questions||[]):[];
   const late=!!bet?.late;
   let points=0; let exact=0; let signs=0; let qHits=0; let goalDiff=0; const items=[];
   const official=res.matches||[];
@@ -152,13 +184,6 @@ function scoreFutbolJornada(db,jornadaId,name){
       goalDiff+=10;
     }
     items.push({label:`${jornada?.matches?.[idx]?.home||"Local"} ${pred?.home??"?"}-${pred?.away??"?"} vs ${m?.home??"?"}-${m?.away??"?"}`, delta:p});
-  });
-  const answers=res.qAnswers||[];
-  answers.forEach((ans,idx)=>{
-    const sel=(questions[idx]||"").trim();
-    const ok=ans && sel && sel.toLowerCase()===ans.trim().toLowerCase();
-    if(ok){ points+=2; qHits++; }
-    items.push({label:`Pregunta ${idx+1}: ${sel||"—"} vs ${ans||"—"}`, delta:ok?2:0});
   });
   const missed=!bet;
   let missingPenalty=0;
@@ -192,10 +217,10 @@ function computeFutbolStandings(dbFutbol,participants,jornadas){
   return participants.map(name=>{
     const acc=completed.reduce((a,j)=>{
       const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
-      a.points+=s.points; a.exact+=s.exact; a.qHits+=s.qHits; a.signs+=s.signs; a.missed+=s.missed?1:0; a.late+=s.late?1:0; a.cat+=s.catPenalty?1:0; a.goalDiff+=s.goalDiff; return a;
-    },{points:0,exact:0,signs:0,qHits:0,missed:0,late:0,cat:0,goalDiff:0});
+      a.points+=s.points; a.exact+=s.exact; a.signs+=s.signs; a.missed+=s.missed?1:0; a.late+=s.late?1:0; a.cat+=s.catPenalty?1:0; a.goalDiff+=s.goalDiff; return a;
+    },{points:0,exact:0,signs:0,missed:0,late:0,cat:0,goalDiff:0});
     return {name,...acc, wins:jornadaWins[name]||0, penCount:acc.missed+acc.late};
-  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.qHits-a.qHits||b.signs-a.signs||a.penCount-b.penCount||a.goalDiff-b.goalDiff);
+  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.signs-a.signs||a.penCount-b.penCount||a.goalDiff-b.goalDiff);
 }
 function listFutbolJornadas(futbol){
   const entries=Object.values(futbol?.jornadas||{});
@@ -210,14 +235,16 @@ function listFutbolJornadas(futbol){
   });
 }
 
-function Avatar({name,avatar:customAvatar,size="md"}){
-  const base=`./assets/avatars/${(name||"").toLowerCase().replace(/\s+/g,"")}.svg`;
+const Avatar=React.memo(function Avatar({name,avatar:customAvatar,size="md",mode:modeProp}){
+  const mode=modeProp||document.body.dataset.porraMode||"f1";
+  const slug=(name||"").toLowerCase().replace(/\s+/g,"");
+  const base=mode==="futbol"?`./assets/avatars/${slug}-futbol.svg`:`./assets/avatars/${slug}.svg`;
   const [imgSrc,setImgSrc]=React.useState(customAvatar||base);
   React.useEffect(()=>{ setImgSrc(customAvatar||base); },[customAvatar,base]);
-  const fallback=()=>setImgSrc("./assets/avatars/default.svg");
+  const fallback=()=>setImgSrc(mode==="futbol"?`./assets/avatars/${slug}.svg`:"./assets/avatars/default.svg");
   const sizeCls=size==="sm"?"w-8 h-8":size==="xs"?"w-6 h-6":"w-28 h-32";
   return <img src={imgSrc} alt={name} onError={fallback} className={`${sizeCls} rounded-xl object-contain`} />;
-}
+});
 
 const MAX_AVATAR_BASE64=120000;
 function resizeImageToDataUrl(file,maxW=128,maxH=128,quality=0.85){
@@ -245,11 +272,10 @@ function readFileAsDataUrl(file){
     const r=new FileReader();
     r.onload=()=>resolve(r.result);
     r.onerror=()=>reject(new Error("Error leyendo archivo"));
-    if(file.type==="image/svg+xml") r.readAsDataURL(file);
-    else r.readAsDataURL(file);
+    r.readAsDataURL(file);
   });
 }
-function CircuitCard({race,circuits,compact}){
+const CircuitCard=React.memo(function CircuitCard({race,circuits,compact}){
   if(!race||!circuits) return null;
   const c=circuits[race.key]||{};
   const trackSrc=`./assets/circuit_tracks/${race.key}.svg`;
@@ -316,7 +342,7 @@ function CircuitCard({race,circuits,compact}){
       </div>}
     </div>
   );
-}
+});
 function ChangeAvatarModal({open,onClose,db,setDb,user}){
   const [busy,setBusy]=React.useState(false);
   const inputRef=React.useRef(null);
@@ -398,6 +424,21 @@ function ChangePasswordModal({open,onClose,db,setDb,user}){
   );
 }
 
+const _loginAttempts={count:0,lockedUntil:0};
+function checkLoginRateLimit(){
+  if(Date.now()<_loginAttempts.lockedUntil){
+    const secs=Math.ceil((_loginAttempts.lockedUntil-Date.now())/1000);
+    return {allowed:false, msg:`Demasiados intentos. Espera ${secs}s.`};
+  }
+  return {allowed:true};
+}
+function recordLoginFailure(){
+  _loginAttempts.count++;
+  if(_loginAttempts.count>=5) _loginAttempts.lockedUntil=Date.now()+60000;
+  else if(_loginAttempts.count>=3) _loginAttempts.lockedUntil=Date.now()+15000;
+}
+function resetLoginAttempts(){ _loginAttempts.count=0; _loginAttempts.lockedUntil=0; }
+
 function Login({db,setDb,onLogged}){
   const [name,setName]=useState(""); const [pass,setPass]=useState("");
   const [needsChange,setNeedsChange]=useState(false); const [n1,setN1]=useState(""); const [n2,setN2]=useState("");
@@ -409,7 +450,7 @@ function Login({db,setDb,onLogged}){
   const [recoverN2,setRecoverN2]=useState("");
   const [recoverStep,setRecoverStep]=useState(1);
 
-  const tryLogin=async (e)=>{ e&&e.preventDefault(); if(busy) return; setBusy(true); try{ const u=db.users?.[name]; if(!u) return toast.error("Usuario no encontrado"); const ok=await passwordMatches(u,pass); if(!ok) return toast.error("Contraseña incorrecta"); if(u.blocked) return toast.error("Usuario bloqueado temporalmente"); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); }finally{setBusy(false);} };
+  const tryLogin=async (e)=>{ e&&e.preventDefault(); if(busy) return; const rl=checkLoginRateLimit(); if(!rl.allowed) return toast.error(rl.msg); setBusy(true); try{ const u=db.users?.[name]; if(!u){ recordLoginFailure(); return toast.error("Usuario no encontrado"); } const ok=await passwordMatches(u,pass); if(!ok){ recordLoginFailure(); return toast.error("Contraseña incorrecta"); } if(u.blocked) return toast.error("Usuario bloqueado temporalmente"); resetLoginAttempts(); if(u.mustChange){ setNeedsChange(true); return; } if(u.password && !u.passwordHash){ const hash=await hashPassword(pass); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash}; delete users[name].password; return {...prev,users}; }); } onLogged(name); }finally{setBusy(false);} };
   const doChange=async (e)=>{ e.preventDefault(); if(busy) return; setBusy(true); try{ if(n1.length<6) return toast.error("Mínimo 6 caracteres"); if(n1!==n2) return toast.error("Las contraseñas no coinciden"); const hash=await hashPassword(n1); setDb(prev=>{ const users={...(prev.users||{})}; users[name]={...users[name],passwordHash:hash,mustChange:false,changedAt:nowISO()}; delete users[name].password; return {...prev,users}; }); onLogged(name); }finally{setBusy(false);} };
 
   const verifyRecoverCode=async (e)=>{
@@ -530,7 +571,8 @@ const DRIVER_TEAMS={
 const TEAMS_ORDER_2025=["McLaren","Ferrari","Red Bull","Mercedes","Aston Martin","Alpine","Haas","Racing Bulls","Williams","Audi","Cadillac"];
 
 function SelectDriver({value,onChange,drivers,placeholder,exclude}){
-  const excSet=useMemo(()=>new Set((exclude||[]).filter(Boolean)),[exclude?.join(",")]);
+  const excKey=(exclude||[]).filter(Boolean).join(",");
+  const excSet=useMemo(()=>new Set((exclude||[]).filter(Boolean)),[excKey]);
   const grouped=useMemo(()=>{
     const byTeam={};
     TEAMS_ORDER_2025.forEach(t=>{byTeam[t]=[];});
@@ -1473,26 +1515,58 @@ const F1_SUGG=[
   "Alonso en Mónaco","Compañero de Leclerc en 2024",
 ];
 
-function AIAssistant({open,onClose,races}){
+const FUTBOL_SUGG=[
+  "¿Quién ganó el último Mundial?","Máximo goleador de la Champions League","Palmarés del Real Madrid",
+  "¿Cuántos Balones de Oro tiene Messi?","Historia del Clásico Barça-Madrid","¿Quién ha ganado más Eurocopas?",
+  "Mejores porteros de la historia","Récord de goles en una temporada","¿Qué es el fuera de juego?",
+  "Mayores goleadas en mundiales","Mejor once histórico","¿Cuándo se inventó el VAR?",
+];
+
+async function processFutbolQuery(question){
+  const aiUrl=window.PORRA_AI_URL;
+  if(!aiUrl) return "ManriBot no está configurado. Falta PORRA_AI_URL.";
+  try{
+    const res=await fetch(aiUrl,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,mode:"futbol"}),signal:AbortSignal.timeout(35000)});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data=await res.json();
+    return data.answer||"No se pudo obtener respuesta.";
+  }catch(err){
+    console.error("ManriBot futbol error:",err);
+    return "Error al consultar ManriBot. Inténtalo de nuevo en unos segundos.";
+  }
+}
+
+function AIAssistant({open,onClose,races,mode="f1"}){
   const [input,setInput]=useState("");
   const [messages,setMessages]=useState([]);
   const [loading,setLoading]=useState(false);
   const chatRef=useRef(null);
+  const isFutbol=mode==="futbol";
+  const suggestions=isFutbol?FUTBOL_SUGG:F1_SUGG;
   useEffect(()=>{if(chatRef.current) chatRef.current.scrollTop=chatRef.current.scrollHeight;},[messages,loading]);
   const ask=async(text)=>{
     const q=(text||input||"").trim();if(!q||loading) return;
     setInput("");setMessages(prev=>[...prev,{role:"user",text:q}]);setLoading(true);
-    try{const answer=await processF1Query(q);setMessages(prev=>[...prev,{role:"assistant",text:answer}]);}
+    try{
+      const answer=isFutbol?await processFutbolQuery(q):await processF1Query(q);
+      setMessages(prev=>[...prev,{role:"assistant",text:answer}]);
+    }
     catch(err){setMessages(prev=>[...prev,{role:"assistant",text:"Error al consultar datos. Inténtalo de nuevo."}]);}
     finally{setLoading(false);}
   };
   if(!open) return null;
+  const accent=isFutbol?"emerald":"emerald";
+  const loadingText=isFutbol?"Consultando sobre fútbol...":"Consultando datos de F1...";
+  const welcomeText=isFutbol
+    ?"¡Biip boop! Soy ManriBot ⚽, tu experto futbolero con más datos que cromos. Pregúntame sobre cualquier cosa del mundo del fútbol: historia, equipos, jugadores, tácticas..."
+    :"¡Biip boop! Soy ManriBot 🏎️, tu enciclopedia F1 con tanto dato inútil como Manrique. Pregúntame lo que quieras: resultados, campeonatos, pilotos, circuitos...";
+  const subtitleText=isFutbol?"Powered by Gemma 3 27B · Todo sobre fútbol":"Datos desde 1950 hasta hoy · Jolpica/Ergast API";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:justify-end p-0 md:p-6">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
       <div className="relative w-full md:max-w-lg max-h-[100vh] md:max-h-[85vh] flex flex-col bg-[#12141b] border border-white/10 rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="font-semibold flex items-center gap-2"><img src="./assets/manribot.svg" alt="" className="w-7 h-7 inline-block"/> ManriBot</h2>
+        <div className={`flex items-center justify-between p-4 border-b ${isFutbol?"border-emerald-500/20":"border-white/10"}`}>
+          <h2 className="font-semibold flex items-center gap-2"><img src="./assets/manribot.svg" alt="" className="w-7 h-7 inline-block"/> ManriBot {isFutbol?"⚽":"🏎️"}</h2>
           <div className="flex items-center gap-2">
             <button className="text-xs text-slate-500 hover:text-slate-300" onClick={()=>setMessages([])}>Limpiar</button>
             <button className="text-slate-400 hover:text-white p-1" onClick={onClose}>✕</button>
@@ -1501,26 +1575,26 @@ function AIAssistant({open,onClose,races}){
         <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
           {messages.length===0 && (
             <div>
-              <p className="text-sm text-slate-300 mb-3">¡Biip boop! Soy <b>ManriBot</b>, tu enciclopedia F1 con tanto dato inútil como Manrique. Pregúntame lo que quieras: resultados, campeonatos, pilotos, circuitos...</p>
-              <p className="text-xs text-slate-500 mb-3">Datos desde 1950 hasta hoy · Jolpica/Ergast API</p>
+              <p className="text-sm text-slate-300 mb-3">{welcomeText}</p>
+              <p className="text-xs text-slate-500 mb-3">{subtitleText}</p>
               <div className="flex flex-wrap gap-1.5">
-                {F1_SUGG.slice(0,8).map((s,i)=>(
+                {suggestions.slice(0,8).map((s,i)=>(
                   <button key={i} className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
                 ))}
               </div>
             </div>
           )}
           {messages.map((m,i)=>(
-            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-4 md:ml-8":"bg-emerald-900/20 border border-emerald-500/10 mr-2 md:mr-4"}`}>
+            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-4 md:ml-8":`bg-${accent}-900/20 border border-${accent}-500/10 mr-2 md:mr-4`}`}>
               <p className="text-sm whitespace-pre-wrap">{m.text}</p>
             </div>
           ))}
-          {loading && <div className="rounded-xl p-3 bg-emerald-900/20 border border-emerald-500/10 mr-4"><p className="text-sm text-slate-300 animate-pulse">Consultando datos de F1...</p></div>}
+          {loading && <div className={`rounded-xl p-3 bg-${accent}-900/20 border border-${accent}-500/10 mr-4`}><p className="text-sm text-slate-300 animate-pulse">{loadingText}</p></div>}
         </div>
         {messages.length>0 && (
           <div className="px-4 pb-1">
             <div className="flex flex-wrap gap-1">
-              {F1_SUGG.slice(0,4).map((s,i)=>(
+              {suggestions.slice(0,4).map((s,i)=>(
                 <button key={i} className="text-xs px-2.5 py-1 rounded bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors" onClick={()=>ask(s)}>{s}</button>
               ))}
             </div>
@@ -1528,8 +1602,8 @@ function AIAssistant({open,onClose,races}){
         )}
         <div className="p-4 border-t border-white/10">
           <div className="flex gap-2">
-            <input className="flex-1 border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-white text-sm placeholder:text-slate-500" style={{color:"#f0f0f5"}} placeholder="Pregunta a ManriBot..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
-            <button className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm disabled:opacity-50" onClick={()=>ask()} disabled={loading||!input.trim()}>Enviar</button>
+            <input className="flex-1 border border-white/20 rounded-xl px-3 py-2 bg-neutral-900 text-white text-sm placeholder:text-slate-500" style={{color:"#f0f0f5"}} placeholder={isFutbol?"Pregunta sobre fútbol...":"Pregunta a ManriBot..."} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}}}/>
+            <button className={`px-4 py-2 rounded-xl ${isFutbol?"bg-emerald-600":"bg-emerald-600"} text-white font-medium text-sm disabled:opacity-50`} onClick={()=>ask()} disabled={loading||!input.trim()}>Enviar</button>
           </div>
         </div>
       </div>
@@ -1591,14 +1665,14 @@ function Stats({db,races}){
   );
 }
 
-function RuleCard({icon,text}){
+const RuleCard=React.memo(function RuleCard({icon,text}){
   return (
     <div className="flex gap-3 items-start p-3.5 rounded-xl bg-white/[.025] border border-white/[.06] hover:bg-white/[.05] hover:border-white/[.1] transition-all group">
       <span className="text-xl flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform">{icon}</span>
       <span className="text-sm text-white/65 leading-relaxed">{text}</span>
     </div>
   );
-}
+});
 
 function F1Rules(){
   const scoring=[
@@ -1635,31 +1709,30 @@ function F1Rules(){
 
 function FutbolRules(){
   const scoring=[
-    {icon:"⚽",text:"4 partidos por jornada: Madrid, Barça, Real Sociedad y Sporting. Si se enfrentan entre ellos, mete partido(s) de reserva hasta llegar a 4."},
-    {icon:"⏰",text:"Límite para apostar: viernes 15:00 (marcadores + respuestas a 3 preguntas). Se puede apostar fuera de plazo, pero conlleva penalización."},
-    {icon:"🎯",text:"Puntos partidos: 3 por resultado exacto, 1 por acertar el signo (1X2), 0 si fallas."},
-    {icon:"❓",text:"Preguntas extra: 3 por jornada, cada acierto vale 2 puntos. Máximo jornada = 18 puntos."},
-    {icon:"⚠️",text:"Apuesta fuera de plazo: -2 puntos. No apostar en una jornada: -3 puntos. Con 3 jornadas sin apostar → eliminado. Las penalizaciones se aplican automáticamente."},
-    {icon:"💥",text:"Apuestas catastróficas (0 puntos en todo, dentro de plazo): -1 punto extra en la general."},
+    {icon:"🏟️",text:"4 partidos por jornada: Madrid, Barça, Real Sociedad y Sporting. Si se enfrentan entre ellos, se meten partidos de reserva hasta llegar a 4."},
+    {icon:"⏰",text:"Límite para apostar: viernes 15:00 (hora España). Se puede apostar fuera de plazo, pero conlleva penalización."},
+    {icon:"🎯",text:"Resultado exacto: 3 puntos. Acertar el signo (1X2): 1 punto. Fallo total: 0 puntos. Máximo por jornada: 12 puntos."},
+    {icon:"⚠️",text:"Fuera de plazo: -2 puntos. No apostar: -3 puntos. Con 3 jornadas sin apostar → eliminado."},
+    {icon:"💥",text:"Apuesta catastrófica (0 puntos en todo, dentro de plazo): -1 punto extra."},
+    {icon:"🍺",text:"El último en la clasificación general invita a las birras. ¡No seas el farolillo rojo!"},
   ];
   const tiebreakers=[
-    {icon:"1️⃣",text:"Puntos totales: más puntos gana."},
-    {icon:"2️⃣",text:"Jornadas ganadas: quien haya sido el mejor puntuado en más jornadas individuales (sin compartir)."},
+    {icon:"1️⃣",text:"Más puntos totales."},
+    {icon:"2️⃣",text:"Más jornadas ganadas (mejor puntuado sin compartir)."},
     {icon:"3️⃣",text:"Más resultados exactos acumulados."},
-    {icon:"4️⃣",text:"Más preguntas acertadas."},
-    {icon:"5️⃣",text:"Más signos (1X2) acertados."},
-    {icon:"6️⃣",text:"Menos jornadas sin apostar o fuera de plazo."},
-    {icon:"7️⃣",text:"Menor diferencia de goles acumulada: suma de |predicción - resultado| en todos los partidos. Premia al que estuvo más cerca incluso sin acertar exacto."},
+    {icon:"4️⃣",text:"Más signos (1X2) acertados."},
+    {icon:"5️⃣",text:"Menos jornadas sin apostar o fuera de plazo."},
+    {icon:"6️⃣",text:"Menor diferencia de goles acumulada (más cerca del resultado real)."},
   ];
   return (
     <div className="space-y-4">
       <div className="card card-racing p-5 space-y-4">
-        <h2 className="section-title text-lg">📋 Normas Porra Fútbol <span className="text-sm opacity-50">🍺</span></h2>
-        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Puntuación</h3>
+        <h2 className="section-title text-lg">⚽ Normas Porra Fútbol <span className="text-sm opacity-50">🍺</span></h2>
+        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Cómo se juega</h3>
         <div className="grid gap-2">{scoring.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
       </div>
       <div className="card p-5 space-y-4">
-        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Criterios de desempate (en orden)</h3>
+        <h3 className="text-[11px] font-semibold text-white/35 uppercase tracking-widest">Desempates (en orden)</h3>
         <div className="grid gap-2">{tiebreakers.map((r,i)=><RuleCard key={i} {...r}/>)}</div>
         <p className="text-[11px] text-white/40">Si tras todos los criterios persiste el empate, se comparte posición.</p>
       </div>
@@ -1667,50 +1740,93 @@ function FutbolRules(){
   );
 }
 
-function FutbolBetForm({jornada,bet,disabled,onSubmit,late}){
+function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
   const matches=jornada?.matches||[];
+  const hasSavedBet=!!(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null));
+  const [editing,setEditing]=useState(!hasSavedBet);
   const initialScores=()=>matches.map((_,idx)=>({home:bet?.matches?.[idx]?.home??"", away:bet?.matches?.[idx]?.away??""}));
   const [scores,setScores]=useState(initialScores);
-  const [qs,setQs]=useState(()=>[...(bet?.questions||["","",""])]);
-  useEffect(()=>{ setScores(initialScores()); setQs([...(bet?.questions||["","",""])]); },[bet,jornada?.id,matches.length]);
+  const betFingerprint=JSON.stringify([bet?.matches,bet?.submittedAt]);
+  useEffect(()=>{
+    setScores(initialScores());
+    if(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null)) setEditing(false);
+  },[betFingerprint,jornada?.id,matches.length]);
   const handleScoreChange=(idx,field,val)=>{
-    setScores(prev=>prev.map((s,i)=> i===idx ? {...s, [field]: val===""?"" : val} : s));
+    const clean=val===""?"":Math.max(0,parseInt(val,10)||0);
+    setScores(prev=>prev.map((s,i)=> i===idx ? {...s, [field]: clean===""?"":String(clean)} : s));
   };
+  const allFilled=scores.length===matches.length && scores.every(s=>s.home!==""&&s.home!=null&&s.away!==""&&s.away!=null);
   const submit=(e)=>{
     e.preventDefault();
-    const parsedScores=scores.map(s=>({home:s.home===""||s.home==null?null:Number(s.home), away:s.away===""||s.away==null?null:Number(s.away)}));
-    onSubmit({matches:parsedScores, questions:qs});
+    if(!allFilled) return toast.error("Rellena todos los marcadores antes de guardar");
+    const parsedScores=scores.map(s=>({home:Number(s.home), away:Number(s.away)}));
+    onSubmit({matches:parsedScores});
+    setEditing(false);
   };
+
+  if(!editing && hasSavedBet){
+    return (
+      <div className="space-y-3">
+        <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[.04] relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent"></div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-emerald-400 text-lg">✅</span>
+            <span className="text-sm font-semibold text-emerald-300">Apuesta registrada</span>
+            {bet.submittedAt && <span className="text-[10px] text-white/30 ml-auto">{new Date(bet.submittedAt).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+            {bet.late && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20 ml-1">Fuera de plazo</span>}
+          </div>
+          <div className="space-y-2">
+            {matches.map((m,idx)=>(
+              <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.05]">
+                <span className="text-sm text-white/60 flex-1 text-right truncate">{m.home||"Local"}</span>
+                <span className="font-bold text-white/90 tabular-nums mx-3 text-base">{bet.matches?.[idx]?.home??"—"} - {bet.matches?.[idx]?.away??"—"}</span>
+                <span className="text-sm text-white/60 flex-1 truncate">{m.away||"Visitante"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <button
+          disabled={!canEdit}
+          onClick={()=>setEditing(true)}
+          className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${canEdit?"bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white":"bg-white/[.02] border-white/5 text-white/20 cursor-not-allowed"}`}
+        >
+          {canEdit?(late?"✏️ Cambiar apuesta (fuera de plazo)":"✏️ Cambiar apuesta"):"🔒 Apuestas cerradas"}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <form className="grid gap-4" onSubmit={submit}>
-      <div className="space-y-2">
-        {matches.map((m,idx)=>(
-          <div key={idx} className="border border-emerald-500/10 rounded-xl p-3 bg-white/[.02] hover:bg-white/[.04] transition-colors">
-            <div className="text-sm font-semibold mb-2 text-white/80">⚽ Partido {idx+1}: <span className="text-emerald-300/80">{m.home||"Local"}</span> vs <span className="text-emerald-300/80">{m.away||"Visitante"}</span></div>
-            <div className="grid grid-cols-2 gap-3">
-              <input disabled={disabled} type="number" min="0" className="select border rounded-xl px-3 py-2" placeholder="Goles local" value={scores[idx]?.home} onChange={e=>handleScoreChange(idx,"home",e.target.value)} />
-              <input disabled={disabled} type="number" min="0" className="select border rounded-xl px-3 py-2" placeholder="Goles visitante" value={scores[idx]?.away} onChange={e=>handleScoreChange(idx,"away",e.target.value)} />
+    <form className="space-y-3" onSubmit={submit}>
+      {matches.map((m,idx)=>(
+        <div key={idx} className="match-card">
+          <div className="field-lines"></div>
+          <div className="relative flex items-center justify-center gap-3">
+            <div className="flex-1 text-right">
+              <div className="team-name text-white/90">{m.home||"Local"}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input disabled={disabled} type="number" min="0" className="score-input" placeholder="–" value={scores[idx]?.home} onChange={e=>handleScoreChange(idx,"home",e.target.value)} onWheel={e=>e.target.blur()} />
+              <span className="vs-badge">VS</span>
+              <input disabled={disabled} type="number" min="0" className="score-input" placeholder="–" value={scores[idx]?.away} onChange={e=>handleScoreChange(idx,"away",e.target.value)} onWheel={e=>e.target.blur()} />
+            </div>
+            <div className="flex-1">
+              <div className="team-name text-white/90">{m.away||"Visitante"}</div>
             </div>
           </div>
-        ))}
-      </div>
-      <div className="space-y-2">
-        <div className="text-sm font-semibold text-white/60 uppercase tracking-wider">Preguntas</div>
-        <div className="grid gap-2 md:grid-cols-3">
-          {[0,1,2].map(i=>(
-            <input key={i} disabled={disabled} className="select border rounded-xl px-3 py-2" placeholder={`Respuesta ${i+1}`} value={qs[i]||""} onChange={e=>setQs(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
-          ))}
         </div>
+      ))}
+      <div className="flex gap-2 mt-1">
+        <button disabled={disabled||!allFilled} className={`flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${disabled?"bg-white/5 text-white/30 border border-white/5":!allFilled?"bg-white/5 text-white/25 border border-white/5 cursor-not-allowed":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{disabled?"⏳ Cerrado por admin":!allFilled?"⚽ Rellena todos los marcadores":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"⚽ Guardar apuesta"}</button>
+        {hasSavedBet && <button type="button" onClick={()=>{setScores(initialScores());setEditing(false);}} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/70 transition-colors text-sm">Cancelar</button>}
       </div>
-      <button disabled={disabled} className={`mt-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${disabled?"bg-white/5 text-white/30 border border-white/5":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{disabled?"⏳ Cerrado por admin":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"✅ Guardar apuesta"}</button>
     </form>
   );
 }
 
 function FutbolParticipante({user,db,setDb}){
-  const [now,setNow]=useState(()=>new Date());
+  const now=useNow();
   const [showOthers,setShowOthers]=useState(false);
-  useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),30000); return ()=>clearInterval(id); },[]);
   const futbol=db.futbol||defaultFutbolState();
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
@@ -1724,7 +1840,7 @@ function FutbolParticipante({user,db,setDb}){
   const canEdit=manualWindow?.forceClosed?false:true;
   const revealAt=deadline?new Date(deadline.getTime()+60*1000):null;
   const canViewFull=manualReveal?.forceShow || (!!revealAt && now>revealAt);
-  const bet=jornada ? (futbol.bets?.[selected]?.[user]||{matches:[],questions:["","",""],submittedAt:null,late:false}) : null;
+  const bet=jornada ? (futbol.bets?.[selected]?.[user]||{matches:[],submittedAt:null,late:false}) : null;
   const res=jornada ? futbol.results?.[selected] : null;
   const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
   const myScore=jornada && res ? scoreFutbolJornada(db,selected,user) : null;
@@ -1737,15 +1853,14 @@ function FutbolParticipante({user,db,setDb}){
       const futbolPrev=prev.futbol||defaultFutbolState();
       const raceBets={...(futbolPrev.bets?.[selected]||{})};
       const prevBet=raceBets[user];
-      const nextBet={...prevBet, matches:payload.matches, questions:payload.questions, submittedAt:ts, late};
+      const nextBet={...prevBet, matches:payload.matches, submittedAt:ts, late};
       const nextBets={...(futbolPrev.bets||{}), [selected]:{...raceBets, [user]:nextBet}};
       let betHistory=futbolPrev.betHistory||{};
       const sameMatch=JSON.stringify(prevBet?.matches||[])===JSON.stringify(payload.matches||[]);
-      const sameQ=(prevBet?.questions||[]).join("|")===(payload.questions||[]).join("|");
-      if(!prevBet || !sameMatch || !sameQ || (!!prevBet?.late)!==late){
+      if(!prevBet || !sameMatch || (!!prevBet?.late)!==late){
         const raceHistory={...(betHistory[selected]||{})};
         const logs=[...(raceHistory[user]||[])];
-        logs.push({ts:ts,matches:payload.matches,questions:payload.questions,late});
+        logs.push({ts:ts,matches:payload.matches,late});
         betHistory={...betHistory,[selected]:{...raceHistory,[user]:logs}};
       }
       return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
@@ -1753,85 +1868,133 @@ function FutbolParticipante({user,db,setDb}){
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
   };
   const showOthersPanel=showOthers && !!jornada;
-  const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
+  const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,340px)]":"";
   return (
     <div className={`grid gap-4 ${layoutCols}`}>
       <div className="card card-racing p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
           <h2 className="section-title">⚽ Tu apuesta <span className="text-xs opacity-40">· por las birras</span></h2>
-          {jornada && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"Ver otras apuestas"}</button>)}
+          {jornada && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/8 border border-emerald-500/15 text-emerald-300/70 hover:bg-emerald-500/15 hover:text-emerald-200 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
         </div>
         <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>
           {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id} {j.deadline?`— ${new Date(j.deadline).toLocaleDateString("es-ES")}`:""}</option>)}
         </select>
         {jornada ? (
-          <div className="text-sm mb-4 space-y-1.5 p-3 rounded-xl bg-white/[.02] border border-white/[.06]">
-            <div className="text-white/50"><span className="text-white/70 font-medium">Partidos:</span> {jornada.matches?.length||0} (Madrid · Barça · Real Sociedad · Sporting)</div>
-            <div className="text-white/50"><span className="text-white/70 font-medium">Cierre:</span> {deadline?formatDateTime(deadline,MADRID_TZ):"Sin límite (define en Admin)"}</div>
-            <div className="text-white/50"><span className="text-white/70 font-medium">Estado:</span> {betsStatus}</div>
-            <div className="text-white/50"><span className="text-white/70 font-medium">Visibilidad:</span> {manualReveal?.forceShow?"Publicadas por admin":"Se verán tras el cierre (o si se publican antes)"}</div>
+          <div className="futbol-info-panel mb-4">
+            <h3 className="text-sm font-bold text-white/85 mb-2.5 flex items-center gap-2">🏟️ Info de la jornada</h3>
+            <div className="grid gap-2 text-sm">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-slate-400">Partidos:</span>
+                <span className="text-white/70 font-medium">{jornada.matches?.length||0}</span>
+                <span className="text-slate-500 text-xs">({(jornada.matches||[]).map(m=>m.home).join(" · ")})</span>
+              </div>
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-slate-400">Cierre apuestas:</span>
+                {deadline ? (
+                  <span className="text-emerald-300 font-bold">{formatDateTime(deadline,MADRID_TZ)}</span>
+                ) : (
+                  <span className="text-slate-500">Sin límite</span>
+                )}
+              </div>
+              <div className="mt-1 pt-2 border-t border-slate-600/30">
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")||betsStatus.includes("Cierre")?"text-emerald-300":"text-amber-300"}>{betsStatus.includes("Cierre")?betsStatus.replace("Cierre: ","Abierto — cierre "):betsStatus}</span></span>
+                  <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas":"Ocultas hasta cierre"}</span></span>
+                </div>
+              </div>
+            </div>
+            {deadline && <CountdownBadge target={deadline}/>}
           </div>
         ) : (
-          <p className="text-sm text-white/40 mb-3 p-3 rounded-xl bg-white/[.02] border border-white/[.06]">No hay jornadas creadas. Pide al admin que añada una.</p>
+          <div className="futbol-info-panel mb-4 text-center py-6">
+            <div className="text-2xl mb-2">⚽</div>
+            <p className="text-sm text-white/40">No hay jornadas creadas. Pide al admin que añada una.</p>
+          </div>
         )}
         {jornada && isFutbolLate && canEdit && (
-          <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
+          <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400/40 via-amber-400/30 to-transparent"></div>
             <div className="font-semibold text-amber-200">⚠️ Apuesta fuera de plazo</div>
             <div className="text-sm text-amber-300/80 mt-1">El plazo de apuestas ha cerrado. Puedes apostar igualmente, pero se aplicará una <b>penalización de -2 puntos</b>. No apostar supone <b>-3 puntos</b>.</div>
           </div>
         )}
         {jornada && (
-          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit} late={isFutbolLate} onSubmit={saveBet} />
+          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit} canEdit={canEdit} late={isFutbolLate} onSubmit={saveBet} />
         )}
         {myScore && (
-          <div className="mt-4 border border-emerald-500/10 rounded-xl p-4 bg-white/[.02]">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-white/90">🏆 Puntos jornada</h3>
-              <span className="text-lg font-bold bg-gradient-to-r from-emerald-300 to-white bg-clip-text text-transparent">{myScore.points} pts</span>
+          <div className="mt-4 futbol-result-card">
+            <div className="relative flex items-center justify-between mb-3">
+              <h3 className="font-bold text-white/90 flex items-center gap-2">🏆 Tus puntos</h3>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-black bg-gradient-to-r from-emerald-300 to-white bg-clip-text text-transparent">{myScore.points}</span>
+                <span className="text-xs text-emerald-300/50 font-semibold">pts</span>
+              </div>
             </div>
-            <div className="text-xs text-white/40 mt-2 flex flex-wrap gap-3">
-              <span className="px-2 py-1 rounded-lg bg-white/[.04]">Exactos: {myScore.exact}</span>
-              <span className="px-2 py-1 rounded-lg bg-white/[.04]">Signos: {myScore.signs}</span>
-              <span className="px-2 py-1 rounded-lg bg-white/[.04]">Preguntas: {myScore.qHits}</span>
-              {myScore.missed && <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300">Sin apuesta a tiempo (-2)</span>}
-              {myScore.catPenalty<0 && <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300">Catastrófica (-1)</span>}
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className="futbol-score-badge futbol-score-exact">{myScore.exact} exacto{myScore.exact!==1?"s":""}</span>
+              <span className="futbol-score-badge futbol-score-sign">{myScore.signs} signo{myScore.signs!==1?"s":""}</span>
+              {myScore.missed && <span className="futbol-score-badge" style={{background:"rgba(239,68,68,.12)",color:"#fca5a5",border:"1px solid rgba(239,68,68,.2)"}}>sin apuesta</span>}
+              {myScore.catPenalty<0 && <span className="futbol-score-badge" style={{background:"rgba(239,68,68,.12)",color:"#fca5a5",border:"1px solid rgba(239,68,68,.2)"}}>catastrófica</span>}
             </div>
-            <ul className="mt-3 space-y-1 text-xs">
-              {myScore.items.map((item,idx)=>(<li key={idx} className="flex items-center justify-between border border-white/[.04] rounded-lg px-3 py-1.5 bg-white/[.01]"><span className="text-white/50">{item.label}</span><span className={`font-semibold ${item.delta>0?"text-emerald-300":item.delta<0?"text-amber-300":"text-white/30"}`}>{item.delta>0?`+${item.delta}`:item.delta}</span></li>))}
-            </ul>
+            <div className="space-y-1.5">
+              {myScore.items.map((item,idx)=>{
+                const isMatch=item.label.includes(" vs ");
+                return (<div key={idx} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/[.02] border border-white/[.04]">
+                  <span className="text-xs text-white/50 flex-1 min-w-0 truncate">{isMatch?"⚽ ":""}{item.label}</span>
+                  <span className={`text-xs font-bold flex-shrink-0 ${item.delta>0?"text-emerald-300":item.delta<0?"text-red-400":"text-white/20"}`}>{item.delta>0?`+${item.delta}`:item.delta}</span>
+                </div>);
+              })}
+            </div>
           </div>
         )}
-        {res && (
-          <div className="mt-4 border border-white/10 rounded p-3 bg-neutral-900">
-            <h3 className="font-semibold mb-2">Oficial</h3>
-            <ul className="text-sm space-y-1">
-              {(res.matches||[]).map((m,idx)=><li key={idx} className="flex items-center justify-between"><span>{jornada?.matches?.[idx]?.home||"Local"} vs {jornada?.matches?.[idx]?.away||"Visitante"}</span><span className="text-xs">{m?.home??"—"} - {m?.away??"—"}</span></li>)}
-            </ul>
-            <div className="text-xs text-slate-300 mt-2">Preguntas: {(res.qAnswers||["","",""]).join(" · ")}</div>
+        {res && !myScore && (
+          <div className="mt-4 futbol-result-card">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">📋 Resultados oficiales</h3>
+            <div className="space-y-2">
+              {(res.matches||[]).map((m,idx)=>(
+                <div key={idx} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.05]">
+                  <span className="text-sm text-white/60">{jornada?.matches?.[idx]?.home||"Local"}</span>
+                  <span className="font-bold text-white/90 tabular-nums">{m?.home??"—"} - {m?.away??"—"}</span>
+                  <span className="text-sm text-white/60 text-right">{jornada?.matches?.[idx]?.away||"Visitante"}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
       {showOthersPanel && (
-        <div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start">
-          <h2 className="section-title mb-4">Apuestas de otros</h2>
+        <div className="card p-4 md:min-w-[220px] md:max-w-[340px] self-start">
+          <h2 className="section-title mb-4">👀 Apuestas de otros</h2>
           {!jornada && <p className="text-sm text-slate-300">Selecciona una jornada.</p>}
-          {jornada && !canViewFull && <p className="text-sm text-slate-300">Se publicarán tras el cierre o si el admin las muestra antes.</p>}
+          {jornada && !canViewFull && (
+            <div className="text-center py-6">
+              <div className="text-3xl mb-2 opacity-40">🔒</div>
+              <p className="text-sm text-slate-400">Se publicarán tras el cierre o si el admin las muestra antes.</p>
+            </div>
+          )}
           {jornada && canViewFull && (
-            <ul className="space-y-2">
+            <div className="space-y-3">
               {others.map(({name,bet:other})=>(
-                <li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3">
-                  <Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm"/>
-                  <div className="flex-1 min-w-0"><div className="font-medium">{name}</div>
+                <div key={name} className="border border-emerald-500/8 rounded-xl p-3 bg-white/[.02] hover:bg-white/[.04] transition-colors">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm"/>
+                    <span className="font-semibold text-white/80">{name}</span>
+                    {other?.late && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">fuera de plazo</span>}
+                  </div>
                   {other ? (
-                    <div className="text-xs space-y-1 mt-1">
-                      {(jornada.matches||[]).map((m,idx)=><div key={idx}><b>{m.home||"Local"}-{m.away||"Visitante"}:</b> {other.matches?.[idx]?.home??"—"}-{other.matches?.[idx]?.away??"—"}</div>)}
-                      <div><b>P.Adic.:</b> {(other.questions||["","",""]).join(" · ")}</div>
-                      {other.late && <div className="text-amber-300">Fuera de plazo</div>}
+                    <div className="space-y-1">
+                      {(jornada.matches||[]).map((m,idx)=>(
+                        <div key={idx} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-white/[.02]">
+                          <span className="text-white/40 truncate flex-1">{m.home||"Local"}</span>
+                          <span className="font-bold text-white/70 mx-2 tabular-nums">{other.matches?.[idx]?.home??"—"} - {other.matches?.[idx]?.away??"—"}</span>
+                          <span className="text-white/40 truncate flex-1 text-right">{m.away||"Visitante"}</span>
+                        </div>
+                      ))}
                     </div>
-                  ) : (<div className="text-xs text-slate-400">Sin apuesta</div>)}</div>
-                </li>
+                  ) : (<div className="text-xs text-slate-400 text-center py-2">Sin apuesta</div>)}
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}
@@ -1841,6 +2004,8 @@ function FutbolParticipante({user,db,setDb}){
 
 function FutbolAdmin({db,setDb,currentUser}){
   const isAdmin=!!db.users?.[currentUser]?.isAdmin;
+  const [pass,setPass]=useState("");
+  const [ok,setOk]=useState(()=>sessionStorage.getItem("admin_ok")==="1");
   const futbol=db.futbol||defaultFutbolState();
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
@@ -1848,9 +2013,7 @@ function FutbolAdmin({db,setDb,currentUser}){
   const [jName,setJName]=useState("");
   const [deadlineInput,setDeadlineInput]=useState(()=>toLocalDateTimeInput(nextFridayAt1500()));
   const [matches,setMatches]=useState(()=>FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
-  const [questions,setQuestions]=useState(["","",""]);
   const [scores,setScores]=useState(()=>matches.map(()=>({home:"",away:""})));
-  const [answers,setAnswers]=useState(["","",""]);
   const [editUser,setEditUser]=useState("");
   const [editLate,setEditLate]=useState(false);
   const [editingMode,setEditingMode]=useState("results"); // "results" or "bet"
@@ -1862,20 +2025,16 @@ function FutbolAdmin({db,setDb,currentUser}){
       setDeadlineInput(toLocalDateTimeInput(j.deadline?new Date(j.deadline):nextFridayAt1500()));
       const baseMatches=(j.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
       setMatches(baseMatches);
-      setQuestions(futbol.questions?.[j.id]||["","",""]);
       if(editingMode==="results"){
         const res=futbol.results?.[j.id];
         setScores((res?.matches?.length?res.matches:baseMatches.map(()=>({home:"",away:""}))).map(m=>({home:m.home==null?"":m.home, away:m.away==null?"":m.away})));
-        setAnswers(res?.qAnswers||["","",""]);
       }
     } else {
       setJId("");
       setJName("");
       setDeadlineInput(toLocalDateTimeInput(nextFridayAt1500()));
       setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
-      setQuestions(["","",""]);
       setScores(FUTBOL_BASE_TEAMS.map(()=>({home:"",away:""})));
-      setAnswers(["","",""]);
     }
   },[selected,futbol,editingMode]);
   useEffect(()=>{
@@ -1887,21 +2046,19 @@ function FutbolAdmin({db,setDb,currentUser}){
         const betMatches=(bet.matches||[]).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)}));
         while(betMatches.length<baseMatches.length) betMatches.push({home:"",away:""});
         setScores(betMatches);
-        setAnswers(bet.questions||["","",""]);
       } else {
         setScores(baseMatches.map(()=>({home:"",away:""})));
-        setAnswers(["","",""]);
       }
     } else if(editingMode==="results" && selected){
       const j=futbol.jornadas?.[selected];
       const baseMatches=(j?.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
       const res=futbol.results?.[selected];
       setScores((res?.matches?.length?res.matches:baseMatches.map(()=>({home:"",away:""}))).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)})));
-      setAnswers(res?.qAnswers||["","",""]);
     }
   },[editUser,selected,editingMode,futbol,matches]);
   const participants=useMemo(()=>Object.keys(db.participants||{}).sort((a,b)=>a.localeCompare(b)),[db.participants]);
-  if(!isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin fútbol</h2><p className="text-sm text-white/40">Inicia sesión como admin para editar.</p></div>;
+  if(!isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin fútbol</h2><p className="text-sm text-white/40">Inicia sesión como admin.</p></div>;
+  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin fútbol</h2><form className="flex gap-2" onSubmit={async(e)=>{e.preventDefault(); if(await verifyAdminSecret(pass,db.meta)){setOk(true);sessionStorage.setItem("admin_ok","1");} else toast.error("Contraseña admin incorrecta");}}><input type="password" autoComplete="off" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
   const ensureId=()=>{
     const id=(jId||jName||"").trim();
     return id || "";
@@ -1917,9 +2074,7 @@ function FutbolAdmin({db,setDb,currentUser}){
       jornadasMap[id]={id,name:jName||id,deadline:parsedDeadline?parsedDeadline.toISOString():null,matches:fixedMatches};
       const order=[...(futbolPrev.order||[])];
       if(!order.includes(id)) order.push(id);
-      const questionsMap={...(futbolPrev.questions||{})};
-      questionsMap[id]=questions;
-      return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, questions:questionsMap}};
+      return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
     });
     setSelected(id);
     toast.success("Jornada guardada");
@@ -1932,12 +2087,11 @@ function FutbolAdmin({db,setDb,currentUser}){
       const jornadasMap={...(futbolPrev.jornadas||{})};
       delete jornadasMap[selected];
       const order=(futbolPrev.order||[]).filter(id=>id!==selected);
-      const questionsMap={...(futbolPrev.questions||{})}; delete questionsMap[selected];
       const resultsMap={...(futbolPrev.results||{})}; delete resultsMap[selected];
       const betsMap={...(futbolPrev.bets||{})}; delete betsMap[selected];
       const windowMap={...(futbolPrev.betsWindow||{})}; delete windowMap[selected];
       const revealMap={...(futbolPrev.betsReveal||{})}; delete revealMap[selected];
-      return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, questions:questionsMap, results:resultsMap, bets:betsMap, betsWindow:windowMap, betsReveal:revealMap}};
+      return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, results:resultsMap, bets:betsMap, betsWindow:windowMap, betsReveal:revealMap}};
     });
     setSelected("");
   };
@@ -1948,7 +2102,7 @@ function FutbolAdmin({db,setDb,currentUser}){
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const resultsMap={...(futbolPrev.results||{})};
-      resultsMap[id]={matches:parsedScores,qAnswers:[...answers]};
+      resultsMap[id]={matches:parsedScores};
       return {...prev, futbol:{...futbolPrev, results:resultsMap}};
     });
     toast.success("Resultados guardados");
@@ -1984,7 +2138,7 @@ function FutbolAdmin({db,setDb,currentUser}){
       const futbolPrev=prev.futbol||defaultFutbolState();
       const raceBets={...(futbolPrev.bets?.[id]||{})};
       const prevBet=raceBets[editUser];
-      const payload={matches:scores.map(s=>({home:s.home===""?null:Number(s.home), away:s.away===""?null:Number(s.away)})), questions:[...answers]};
+      const payload={matches:scores.map(s=>({home:s.home===""?null:Number(s.home), away:s.away===""?null:Number(s.away)}))};
       const nextBet={...prevBet, ...payload, submittedAt:ts, late:editLate, adminEdited:true};
       const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:nextBet}};
       return {...prev, futbol:{...futbolPrev, bets:nextBets}};
@@ -1995,9 +2149,10 @@ function FutbolAdmin({db,setDb,currentUser}){
   const revealStatus=selected ? (futbol.betsReveal?.[selected]?.forceShow?"Publicadas manualmente":"Automático tras cierre") : "—";
   return (
     <div className="card p-4 md:p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="section-title">Admin fútbol</h2>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="section-title">⚙ Admin fútbol</h2>
+        <div className="flex gap-2 items-center">
+          <button onClick={()=>{sessionStorage.removeItem("admin_ok"); setOk(false); setPass("");}} className="text-xs text-white/40 hover:text-white/70 transition-colors">Cerrar sesión admin</button>
           <select className="select border rounded px-3 py-2" value={selected} onChange={e=>setSelected(e.target.value)}>
             <option value="">— Nueva jornada —</option>
             {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}
@@ -2033,14 +2188,6 @@ function FutbolAdmin({db,setDb,currentUser}){
         </div>
       </div>
       <div className="border border-white/10 rounded p-3 space-y-2">
-        <h3 className="font-semibold">Preguntas de la jornada</h3>
-        <div className="grid gap-2 md:grid-cols-3">
-          {[0,1,2].map(i=>(
-            <input key={i} className="select border rounded px-3 py-2" placeholder={`Pregunta ${i+1}`} value={questions[i]||""} onChange={e=>setQuestions(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
-          ))}
-        </div>
-      </div>
-      <div className="border border-white/10 rounded p-3 space-y-2">
         <h3 className="font-semibold">Resultados oficiales</h3>
         <div className="grid gap-3 md:grid-cols-2">
           {matches.map((m,idx)=>(
@@ -2051,11 +2198,6 @@ function FutbolAdmin({db,setDb,currentUser}){
                 <input type="number" min="0" className="select border rounded px-3 py-2" placeholder="Goles visitante" value={scores[idx]?.away} onChange={e=>setScores(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
               </div>
             </div>
-          ))}
-        </div>
-        <div className="grid gap-2 md:grid-cols-3">
-          {[0,1,2].map(i=>(
-            <input key={i} className="select border rounded px-3 py-2" placeholder={`Respuesta ${i+1}`} value={answers[i]||""} onChange={e=>setAnswers(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
           ))}
         </div>
         <button className="px-3 py-2 rounded bg-slate-900 text-white" onClick={saveResults}>Guardar resultados</button>
@@ -2106,11 +2248,6 @@ function FutbolAdmin({db,setDb,currentUser}){
                     </div>
                   ))}
                 </div>
-                <div className="grid gap-2 md:grid-cols-3 mt-2">
-                  {[0,1,2].map(i=>(
-                    <input key={i} className="select border rounded px-2 py-1 text-xs" placeholder={`Respuesta ${i+1}`} value={answers[i]||""} onChange={e=>setAnswers(prev=>{ const next=[...(prev||["","",""])]; next[i]=e.target.value; return next; })} />
-                  ))}
-                </div>
               </div>
             )}
             <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm mt-2" onClick={saveAdminBet} disabled={!editUser}>Guardar apuesta del usuario</button>
@@ -2129,6 +2266,7 @@ function FutbolRanking({db}){
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const participants=useMemo(()=>Object.keys(db.participants||{}),[db.participants]);
   const [scope,setScope]=useState("all");
+  const [expandedRow,setExpandedRow]=useState(null);
   useEffect(()=>{ if(scope!=="all" && !jornadas.find(j=>j.id===scope)) setScope("all"); },[scope,jornadas]);
   const standings=useMemo(()=>computeFutbolStandings(futbol,participants,jornadas),[futbol,participants,jornadas]);
   const rows=useMemo(()=>{
@@ -2137,80 +2275,92 @@ function FutbolRanking({db}){
     return participants.map(name=>{
       const s=scoreFutbolJornada(db,scope,name);
       return {...s,name};
-    }).sort((A,B)=>B.points-A.points||B.exact-A.exact||B.qHits-A.qHits||B.signs-A.signs||A.goalDiff-B.goalDiff);
+    }).sort((A,B)=>B.points-A.points||B.exact-A.exact||B.signs-A.signs||A.goalDiff-B.goalDiff);
   },[scope,standings,participants,futbol.results,db]);
   const selectedJornada=scope==="all"?null:jornadas.find(j=>j.id===scope);
   const res=scope==="all"?null:futbol.results?.[scope];
+  const completedJornadas=jornadas.filter(j=>futbol.results?.[j.id]);
   return (
     <div className="space-y-4">
-      <div className="card card-racing p-4 md:p-5 space-y-3">
+      <div className="card card-racing p-4 md:p-5 space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h2 className="section-title text-lg">⚽ Ranking fútbol <span className="text-sm opacity-60">🍺</span></h2>
-          <select className="select border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}>
-            <option value="all">Global</option>
-            {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}</option>)}
+          <select className="select border rounded-xl px-3 py-2 text-sm" value={scope} onChange={e=>{setScope(e.target.value);setExpandedRow(null);}}>
+            <option value="all">🏆 Global ({completedJornadas.length} jornada{completedJornadas.length!==1?"s":""})</option>
+            {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id}{futbol.results?.[j.id]?" ✓":""}</option>)}
           </select>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-white/5">
-          <table className="text-sm w-full">
-            <thead>
-              <tr><th className="text-left w-10"></th><th className="text-left">Jugador</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Exact.</th><th className="text-right hidden sm:table-cell">Preg.</th><th className="text-right hidden sm:table-cell">Sign.</th><th className="text-right hidden sm:table-cell">Pen.</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Dif.</th>}</tr>
-            </thead>
-            <tbody>
-              {rows.map((r,idx)=>{const penTotal=(r.missed||0)+(r.late||0);const isLast=idx===rows.length-1&&rows.length>1;return(
-                <tr key={r.name} className={idx===0?"podium-1":idx===1?"podium-2":idx===2?"podium-3":isLast?"border-l-2 border-l-amber-600/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":""}>
-                  <td className="text-white/50">{idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":idx+1}</td>
-                  <td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${idx===0?"text-white":""}`}>{r.name}{r.missed>=3 && <span className="text-xs text-amber-300 ml-1">(elim.)</span>}{isLast&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 paga las birras</span>}</span><div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:""}Exact:${r.exact} Preg:${r.qHits} Sign:${r.signs} Pen:${penTotal}{scope==="all"?` Dif:${r.goalDiff}`:""}</div></div></div></td>
-                  <td className="text-right pts-cell">{r.points}</td>
-                  {scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}
-                  <td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td>
-                  <td className="text-right text-white/45 hidden sm:table-cell">{r.qHits}</td>
-                  <td className="text-right text-white/45 hidden sm:table-cell">{r.signs}</td>
-                  <td className="text-right text-white/30 hidden sm:table-cell" title={`Sin apuesta: ${r.missed||0} / Fuera de plazo: ${r.late||0}`}>{penTotal}</td>
-                  {scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.goalDiff}</td>}
-                </tr>)})}
-              {rows.length===0 && <tr><td className="text-sm text-slate-300" colSpan={scope==="all"?9:7}>Sin datos.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-[11px] text-white/40">Desempates: puntos → victorias → exactos → preguntas → signos → menos pen. → menor dif. goles.</p>
-      </div>
-      {scope!=="all" && (
-        <div className="card p-4 space-y-2">
-          <h3 className="font-semibold">Detalle — {selectedJornada?.name||scope}</h3>
-          {!res && <p className="text-sm text-slate-300">Resultados pendientes.</p>}
-          {res && (
-            <div className="grid gap-2">
-              {rows.map(row=>{
-                const detail=scoreFutbolJornada(db,scope,row.name);
-                return (
-                  <div key={row.name} className="border border-white/10 rounded p-3 bg-neutral-900">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">{row.name}</div>
-                      <div className="text-sm">{detail.points} pts {detail.missed && <span className="text-xs text-amber-300 ml-2">(sin apostar)</span>}</div>
+
+        {rows.length>0 && (
+          <div className="space-y-2">
+            {rows.map((r,idx)=>{
+              const penTotal=(r.missed||0)+(r.late||0);
+              const isLast=idx===rows.length-1&&rows.length>1;
+              const isExpanded=expandedRow===r.name;
+              const detail=isExpanded && scope!=="all" && res ? scoreFutbolJornada(db,scope,r.name) : null;
+              const medal=idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":null;
+              const posClass=idx===0?"border-l-[3px] border-l-yellow-400/70 bg-gradient-to-r from-yellow-400/[.06] to-transparent":idx===1?"border-l-[3px] border-l-slate-300/40 bg-gradient-to-r from-slate-300/[.03] to-transparent":idx===2?"border-l-[3px] border-l-amber-600/40 bg-gradient-to-r from-amber-600/[.03] to-transparent":isLast?"border-l-[3px] border-l-amber-500/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":"border-l-[3px] border-l-transparent";
+              return (
+                <div key={r.name} className={`rounded-xl p-3 md:p-4 bg-white/[.02] border border-white/[.06] hover:border-emerald-500/15 transition-all cursor-pointer ${posClass}`} onClick={()=>scope!=="all"&&setExpandedRow(isExpanded?null:r.name)}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 text-center flex-shrink-0">
+                      {medal ? <span className="text-lg">{medal}</span> : <span className="text-sm text-white/40 font-bold">{idx+1}</span>}
                     </div>
-                    <ul className="mt-2 space-y-1 text-xs text-slate-300">
-                      {detail.items.map((item,idx)=>(<li key={idx} className="flex items-center justify-between border border-white/5 rounded px-2 py-1"><span>{item.label}</span><span className={item.delta>0?"text-emerald-300":item.delta<0?"text-amber-300":"text-slate-400"}>{item.delta>0?`+${item.delta}`:item.delta}</span></li>))}
-                    </ul>
+                    <Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-bold ${idx===0?"text-white":"text-white/80"}`}>{r.name}</span>
+                        {r.missed>=3 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20">eliminado</span>}
+                        {isLast && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 birras</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-white/35">
+                        {scope==="all" && <span>Vict: <b className="text-white/50">{r.wins}</b></span>}
+                        <span>Exact: <b className="text-white/50">{r.exact}</b></span>
+                        <span>Sign: <b className="text-white/50">{r.signs}</b></span>
+                        <span>Pen: <b className="text-white/50">{penTotal}</b></span>
+                        {scope==="all" && <span>Dif: <b className="text-white/50">{r.goalDiff}</b></span>}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="pts-cell text-lg">{r.points}</div>
+                      <div className="text-[10px] text-emerald-400/40 font-semibold">pts</div>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                  {detail && (
+                    <div className="mt-3 pt-3 border-t border-white/[.06] space-y-1">
+                      {detail.items.map((item,i)=>(
+                        <div key={i} className="flex items-center justify-between gap-2 text-xs px-2 py-1 rounded bg-white/[.02]">
+                          <span className="text-white/40 truncate">{item.label}</span>
+                          <span className={`font-bold flex-shrink-0 ${item.delta>0?"text-emerald-300":item.delta<0?"text-red-400":"text-white/20"}`}>{item.delta>0?`+${item.delta}`:item.delta}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {rows.length===0 && (
+          <div className="text-center py-8">
+            <div className="text-3xl mb-2">⚽</div>
+            <p className="text-sm text-white/40">Sin datos todavía. El ranking se actualiza cuando el admin introduce resultados.</p>
+          </div>
+        )}
+        <p className="text-[11px] text-white/30">Desempates: puntos → victorias → exactos → signos → menos pen. → menor dif. goles.</p>
+      </div>
     </div>
   );
 }
 
 function Admin({db,setDb,races,drivers,teams,calendar}){
   const [pass,setPass]=useState("");
-  const [ok,setOk]=useState(false);
+  const [ok,setOk]=useState(()=>sessionStorage.getItem("admin_ok")==="1");
   const [selected,setSelected]=useState(()=> (races&&races[0]?.key)||"");
   const [newUserName,setNewUserName]=useState("");
   const [newUserPass,setNewUserPass]=useState("");
   const [importText,setImportText]=useState("");
-  const [now,setNow]=useState(()=>new Date());
+  const now=useNow();
   const [editName,setEditName]=useState("");
   const [editBet,setEditBet]=useState({pole:"",podium:["","",""],q:["","",""],late:false});
   const [qDateInput,setQDateInput]=useState("");
@@ -2222,11 +2372,9 @@ const selectedRace=useMemo(()=>races?.find(r=>r.key===selected),[selected,races]
 const baseCal=useMemo(()=>calendar?.find(r=>r.key===selected),[calendar,selected]);
 // Compat: algunos navegadores podían tener código cacheado que refería a baseCalendar.
 const baseCalendar=baseCal;
-  useEffect(()=>{ setOk(sessionStorage.getItem("admin_ok")==="1"); },[]);
   useEffect(()=>{
     if(!selected && Array.isArray(races) && races.length){ setSelected(races[0].key); }
   },[selected,races]);
-  useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),30000); return ()=>clearInterval(id); },[]);
   useEffect(()=>{
     const baseBet=(selected && editName)?(db.bets?.[selected]?.[editName]||{}):{};
     setEditBet({
@@ -2250,7 +2398,7 @@ const baseCalendar=baseCal;
     setRaceTimeInput(raceTime);
     setTzInput(tz);
   },[selected,db.meta?.raceOverrides,baseCal]);
-  const user=sessionStorage.getItem("porra_session_user")||"";
+  const user=getSession()?.user||"";
   const userList=useMemo(()=>Object.values(db.users||{}).sort((a,b)=>a.name.localeCompare(b.name)),[db.users]);
   const participantNames=useMemo(()=>Object.keys(db.participants||{}).sort((a,b)=>a.localeCompare(b)),[db.participants]);
   const computedStandings=useMemo(()=>computeGlobalStandings(db,races).map((row,idx)=>({name:row.name,points:row.points,rank:idx+1})),[db,races]);
@@ -2262,7 +2410,7 @@ const baseCalendar=baseCal;
   const exportPayload=useMemo(()=>({...db, standings:standingsObject}),[db,standingsObject]);
   const exportJson=useMemo(()=>JSON.stringify(exportPayload,null,2),[exportPayload]);
   if(!db.users?.[user]?.isAdmin) return <div className="card p-4 md:p-5"><h2 className="section-title">Admin</h2><p className="text-sm text-white/40">Inicia sesión como admin.</p></div>;
-  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin</h2><form className="flex gap-2" onSubmit={(e)=>{e.preventDefault(); if(pass===(db.meta?.adminSecret||atob("bWFucmlxdWU="))){setOk(true);sessionStorage.setItem("admin_ok","1");} else toast.error("Contraseña admin incorrecta");}}><input type="password" autoComplete="off" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
+  if(!ok){ return (<div className="card p-4 md:p-5 max-w-md mx-auto"><h2 className="section-title mb-3">Admin</h2><form className="flex gap-2" onSubmit={async(e)=>{e.preventDefault(); if(await verifyAdminSecret(pass,db.meta)){setOk(true);sessionStorage.setItem("admin_ok","1");} else toast.error("Contraseña admin incorrecta");}}><input type="password" autoComplete="off" className="flex-1 select border rounded px-3 py-2" placeholder="Contraseña admin" value={pass} onChange={e=>setPass(e.target.value)} /><button className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white font-medium text-sm hover:bg-white/15 transition-all">Entrar</button></form></div>); }
   const driversText=(db.meta?.drivers||[]).join("\n");
   const teamsText=(db.meta?.teams||[]).join("\n");
   const driverList=(db.meta?.drivers?.length?db.meta.drivers:drivers)||[];
@@ -2315,8 +2463,8 @@ const baseCalendar=baseCal;
     const name=newUserName.trim();
     if(!name) return toast.error("Introduce un nombre");
     if(db.users?.[name]) return toast.error("Ese usuario ya existe");
-    const passValue=newUserPass.trim()||DEFAULT_PASSWORD;
-    const hash=await hashPassword(passValue);
+    const passValue=newUserPass.trim();
+    const hash=passValue ? await hashPassword(passValue) : DEFAULT_PASSWORD_HASH;
     setDb(prev=>{
       const users={...(prev.users||{})};
       users[name]={name,passwordHash:hash,mustChange:true,isAdmin:false,blocked:false,createdAt:nowISO()};
@@ -2330,14 +2478,12 @@ const baseCalendar=baseCal;
   };
   const resetPasswordFor=(name)=>{
     if(!window.confirm(`¿Resetear la contraseña de ${name}?`)) return;
-    hashPassword(DEFAULT_PASSWORD).then(hash=>{
-      setDb(prev=>{
-        const users={...(prev.users||{})};
-        if(users[name]){ users[name]={...users[name],passwordHash:hash,mustChange:true,blocked:false,changedAt:null}; delete users[name].password; }
-        return {...prev,users};
-      });
-      toast.success("Contraseña reseteada");
-    }).catch(()=>toast.error("No se pudo resetear"));
+    setDb(prev=>{
+      const users={...(prev.users||{})};
+      if(users[name]){ users[name]={...users[name],passwordHash:DEFAULT_PASSWORD_HASH,mustChange:true,blocked:false,changedAt:null}; delete users[name].password; }
+      return {...prev,users};
+    });
+    toast.success("Contraseña reseteada");
   };
   const toggleBlockUser=(name)=>{
     if(name===user) return;
@@ -2464,7 +2610,7 @@ const baseCalendar=baseCal;
     <div className="border border-white/10 rounded p-3"><h3 className="font-semibold mb-2">Gestión de usuarios</h3>
       <form onSubmit={handleAddUser} className="grid gap-2 md:grid-cols-[2fr,2fr,auto]">
         <input className="select border rounded px-3 py-2" placeholder="Nombre" value={newUserName} onChange={e=>setNewUserName(e.target.value)} />
-        <input className="select border rounded px-3 py-2" placeholder={`Contraseña inicial (${DEFAULT_PASSWORD})`} value={newUserPass} onChange={e=>setNewUserPass(e.target.value)} />
+        <input className="select border rounded px-3 py-2" placeholder="Contraseña inicial (dejar vacío = defecto)" value={newUserPass} onChange={e=>setNewUserPass(e.target.value)} />
         <button className="px-3 py-2 rounded bg-slate-900 text-white">Añadir</button>
       </form>
       <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
@@ -2562,7 +2708,7 @@ function CountdownBadge({target}){
 }
 
 function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setSelectedRaceKey}){
-  const [now,setNow]=useState(()=>new Date());
+  const now=useNow();
   const selected=selectedRaceKey||"";
   const setSelected=setSelectedRaceKey||(()=>{});
   const race=races?.find(r=>r.key===selected);
@@ -2577,15 +2723,15 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   },[races,selected]);
   useEffect(()=>{ if(selected) sessionStorage.setItem("porra_selected_race",selected); },[selected]);
   useEffect(()=>{ loadHistorical(CURRENT_SEASON_YEAR-1).then(setHistoricalPrev).catch(()=>setHistoricalPrev(null)); },[]);
-  useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),30000); return ()=>clearInterval(id); },[]);
   useEffect(()=>{ if(!race) setShowOthers(false); },[race]);
   const prevYearResult=race && historicalPrev?.resultsByKey?.[race.key];
   const prevYearPoints=race && historicalPrev?.pointsByKey?.[race.key]?.[user];
-  const last3WithResults=useMemo(()=>{
+  const last3RacesDisplay=useMemo(()=>{
     const nowMs=Date.now();
-    const withRes=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3);
-    return withRes;
-  },[races,db.results]);
+    const withResults=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3).map(r=>({race:r,score:scoreForRace(db,r.key,user),hasData:true}));
+    if(withResults.length>0) return withResults;
+    return (races||[]).slice(0,3).map(r=>({race:r,score:null,hasData:false}));
+  },[races,db.results,db.bets,user]);
   const bet=race?(db.bets?.[race.key]?.[user]||{pole:"",podium:["","",""],q:["","",""],submittedAt:null,late:false}):null;
   const owner=race?(db.questionOwner?.[race.key]||""):""; const questions=race?(db.questions?.[race.key]||["","",""]):["","",""];
   const manualWindow=race ? db.betsWindow?.[race.key] : null;
@@ -2599,12 +2745,6 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
   const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
-  const last3RacesDisplay=useMemo(()=>{
-    const nowMs=Date.now();
-    const withResults=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3).map(r=>({race:r,score:scoreForRace(db,r.key,user),hasData:true}));
-    if(withResults.length>0) return withResults;
-    return (races||[]).slice(0,3).map(r=>({race:r,score:null,hasData:false}));
-  },[races,db.results,db.bets,user]);
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
   return (<div className={`grid gap-4 ${layoutCols}`}>
@@ -2706,16 +2846,16 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
           </div>
         </div>
       )}
-      {last3WithResults.length>0 && (
+      {last3RacesDisplay.some(r=>r.hasData) && (
         <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
           <h3 className="text-sm font-semibold text-slate-200 mb-2">🏁 Últimos 3 GP de esta temporada</h3>
           <div className="space-y-2">
-            {last3WithResults.map(r=>{
-              const res=db.results?.[r.key];
+            {last3RacesDisplay.filter(r=>r.hasData).map(({race:rc})=>{
+              const res=db.results?.[rc.key];
               if(!res) return null;
               return (
-                <div key={r.key} className="text-sm border-b border-slate-600/40 pb-2 last:border-0 last:pb-0">
-                  <div className="font-medium text-slate-200">{r.round}. {r.grand_prix}</div>
+                <div key={rc.key} className="text-sm border-b border-slate-600/40 pb-2 last:border-0 last:pb-0">
+                  <div className="font-medium text-slate-200">{rc.round}. {rc.grand_prix}</div>
                   <div className="text-xs text-slate-400">Pole: {res.pole||"—"} · Podio: {(res.podium||[]).join(" · ")} · Preg: {(res.qAnswers||[]).join(" · ")}</div>
                 </div>
               );
@@ -2742,7 +2882,6 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
                 <div className="text-sm font-medium">{rc.round}. {rc.grand_prix}</div>
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <span className="font-semibold">{hasData ? `${score.points} pts` : '—'}</span>
-                  <span className="text-xs text-slate-300">TB1: {hasData ? score.tb1 : '—'}</span>
                   <span className="text-xs text-slate-300">Aciertos: {hasData ? score.hits : '—'}</span>
                   <span className="text-xs text-slate-300">Exactos: {hasData ? score.exact : '—'}</span>
                   {hasData && score.pen>0 && <span className="text-xs text-amber-300">Pen: {score.pen}</span>}
@@ -2794,48 +2933,56 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const last=standings[total-1];
   if(!pos||total<2) return null;
 
+  const isFut=mode==="futbol";
   const nextRaceKey=useMemo(()=>{
-    if(mode!=="f1") return "futbol_current";
+    if(isFut){
+      const futbol=db.futbol||defaultFutbolState();
+      const jornadas=listFutbolJornadas(futbol);
+      const now=Date.now();
+      const next=jornadas.find(j=>j.deadline&&new Date(j.deadline).getTime()>now);
+      return next?`fut_${next.id}`:(jornadas.length?`fut_${jornadas[jornadas.length-1].id}`:"futbol_current");
+    }
     const now=Date.now();
     const next=(races||[]).find(r=>r.qStart&&r.qStart.getTime()>now);
     return next?next.key:(races||[]).length?races[races.length-1].key:"unknown";
-  },[races,mode]);
+  },[races,mode,db.futbol]);
   const dismissKey=`porra_banner_${user}_${nextRaceKey}`;
   if(localStorage.getItem(dismissKey)==="1") return null;
 
   const gap=leader?leader.points-myPts:0;
   const gapToLast=last&&myIdx!==total-1?myPts-last.points:0;
+  const evento=isFut?"jornada":"GP";
   let emoji,title,msg;
   if(pos===1){
-    emoji="🏆🍺";
+    emoji=isFut?"⚽🏆":"🏆🍺";
     title="¡Vas líder, crack!";
     msg=total>2?`Llevas ${myPts} pts y ${standings[1]?standings[1].name:"nadie"} te persigue a ${standings[1]?myPts-standings[1].points:0} pts. ¡Las birras las paga ${last.name}!`:`Estás primero con ${myPts} pts. ¡Sigue así!`;
   }else if(pos===2){
-    emoji="🥈😤";
+    emoji=isFut?"⚽😤":"🥈😤";
     title="¡Casi, casi!";
-    msg=`Estás a solo ${gap} pts de ${leader.name}. Un buen GP y te llevas las birras gratis. ¡${last.name} va último y se la juega!`;
+    msg=`Estás a solo ${gap} pts de ${leader.name}. Una buena ${evento} y te llevas las birras gratis. ¡${last.name} va último y se la juega!`;
   }else if(pos===3){
-    emoji="🥉🍻";
+    emoji=isFut?"⚽🍻":"🥉🍻";
     title="En el podio, pero no te relajes";
     msg=`A ${gap} pts del líder ${leader.name}. Ojo que solo ${gapToLast} pts te separan de pagar la ronda de ${last.name}.`;
   }else if(pos===total){
-    emoji="💸🍺";
+    emoji=isFut?"⚽💸":"💸🍺";
     title="¡Houston, tenemos un problema!";
     msg=`Vas último con ${myPts} pts. ${leader.name} lidera con ${leader.points} pts. Más te vale espabilar o te toca pagar TODAS las birras, ¡${user}!`;
   }else if(pos===total-1){
-    emoji="😰🍺";
+    emoji=isFut?"⚽😰":"😰🍺";
     title="¡Ojo, que huele a ronda!";
-    msg=`Penúltimo a ${gapToLast} pts de ${last.name} que va último. Un mal GP y te toca sacar la cartera...`;
+    msg=`Penúltimo a ${gapToLast} pts de ${last.name} que va último. Una mala ${evento} y te toca sacar la cartera...`;
   }else{
-    emoji="😏🍺";
+    emoji=isFut?"⚽😏":"😏🍺";
     title="Ahí andas, buscando hueco";
     msg=`Posición ${pos}/${total} con ${myPts} pts. A ${gap} pts de ${leader.name}. No eres primero ni último... por ahora.`;
   }
   const otherStandings=standings.filter(s=>s.name!==user).slice(0,5);
 
   return (
-    <div className="card card-racing p-4 md:p-5 relative overflow-hidden" style={{background:"linear-gradient(135deg,rgba(245,158,11,.06),rgba(225,6,0,.04),rgba(10,10,20,.6))"}}>
-      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{background:"linear-gradient(90deg,transparent,#f59e0b 20%,#e10600 50%,#f59e0b 80%,transparent)"}}></div>
+    <div className="card card-racing p-4 md:p-5 relative overflow-hidden" style={isFut?{background:"linear-gradient(135deg,rgba(34,197,94,.06),rgba(16,185,129,.04),rgba(10,10,20,.6))"}:{background:"linear-gradient(135deg,rgba(245,158,11,.06),rgba(225,6,0,.04),rgba(10,10,20,.6))"}}>
+      <div className="absolute top-0 left-0 right-0 h-[3px]" style={isFut?{background:"linear-gradient(90deg,transparent,#22c55e 20%,#16a34a 50%,#22c55e 80%,transparent)"}:{background:"linear-gradient(90deg,transparent,#f59e0b 20%,#e10600 50%,#f59e0b 80%,transparent)"}}></div>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-2xl mb-1">{emoji}</div>
@@ -2870,12 +3017,12 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
 }
 
 function App(){
-  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [circuits,setCircuits]=useState({}); const [selectedRaceKey,setSelectedRaceKey]=useState(()=>sessionStorage.getItem("porra_selected_race")||""); useEffect(()=>{ if(selectedRaceKey&&!cal?.find(r=>r.key===selectedRaceKey)&&cal?.length) setSelectedRaceKey(cal[0].key); },[cal,selectedRaceKey]); useEffect(()=>{ if(selectedRaceKey) sessionStorage.setItem("porra_selected_race",selectedRaceKey); },[selectedRaceKey]); const [user,setUser]=useState(sessionStorage.getItem("porra_session_user")||""); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [showAvatar,setShowAvatar]=useState(false); const [showAI,setShowAI]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
+  const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [circuits,setCircuits]=useState({}); const [selectedRaceKey,setSelectedRaceKey]=useState(()=>sessionStorage.getItem("porra_selected_race")||""); useEffect(()=>{ if(selectedRaceKey&&!cal?.find(r=>r.key===selectedRaceKey)&&cal?.length) setSelectedRaceKey(cal[0].key); },[cal,selectedRaceKey]); useEffect(()=>{ if(selectedRaceKey) sessionStorage.setItem("porra_selected_race",selectedRaceKey); },[selectedRaceKey]); const [user,setUser]=useState(()=>{ const s=getSession(); return s?.user||sessionStorage.getItem("porra_session_user")||""; }); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [showAvatar,setShowAvatar]=useState(false); const [showAI,setShowAI]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
   const [showBanner,setShowBanner]=useState(false);
   const userActionRef=useRef(false);
   const setDbUser=useCallback((updater)=>{ userActionRef.current=true; setDb(prev=> typeof updater==="function" ? updater(prev) : updater); },[]);
   const logout=React.useCallback((reason)=>{
-    sessionStorage.removeItem("porra_session_user");
+    clearSession();
     localStorage.removeItem("porra_user");
     sessionStorage.removeItem("admin_ok");
     setUser("");
@@ -2903,20 +3050,20 @@ function App(){
   useEffect(()=>{
     saveDB(db);
     if(!hydrated) return;
-    saveRemoteState(db).catch(err=>console.warn("No se pudo guardar estado remoto", err));
+    saveRemoteDebounced(db);
   },[db,hydrated]);
-  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); loadTeams().then(setTeams); loadCircuits().then(setCircuits).catch(()=>{}); hashPassword(DEFAULT_PASSWORD).then(setDefaultPwdHash).catch(err=>console.warn("No se pudo calcular hash por defecto",err)); },[]);
+  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); loadTeams().then(setTeams); loadCircuits().then(setCircuits).catch(()=>{}); setDefaultPwdHash(DEFAULT_PASSWORD_HASH); },[]);
   useEffect(()=>{
     const stored=Number(localStorage.getItem("porra_last_active")||0);
     if(user && stored && Date.now()-stored>SESSION_TIMEOUT_MS){
       logout("Sesión caducada por inactividad (30 min). Vuelve a introducir la contraseña.");
       return;
     }
-    if(!sessionStorage.getItem("porra_session_user") && user){
+    if(!getSession()?.user && user){
       logout();
       return;
     }
-    const mark=()=>{ const ts=Date.now(); localStorage.setItem("porra_last_active", String(ts)); sessionStorage.setItem("porra_session_user", user); };
+    const mark=()=>{ const ts=Date.now(); localStorage.setItem("porra_last_active", String(ts)); };
     mark();
     const onFocus=()=>mark();
     window.addEventListener("click", mark);
@@ -2957,37 +3104,37 @@ function App(){
       const nextDrivers=drivers&&drivers.length?drivers:(prevMeta.drivers||[]);
       const nextTeams=teams&&teams.length?teams:(prevMeta.teams||[]);
       const basePoints=prevMeta.basePoints || {};
-      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecret:prevMeta.adminSecret||atob("bWFucmlxdWU="), drivers:nextDrivers, teams:nextTeams, championships, basePoints, seeded:true}};
+      return {...prev, users:baseUsers, participants:baseParticipants, meta:{...prevMeta, adminSecretHash:prevMeta.adminSecretHash||ADMIN_SECRET_HASH, drivers:nextDrivers, teams:nextTeams, championships, basePoints, seeded:true}};
     });
   },[drivers,teams,db.meta,defaultPwdHash]);
   useEffect(()=>{
     if(!hydrated) return;
-    if(db.meta?.futbolJornadasV2) return;
+    if(db.meta?.futbolJornadasV3) return;
     const defaultJornadas=[
-      {id:"J27",name:"Jornada 27 (7-9 Mar)",deadline:new Date(2026,2,6,15,0).toISOString(),matches:[{home:"Getafe",away:"Real Madrid"},{home:"FC Barcelona",away:"Rayo Vallecano"},{home:"Real Sociedad",away:"Villarreal"},{home:"Real Sporting de Gijón",away:"Burgos CF"}]},
-      {id:"J28",name:"Jornada 28 (14-16 Mar)",deadline:new Date(2026,2,13,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Girona"},{home:"Celta de Vigo",away:"FC Barcelona"},{home:"Osasuna",away:"Real Sociedad"},{home:"Mirandés",away:"Real Sporting de Gijón"}]},
-      {id:"J29",name:"Jornada 29 (21-23 Mar)",deadline:new Date(2026,2,20,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Atlético de Madrid"},{home:"FC Barcelona",away:"Sevilla"},{home:"Real Sociedad",away:"Athletic Club"},{home:"Real Sporting de Gijón",away:"Levante"}]},
-      {id:"J30",name:"Jornada 30 (4-6 Abr)",deadline:new Date(2026,3,3,15,0).toISOString(),matches:[{home:"Mallorca",away:"Real Madrid"},{home:"Atlético de Madrid",away:"FC Barcelona"},{home:"Betis",away:"Real Sociedad"},{home:"Elche",away:"Real Sporting de Gijón"}]},
-      {id:"J31",name:"Jornada 31 (11-13 Abr)",deadline:new Date(2026,3,10,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Betis"},{home:"FC Barcelona",away:"Mallorca"},{home:"Real Sociedad",away:"Getafe"},{home:"Real Sporting de Gijón",away:"Albacete"}]},
-      {id:"J32",name:"Jornada 32 (18-20 Abr)",deadline:new Date(2026,3,17,15,0).toISOString(),matches:[{home:"Valencia",away:"Real Madrid"},{home:"Villarreal",away:"FC Barcelona"},{home:"Celta de Vigo",away:"Real Sociedad"},{home:"Huesca",away:"Real Sporting de Gijón"}]},
-      {id:"J33",name:"Jornada 33 (25-27 Abr)",deadline:new Date(2026,3,24,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Osasuna"},{home:"FC Barcelona",away:"Athletic Club"},{home:"Real Sociedad",away:"Espanyol"},{home:"Real Sporting de Gijón",away:"Racing de Santander"}]},
-      {id:"J34",name:"Jornada 34 (2-4 May)",deadline:new Date(2026,4,1,15,0).toISOString(),matches:[{home:"Sevilla",away:"Real Madrid"},{home:"Rayo Vallecano",away:"FC Barcelona"},{home:"Espanyol",away:"Real Sociedad"},{home:"Castellón",away:"Real Sporting de Gijón"}]},
-      {id:"J35",name:"Jornada 35 (9-11 May)",deadline:new Date(2026,4,8,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Celta de Vigo"},{home:"FC Barcelona",away:"Getafe"},{home:"Real Sociedad",away:"Mallorca"},{home:"Real Sporting de Gijón",away:"Real Zaragoza"}]},
-      {id:"J36",name:"Jornada 36 (16-18 May)",deadline:new Date(2026,4,15,15,0).toISOString(),matches:[{home:"Athletic Club",away:"Real Madrid"},{home:"Girona",away:"FC Barcelona"},{home:"Valladolid",away:"Real Sociedad"},{home:"Córdoba CF",away:"Real Sporting de Gijón"}]},
-      {id:"J37",name:"Jornada 37 (23-25 May)",deadline:new Date(2026,4,22,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Villarreal"},{home:"FC Barcelona",away:"Osasuna"},{home:"Real Sociedad",away:"Sevilla"},{home:"Real Sporting de Gijón",away:"Granada CF"}]},
-      {id:"J38",name:"Jornada 38 (30 May-1 Jun)",deadline:new Date(2026,4,29,15,0).toISOString(),matches:[{home:"Espanyol",away:"Real Madrid"},{home:"Valladolid",away:"FC Barcelona"},{home:"Atlético de Madrid",away:"Real Sociedad"},{home:"Deportivo de la Coruña",away:"Real Sporting de Gijón"}]}
+      {id:"J27",name:"Jornada 27 (6-9 Mar)",deadline:new Date(2026,2,6,15,0).toISOString(),matches:[{home:"Celta de Vigo",away:"Real Madrid"},{home:"Athletic Club",away:"FC Barcelona"},{home:"Atlético de Madrid",away:"Real Sociedad"},{home:"FC Andorra",away:"Real Sporting de Gijón"}]},
+      {id:"J28",name:"Jornada 28 (13-16 Mar)",deadline:new Date(2026,2,13,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Elche"},{home:"FC Barcelona",away:"Sevilla"},{home:"Real Sociedad",away:"Osasuna"},{home:"Real Sporting de Gijón",away:"Castellón"}]},
+      {id:"J29",name:"Jornada 29 (20-22 Mar)",deadline:new Date(2026,2,20,15,0).toISOString(),matches:[{home:"Villarreal",away:"Real Sociedad"},{home:"FC Barcelona",away:"Rayo Vallecano"},{home:"Real Madrid",away:"Atlético de Madrid"},{home:"Las Palmas",away:"Real Sporting de Gijón"}]},
+      {id:"J30",name:"Jornada 30 (5 Abr)",deadline:new Date(2026,3,3,15,0).toISOString(),matches:[{home:"Mallorca",away:"Real Madrid"},{home:"Atlético de Madrid",away:"FC Barcelona"},{home:"Real Sociedad",away:"Levante"},{home:"Real Sporting de Gijón",away:"Real Sociedad B"}]},
+      {id:"J31",name:"Jornada 31 (12 Abr)",deadline:new Date(2026,3,10,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Girona"},{home:"FC Barcelona",away:"Espanyol"},{home:"Real Sociedad",away:"Alavés"},{home:"Burgos CF",away:"Real Sporting de Gijón"}]},
+      {id:"J33",name:"Jornada 33 (22 Abr)",deadline:new Date(2026,3,17,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Alavés"},{home:"FC Barcelona",away:"Celta de Vigo"},{home:"Real Sociedad",away:"Getafe"},{home:"Real Sporting de Gijón",away:"Cádiz"}]},
+      {id:"J32",name:"Jornada 32 (26 Abr)",deadline:new Date(2026,3,24,15,0).toISOString(),matches:[{home:"Betis",away:"Real Madrid"},{home:"Getafe",away:"FC Barcelona"},{home:"Rayo Vallecano",away:"Real Sociedad"},{home:"Córdoba CF",away:"Real Sporting de Gijón"}]},
+      {id:"J34",name:"Jornada 34 (3 May)",deadline:new Date(2026,4,1,15,0).toISOString(),matches:[{home:"Espanyol",away:"Real Madrid"},{home:"Osasuna",away:"FC Barcelona"},{home:"Sevilla",away:"Real Sociedad"},{home:"Real Sporting de Gijón",away:"A.D. Ceuta"}]},
+      {id:"J35",name:"Jornada 35 (10 May)",deadline:new Date(2026,4,8,15,0).toISOString(),matches:[{home:"FC Barcelona",away:"Real Madrid"},{home:"Real Sociedad",away:"Betis"},{home:"Málaga",away:"Real Sporting de Gijón"}]},
+      {id:"J36",name:"Jornada 36 (13 May)",deadline:new Date(2026,4,11,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Oviedo"},{home:"Alavés",away:"FC Barcelona"},{home:"Girona",away:"Real Sociedad"}]},
+      {id:"J37",name:"Jornada 37 (17 May)",deadline:new Date(2026,4,15,15,0).toISOString(),matches:[{home:"Sevilla",away:"Real Madrid"},{home:"FC Barcelona",away:"Betis"},{home:"Real Sociedad",away:"Valencia"},{home:"Real Zaragoza",away:"Real Sporting de Gijón"}]},
+      {id:"J38",name:"Jornada 38 (24 May)",deadline:new Date(2026,4,22,15,0).toISOString(),matches:[{home:"Real Madrid",away:"Athletic Club"},{home:"Valencia",away:"FC Barcelona"},{home:"Espanyol",away:"Real Sociedad"},{home:"Real Sporting de Gijón",away:"Almería"}]}
     ];
     setDb(prev=>{
       const f=prev.futbol||defaultFutbolState();
       let jornadas={...f.jornadas};
       let newOrder=[...f.order||[]];
-      ["J1","J2","J3","J28","J29","J30"].forEach(id=>{ delete jornadas[id]; newOrder=newOrder.filter(x=>x!==id); });
+      ["J1","J2","J3","J27","J28","J29","J30","J31","J32","J33","J34","J35","J36","J37","J38"].forEach(id=>{ delete jornadas[id]; newOrder=newOrder.filter(x=>x!==id); });
       defaultJornadas.forEach(j=>{
-        if(!jornadas[j.id]) jornadas[j.id]=j;
+        jornadas[j.id]=j;
         if(!newOrder.includes(j.id)) newOrder.push(j.id);
       });
-      newOrder.sort((a,b)=>{ const na=parseInt(a.replace(/\D/g,""),10); const nb=parseInt(b.replace(/\D/g,""),10); return (na||0)-(nb||0)||a.localeCompare(b); });
-      return {...prev, futbol:{...f, jornadas, order:newOrder}, meta:{...(prev.meta||{}), futbolJornadasV2:true}};
+      newOrder.sort((a,b)=>{ const ja=jornadas[a],jb=jornadas[b]; if(ja?.deadline&&jb?.deadline) return new Date(ja.deadline)-new Date(jb.deadline); const na=parseInt(a.replace(/\D/g,""),10); const nb=parseInt(b.replace(/\D/g,""),10); return (na||0)-(nb||0)||a.localeCompare(b); });
+      return {...prev, futbol:{...f, jornadas, order:newOrder}, meta:{...(prev.meta||{}), futbolJornadasV3:true}};
     });
   },[hydrated,db.futbol,db.meta]);
   const raceOverrides=db.meta?.raceOverrides||{};
@@ -3045,21 +3192,21 @@ function App(){
           </div>
           <div>
             <div className="text-xl md:text-2xl font-black tracking-tighter text-white" style={{fontStyle:"italic"}}>PORRA BIRREROS <span className="text-base md:text-lg" style={{verticalAlign:"middle"}}>🍺</span></div>
-            <div className="text-[11px] text-white/35 font-semibold tracking-[.15em] uppercase">{mode==="f1"?"Formula 1 · 2026 · Las birras en juego":"Liga · Fútbol · Las birras en juego"}</div>
+            <div className="text-[11px] text-white/50 font-semibold tracking-[.15em] uppercase">{mode==="f1"?"Formula 1 · 2026 · Las birras en juego":"Liga · Fútbol · Las birras en juego"}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode==="f1"?"bg-red-600/25 text-white border border-red-500/30 shadow-lg shadow-red-600/10":"bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={()=>handleModeChange("f1")}>F1</button>
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode==="futbol"?"bg-emerald-600/25 text-white border border-emerald-500/30 shadow-lg shadow-emerald-600/10":"bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={()=>handleModeChange("futbol")}>FUT</button>
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">
-            <Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm"/>
+            <Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm" mode={mode}/>
             <span className="text-sm font-semibold text-white/80">{user}</span>
             <button className="text-white/40 hover:text-white/70 text-xs ml-1 transition-colors" onClick={()=>setShowPass(true)}>🔑</button>
             <button className="text-white/40 hover:text-white/70 text-xs transition-colors" onClick={()=>logout()}>Salir</button>
           </div>}
         </div>
         {user && <div className="flex md:hidden items-center justify-center gap-3 text-xs pt-2 mt-1 border-t border-white/8">
-          <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm"/><span className="font-semibold text-white/70">{user}</span></div>
+          <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm" mode={mode}/><span className="font-semibold text-white/70">{user}</span></div>
           <button className="text-white/35 hover:text-white/70 transition-colors" onClick={()=>setShowPass(true)}>Contraseña</button>
           <button className="text-white/40 hover:text-white/65 transition-colors" onClick={()=>logout()}>Salir</button>
         </div>}
@@ -3072,12 +3219,12 @@ function App(){
       {mode==="f1" && <button role="tab" aria-selected={view==="questions"} className={view==="questions"?"nav-active":""} onClick={()=>setView("questions")}>Preguntas</button>}
       {mode==="f1" && <button role="tab" aria-selected={view==="historico"} className={view==="historico"?"nav-active":""} onClick={()=>setView("historico")}>Histórico</button>}
       <button role="tab" aria-selected={view==="rules"} className={view==="rules"?"nav-active":""} onClick={()=>setView("rules")}>Normas</button>
-      {mode==="f1" && <button className="nav-special flex items-center gap-1.5" onClick={()=>setShowAI(true)} aria-label="Abrir ManriBot"><img src="./assets/manribot.svg" alt="ManriBot" className="w-4 h-4"/> ManriBot</button>}
-      <button role="tab" aria-selected={view==="admin"} className={view==="admin"?"nav-active":""} onClick={()=>setView("admin")}>⚙ Admin</button>
+      <button className="nav-special flex items-center gap-1.5" onClick={()=>setShowAI(true)} aria-label="Abrir ManriBot"><img src="./assets/manribot.svg" alt="ManriBot" className="w-4 h-4"/> ManriBot</button>
+      {db.users?.[user]?.isAdmin && <button role="tab" aria-selected={view==="admin"} className={view==="admin"?"nav-active":""} onClick={()=>setView("admin")}>⚙ Admin</button>}
     </nav>}
-    {!user ? (<div className="card card-racing beer-glow p-6 max-w-sm mx-auto"><h2 className="section-title text-center mb-1">Entra en la porra</h2><p className="text-center text-xs text-white/30 mb-4">🍺 Que empiecen las apuestas — y las birras</p><Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); sessionStorage.setItem("porra_session_user", u); localStorage.setItem("porra_user", u); setShowBanner(true); }} /></div>) : (<>
+    {!user ? (<div className="card card-racing beer-glow p-6 max-w-sm mx-auto"><h2 className="section-title text-center mb-1">Entra en la porra</h2><p className="text-center text-xs text-white/30 mb-4">🍺 Que empiecen las apuestas — y las birras</p>{!hydrated?<div className="text-center py-4"><div className="text-sm text-white/40 animate-pulse">Conectando con el servidor...</div></div>:<Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); createSession(u); localStorage.setItem("porra_user", u); setShowBanner(true); }} />}</div>) : (<>
       {showBanner && <WelcomeBanner user={user} db={db} races={races} mode={mode} onDismiss={()=>setShowBanner(false)}/>}
-      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]}/><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/20 mt-1 tracking-wider uppercase">birreros club</div>{sidebarRace&&<div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact/></div>}</aside><main className="flex-1 space-y-4 min-w-0">
+      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]} mode={mode}/><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/40 mt-1 tracking-wider uppercase">birreros club</div>{sidebarRace&&<div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact/></div>}</aside><main className="flex-1 space-y-4 min-w-0">
         {mode==="f1" && (
           <>
             {view==="participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers} circuits={circuits} selectedRaceKey={mode==="f1"?selectedRaceKey:""} setSelectedRaceKey={mode==="f1"?setSelectedRaceKey:()=>{}}/>}
@@ -3099,9 +3246,9 @@ function App(){
         )}
       </main></div>
     </>)}
-    <footer className="text-[11px] text-white/35 pt-8 pb-6 text-center tracking-widest uppercase font-medium"><span className="beer-icon">🍺</span> Porra Birreros · Quien pierde, pone las birras <span className="beer-icon">🍻</span> {mode==="f1"?"A todo gas":"Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
+    <footer className="text-[12px] text-amber-200 pt-8 pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · Quien pierde, pone las birras <span className="beer-icon">🍻</span> {mode==="f1"?"A todo gas":"Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
     <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} /><ChangeAvatarModal open={showAvatar} onClose={()=>setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />
-    <AIAssistant open={showAI} onClose={()=>setShowAI(false)} races={races} />
+    <AIAssistant open={showAI} onClose={()=>setShowAI(false)} races={races} mode={mode} />
     <ToastContainer/>
   </div>);
 }

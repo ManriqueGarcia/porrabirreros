@@ -1,101 +1,111 @@
 # Porra de los birreros — F1 y Fútbol
 
-Aplicación web para gestionar porras de Fórmula 1 y Fútbol.
+Aplicación web para gestionar porras de Fórmula 1 y Fútbol entre amigos. El que pierde, pone las birras 🍺
 
-## 🚀 Cómo arrancar en local
+**URL en producción:** https://porra.manriquegarcia.com
 
-### Opción 1: Python (recomendado)
+## 🚀 Desarrollo local
 
-Si tienes Python instalado:
+### Requisitos
+
+- Node.js 22+
+- npm
+
+### Instalar dependencias
 
 ```bash
-# Python 3
+npm install
+```
+
+### Build
+
+```bash
+node build.mjs
+```
+
+Genera la carpeta `dist/` con:
+- `app.js` — React + app bundled y minificado (esbuild)
+- `styles.css` — Tailwind CSS v4 + estilos custom precompilados
+- `index.html` — sin dependencias CDN
+- `assets/` — avatares, circuitos, datos JSON
+
+### Previsualizar
+
+```bash
+npx serve dist
+```
+
+### Desarrollo sin build (legacy)
+
+Para desarrollo rápido sin build, puedes servir directamente los archivos raíz con un servidor estático (usa Babel + Tailwind CDN en el navegador):
+
+```bash
 python3 -m http.server 8000
-
-# O Python 2
-python -m SimpleHTTPServer 8000
 ```
-
-Luego abre en el navegador: `http://localhost:8000`
-
-### Opción 2: Node.js (http-server)
-
-Si tienes Node.js instalado:
-
-```bash
-# Instalar http-server globalmente
-npm install -g http-server
-
-# Ejecutar en el directorio del proyecto
-http-server -p 8000
-```
-
-Luego abre en el navegador: `http://localhost:8000`
-
-### Opción 3: PHP
-
-Si tienes PHP instalado:
-
-```bash
-php -S localhost:8000
-```
-
-Luego abre en el navegador: `http://localhost:8000`
-
-### Opción 4: VS Code Live Server
-
-Si usas VS Code:
-1. Instala la extensión "Live Server"
-2. Click derecho en `index.html` → "Open with Live Server"
 
 ## 📋 Características
 
 ### Porra F1
 - Apuestas por pole, podio y preguntas adicionales
-- Ranking y estadísticas
-- Gestión de resultados y ajustes manuales
+- Ranking con desempates (victorias GP → podios exactos → aciertos)
+- Estadísticas detalladas y histórico 2025
+- 24 circuitos SVG con trazados realistas
+- ManriBot 🏎️ — asistente AI con datos históricos F1 desde 1950 (Jolpica/Ergast API)
 
 ### Porra Fútbol
 - 4 partidos por jornada (Madrid, Barça, Real Sociedad, Sporting)
-- Sistema de puntuación: 3 puntos exacto, 1 punto signo, 0 puntos fallo
-- 3 preguntas adicionales (2 puntos cada una)
-- Penalizaciones: -2 por no apostar, -1 por apuesta catastrófica
-- Eliminación tras 3 jornadas sin apostar
+- Puntuación: 3 pts exacto, 1 pt signo, 0 pts fallo
+- Penalizaciones: -3 por no apostar, -2 por apuesta fuera de plazo
+- ManriBot ⚽ — asistente AI de fútbol powered by Gemma 3 27B
+
+### ManriBot (Asistente AI)
+- **F1**: consultas locales contra Jolpica/Ergast API (resultados, campeonatos, pilotos, circuitos desde 1950)
+- **Fútbol**: consultas a Lambda AWS con Gemma 3 27B (historia, equipos, jugadores, tácticas)
+- Sugerencias de preguntas contextuales
+- Interfaz de chat con historial
+
+## 🏗️ Arquitectura
+
+```
+app.jsx          → Código fuente React (JSX)
+src.css          → Tailwind v4 + CSS custom
+build.mjs        → Script de build (esbuild + Tailwind CLI)
+index.html       → HTML fuente (dev con Babel/CDN)
+porra-ai.mjs     → Lambda AWS (ManriBot AI)
+assets/          → Avatares SVG, circuitos, datos JSON
+dist/            → Build de producción (generado)
+```
+
+### Stack
+- **Frontend**: React 18, Tailwind CSS v4, glassmorphism UI
+- **Build**: esbuild (bundle + minify), @tailwindcss/cli
+- **Backend**: AWS Lambda (Node.js), API Gateway
+- **AI**: Gemma 3 27B (Google AI API) con fallback a Gemini Flash
+- **Datos F1**: Jolpica/Ergast API (client-side)
+- **Storage**: AWS (estado remoto) + localStorage (caché local)
+- **Hosting**: S3 + CloudFront
+- **CI/CD**: GitHub Actions (build + deploy automático en push a main)
 
 ## 🔐 Acceso
 
-**Usuarios por defecto:**
-- Antonio, Carlos, Pere, Toni, Manrique
-- Contraseña inicial: `B1rr3r0s`
-- Admin: Manrique
-
-**Nota:** En el primer acceso, se pedirá cambiar la contraseña.
-
-## 💾 Almacenamiento
-
-Los datos se guardan en:
-- **LocalStorage del navegador** (clave: `porra_f1_clean_v3`)
-- **Sincronización remota** (si está configurada la API)
-
-## 🛠️ Desarrollo
-
-La aplicación usa:
-- React (CDN)
-- Tailwind CSS (CDN)
-- Babel (CDN para JSX)
-
-No requiere build ni instalación de dependencias. Solo sirve los archivos estáticos con un servidor HTTP.
+- **Usuarios**: Antonio, Carlos, Pere, Toni, Manrique
+- **Contraseña inicial**: `B1rr3r0s` (se pide cambiar en el primer acceso)
+- **Admin**: Manrique
 
 ## 🌐 Despliegue
 
-La app se despliega en **S3 + CloudFront**. El despliegue automático se ejecuta al hacer push a `main`. Ver [DEPLOY.md](DEPLOY.md) para la configuración.
+El despliegue es automático al hacer push a `main` via GitHub Actions:
 
-**URL en producción:** https://porra.manriquegarcia.com
+1. `npm ci` — instala dependencias
+2. `node build.mjs` — compila JS (esbuild) y CSS (Tailwind)
+3. `aws s3 sync dist/` — sube a S3
+4. CloudFront invalidation — limpia caché CDN
+
+Ver [DEPLOY.md](DEPLOY.md) para configuración de secrets AWS.
 
 ## 📝 Notas
 
 - El modo seleccionado (F1/Fútbol) se guarda en localStorage
-- Los datos se sincronizan automáticamente si hay API configurada
-- La sesión expira tras 30 minutos de inactividad
-- **Histórico 2025:** Solo Las Vegas, Qatar y Abu Dhabi tienen datos reales (la app se usó desde las últimas 3 carreras)
-
+- Los datos se sincronizan automáticamente con la API remota (AWS)
+- Sesión expira tras 30 minutos de inactividad
+- **Histórico 2025**: solo Las Vegas, Qatar y Abu Dhabi tienen datos reales
