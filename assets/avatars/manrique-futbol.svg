@@ -1,65 +1,76 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
   <defs>
-    <linearGradient id="mf-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#081828"/><stop offset="100%" stop-color="#0a0a14"/></linearGradient>
-    <linearGradient id="mf-jersey" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#E10600"/><stop offset="48%" stop-color="#E10600"/><stop offset="48%" stop-color="#FFFFFF"/><stop offset="52%" stop-color="#FFFFFF"/><stop offset="52%" stop-color="#E10600"/><stop offset="100%" stop-color="#E10600"/></linearGradient>
-    <linearGradient id="mf-shorts" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0055A4"/><stop offset="100%" stop-color="#003060"/></linearGradient>
-    <radialGradient id="mf-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#FDDCB5"/><stop offset="100%" stop-color="#E8B896"/></radialGradient>
-    <radialGradient id="mf-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFAAAA" stop-opacity=".5"/><stop offset="100%" stop-color="#FFAAAA" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mfs" cx="50%" cy="38%" r="50%"><stop offset="0%" stop-color="#FFE0C0"/><stop offset="100%" stop-color="#D8A878"/></radialGradient>
   </defs>
-  <rect width="220" height="240" rx="24" fill="url(#mf-bg)"/>
-  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#0055A4" stroke-width="1" opacity=".25"/>
-  <!-- Asturias accent -->
-  <rect x="8" y="210" width="204" height="5" rx="2.5" fill="#0055A4" opacity=".4"/>
-  <rect x="8" y="217" width="204" height="4" rx="2" fill="#FFD700" opacity=".3"/>
-  <!-- Shorts -->
-  <rect x="78" y="192" width="26" height="20" rx="6" fill="url(#mf-shorts)"/>
-  <rect x="116" y="192" width="26" height="20" rx="6" fill="url(#mf-shorts)"/>
-  <!-- Body - football jersey -->
-  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#mf-jersey)"/>
-  <!-- Collar -->
-  <path d="M95 143 Q110 150 125 143" stroke="#0055A4" stroke-width="2.5" fill="none"/>
-  <!-- Cruz de la Victoria on jersey -->
-  <line x1="104" y1="168" x2="116" y2="168" stroke="#FFD700" stroke-width="2.5" opacity=".7"/>
-  <line x1="110" y1="162" x2="110" y2="174" stroke="#FFD700" stroke-width="2.5" opacity=".7"/>
-  <!-- Number -->
-  <text x="110" y="190" font-family="system-ui,sans-serif" font-size="14" font-weight="900" fill="#0055A4" text-anchor="middle" opacity=".6">10</text>
-  <!-- Arms -->
-  <ellipse cx="58" cy="165" rx="14" ry="10" fill="#E10600"/>
-  <!-- Waving arm -->
-  <path d="M152 155 Q168 132 175 125 Q178 122 180 126 Q177 135 162 152" fill="#E10600" stroke="#C00" stroke-width="1"/>
-  <circle cx="178" cy="123" r="8" fill="url(#mf-skin)"/>
-  <path d="M172 118 L175 112 M176 117 L178 111 M180 118 L182 113" stroke="url(#mf-skin)" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- BIG head -->
-  <ellipse cx="110" cy="80" rx="50" ry="48" fill="url(#mf-skin)"/>
-  <!-- Hair -->
-  <ellipse cx="110" cy="52" rx="46" ry="24" fill="#3B2510"/>
-  <path d="M64 72 Q64 40 110 32 Q156 40 156 72" fill="#3B2510"/>
-  <path d="M68 78 Q66 65 72 58" fill="#3B2510"/>
-  <path d="M152 78 Q154 65 148 58" fill="#3B2510"/>
-  <!-- Hair shine -->
-  <ellipse cx="95" cy="46" rx="18" ry="8" fill="white" opacity=".08"/>
-  <!-- Big expressive eyes -->
-  <ellipse cx="92" cy="78" rx="10" ry="11" fill="white"/>
-  <ellipse cx="128" cy="78" rx="10" ry="11" fill="white"/>
-  <ellipse cx="94" cy="79" rx="6" ry="7" fill="#3B2510"/>
-  <ellipse cx="130" cy="79" rx="6" ry="7" fill="#3B2510"/>
-  <circle cx="96" cy="76" r="3" fill="white"/>
-  <circle cx="132" cy="76" r="3" fill="white"/>
-  <!-- Excited eyebrows -->
-  <path d="M80 65 Q92 59 102 65" stroke="#3B2510" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M118 65 Q128 59 140 65" stroke="#3B2510" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <rect width="200" height="260" rx="22" fill="#081008"/>
+  <!-- Football -->
+  <circle cx="160" cy="240" r="10" fill="white" opacity=".25"/>
+  <path d="M155 235 L160 240 L165 235 M153 240 L160 247 L167 240" fill="none" stroke="#555" stroke-width=".8" opacity=".25"/>
+  <!-- TINY stocky body in Asturias-style jersey -->
+  <path d="M64 195 Q50 180 64 172 L136 172 Q150 180 136 195 L142 238 Q100 254 58 238Z" fill="#0067B1"/>
+  <!-- Asturias half -->
+  <path d="M64 195 Q50 180 64 172 L100 172 L100 238 Q80 246 58 238Z" fill="#008000" opacity=".4"/>
+  <path d="M80 172 L100 180 L120 172" stroke="white" stroke-width="2" fill="none"/>
+  <rect x="80" y="188" width="40" height="16" rx="4" fill="#FF8000" opacity=".6"/>
+  <text x="100" y="201" font-family="system-ui" font-size="12" font-weight="900" fill="white" text-anchor="middle">14</text>
+  <text x="100" y="228" font-family="system-ui" font-size="16" font-weight="900" fill="white" text-anchor="middle" opacity=".3">14</text>
+  <ellipse cx="52" cy="184" rx="16" ry="10" fill="#0067B1"/>
+  <ellipse cx="148" cy="184" rx="16" ry="10" fill="#008000" opacity=".7"/>
+  <!-- Thick neck -->
+  <rect x="82" y="162" width="36" height="12" rx="5" fill="url(#mfs)"/>
+  <!-- HUGE HEAD (wide, strong) -->
+  <ellipse cx="100" cy="78" rx="72" ry="74" fill="url(#mfs)"/>
+  <!-- Full dark hair -->
+  <path d="M28 64 Q28 4 100 0 Q172 4 172 64" fill="#1a0f05"/>
+  <path d="M32 68 Q32 10 100 6 Q168 10 168 68" fill="#2D1B0E" opacity=".8"/>
+  <!-- Hair volume -->
+  <path d="M46 56 Q52 24 76 10" stroke="#1a0f05" stroke-width="3" fill="none" opacity=".4"/>
+  <path d="M80 48 L84 8" stroke="#1a0f05" stroke-width="2" fill="none" opacity=".3"/>
+  <path d="M100 46 L100 6" stroke="#1a0f05" stroke-width="2" fill="none" opacity=".3"/>
+  <path d="M120 48 L116 8" stroke="#1a0f05" stroke-width="2" fill="none" opacity=".3"/>
+  <path d="M154 56 Q148 24 124 10" stroke="#1a0f05" stroke-width="3" fill="none" opacity=".4"/>
+  <!-- Ears -->
+  <ellipse cx="26" cy="84" rx="12" ry="18" fill="#D8A878"/>
+  <ellipse cx="26" cy="84" rx="6" ry="11" fill="#C49060" opacity=".25"/>
+  <ellipse cx="174" cy="84" rx="12" ry="18" fill="#D8A878"/>
+  <ellipse cx="174" cy="84" rx="6" ry="11" fill="#C49060" opacity=".25"/>
+  <!-- BLUE glasses (signature!) -->
+  <rect x="36" y="66" width="46" height="32" rx="9" fill="rgba(60,130,255,.08)" stroke="#2563EB" stroke-width="3.5"/>
+  <rect x="118" y="66" width="46" height="32" rx="9" fill="rgba(60,130,255,.08)" stroke="#2563EB" stroke-width="3.5"/>
+  <path d="M82 80 L118 80" stroke="#2563EB" stroke-width="3.2"/>
+  <path d="M34 78 L26 76" stroke="#2563EB" stroke-width="2.5"/>
+  <path d="M166 78 L174 76" stroke="#2563EB" stroke-width="2.5"/>
+  <!-- Eyes behind blue glasses -->
+  <ellipse cx="59" cy="82" rx="12" ry="11" fill="white"/>
+  <ellipse cx="141" cy="82" rx="12" ry="11" fill="white"/>
+  <ellipse cx="61" cy="83" rx="7" ry="8" fill="#3D5A1E"/>
+  <ellipse cx="143" cy="83" rx="7" ry="8" fill="#3D5A1E"/>
+  <circle cx="64" cy="80" r="3" fill="white"/>
+  <circle cx="146" cy="80" r="3" fill="white"/>
+  <!-- Strong dark eyebrows -->
+  <path d="M38 58 Q59 44 80 58" stroke="#1a0f05" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M120 58 Q141 44 162 58" stroke="#1a0f05" stroke-width="4.5" fill="none" stroke-linecap="round"/>
   <!-- Nose -->
-  <ellipse cx="110" cy="88" rx="4" ry="3" fill="#D4A574" opacity=".6"/>
-  <!-- BIG excited grin -->
-  <path d="M88 94 Q110 112 132 94" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M92 96 Q110 108 128 96" fill="white" opacity=".9"/>
-  <path d="M96 102 Q110 106 124 102" fill="#E88" opacity=".3"/>
+  <path d="M94 92 Q100 112 106 92" stroke="#B88050" stroke-width="2.2" fill="none"/>
+  <ellipse cx="100" cy="108" rx="7.5" ry="4" fill="#C49060" opacity=".5"/>
+  <!-- BEARD (al 5, shorter than Toni) -->
+  <path d="M38 100 Q34 124 52 136 Q74 148 100 150 Q126 148 148 136 Q166 124 162 100" fill="#2D1B0E" opacity=".35"/>
+  <path d="M42 102 Q38 122 54 134 Q76 146 100 148 Q124 146 146 134 Q162 122 158 102" fill="#1a0f05" opacity=".2"/>
+  <!-- Beard stubble -->
+  <circle cx="68" cy="120" r=".8" fill="#1a0f05" opacity=".25"/>
+  <circle cx="84" cy="128" r=".8" fill="#1a0f05" opacity=".25"/>
+  <circle cx="100" cy="134" r=".8" fill="#1a0f05" opacity=".25"/>
+  <circle cx="116" cy="128" r=".8" fill="#1a0f05" opacity=".25"/>
+  <circle cx="132" cy="120" r=".8" fill="#1a0f05" opacity=".25"/>
+  <!-- Smile in beard -->
+  <path d="M74 118 Q100 132 126 118" stroke="#8B5E3C" stroke-width="2.5" fill="none" stroke-linecap="round"/>
   <!-- Cheeks -->
-  <circle cx="78" cy="92" r="9" fill="url(#mf-cheek)"/>
-  <circle cx="142" cy="92" r="9" fill="url(#mf-cheek)"/>
-  <!-- Football at feet -->
-  <circle cx="135" cy="216" r="10" fill="white" stroke="#333" stroke-width="1"/>
-  <path d="M130 211 L135 216 L140 211 M128 216 L135 222 L142 216" fill="none" stroke="#333" stroke-width=".8" opacity=".5"/>
-  <!-- Name -->
-  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FFD700" text-anchor="middle" opacity=".9">Manrique</text>
+  <circle cx="38" cy="100" r="10" fill="#E88080" opacity=".1"/>
+  <circle cx="162" cy="100" r="10" fill="#E88080" opacity=".1"/>
+  <!-- Sidra glass -->
+  <path d="M38 228 L36 242 L46 242 L44 228Z" fill="#A0C850" opacity=".3" stroke="#6B8E23" stroke-width="1"/>
+  <path d="M33 232 Q41 226 49 232" stroke="#A0C850" stroke-width="1" fill="none" opacity=".35"/>
+  <!-- Cruz de la Victoria -->
+  <path d="M38 248 L42 240 L46 248 M36 245 L48 245" stroke="#FCDD09" stroke-width="1.5" fill="none" opacity=".3"/>
+  <text x="100" y="256" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FF8000" text-anchor="middle" opacity=".9">Manrique</text>
 </svg>

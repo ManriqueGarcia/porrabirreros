@@ -1,70 +1,69 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
   <defs>
-    <linearGradient id="tf-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a0a0a"/><stop offset="100%" stop-color="#0a0a12"/></linearGradient>
-    <linearGradient id="tf-jersey-l" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#DA121A"/><stop offset="100%" stop-color="#A00E14"/></linearGradient>
-    <linearGradient id="tf-jersey-r" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#C60B1E"/><stop offset="100%" stop-color="#8B0710"/></linearGradient>
-    <linearGradient id="tf-shorts" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="100%" stop-color="#0f0f1a"/></linearGradient>
-    <radialGradient id="tf-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#F5D4B8"/><stop offset="100%" stop-color="#DDA882"/></radialGradient>
-    <radialGradient id="tf-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F5A0A0" stop-opacity=".4"/><stop offset="100%" stop-color="#F5A0A0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="tfs" cx="50%" cy="38%" r="50%"><stop offset="0%" stop-color="#FFE0C0"/><stop offset="100%" stop-color="#D8A878"/></radialGradient>
   </defs>
-  <rect width="220" height="240" rx="24" fill="url(#tf-bg)"/>
-  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#DA121A" stroke-width="1" opacity=".2"/>
-  <!-- Cataluña + Burgos accent -->
-  <rect x="8" y="210" width="102" height="5" rx="2.5" fill="#FCDD09" opacity=".4"/>
-  <rect x="110" y="210" width="102" height="5" rx="2.5" fill="#C60B1E" opacity=".4"/>
-  <rect x="8" y="217" width="102" height="4" rx="2" fill="#DA121A" opacity=".3"/>
-  <rect x="110" y="217" width="102" height="4" rx="2" fill="white" opacity=".25"/>
-  <!-- Shorts -->
-  <rect x="78" y="192" width="26" height="20" rx="6" fill="url(#tf-shorts)"/>
-  <rect x="116" y="192" width="26" height="20" rx="6" fill="url(#tf-shorts)"/>
-  <!-- Body - split jersey (Cataluña / Burgos) -->
-  <clipPath id="tf-jl"><rect x="70" y="143" width="40" height="57"/></clipPath>
-  <clipPath id="tf-jr"><rect x="110" y="143" width="40" height="57"/></clipPath>
-  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#tf-jersey-l)" clip-path="url(#tf-jl)"/>
-  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#tf-jersey-r)" clip-path="url(#tf-jr)"/>
-  <path d="M110 143 L110 200" stroke="white" stroke-width="1.2" opacity=".3"/>
-  <!-- Collar -->
-  <path d="M95 143 Q110 150 125 143" stroke="#FCDD09" stroke-width="2.5" fill="none"/>
-  <!-- Senyera left, Burgos right -->
-  <rect x="70" y="155" width="35" height="3" rx="1" fill="#FCDD09" opacity=".6"/>
-  <rect x="115" y="155" width="30" height="3" rx="1" fill="white" opacity=".4"/>
-  <!-- Number -->
-  <text x="110" y="183" font-family="system-ui,sans-serif" font-size="14" font-weight="900" fill="#FCDD09" text-anchor="middle" opacity=".5">5</text>
-  <!-- Arms -->
-  <ellipse cx="58" cy="165" rx="14" ry="10" fill="url(#tf-jersey-l)"/>
-  <ellipse cx="162" cy="165" rx="14" ry="10" fill="url(#tf-jersey-r)"/>
-  <!-- BIG head -->
-  <ellipse cx="110" cy="80" rx="50" ry="48" fill="url(#tf-skin)"/>
-  <!-- Hair - styled, side part -->
-  <path d="M64 70 Q64 36 110 28 Q156 36 156 70" fill="#2D1B0E"/>
-  <ellipse cx="110" cy="48" rx="44" ry="22" fill="#2D1B0E"/>
-  <path d="M68 76 Q66 62 72 54" fill="#2D1B0E"/>
-  <path d="M152 76 Q154 62 148 54" fill="#2D1B0E"/>
-  <!-- Side part -->
-  <path d="M88 34 Q95 50 92 65" stroke="#1a0f08" stroke-width="1.5" fill="none" opacity=".4"/>
-  <!-- Hair shine -->
-  <ellipse cx="100" cy="42" rx="14" ry="6" fill="white" opacity=".07"/>
-  <!-- Cool eyes -->
-  <ellipse cx="93" cy="78" rx="8" ry="9" fill="white"/>
-  <ellipse cx="127" cy="78" rx="8" ry="9" fill="white"/>
-  <ellipse cx="95" cy="79" rx="5" ry="6" fill="#2D1B0E"/>
-  <ellipse cx="129" cy="79" rx="5" ry="6" fill="#2D1B0E"/>
-  <circle cx="97" cy="76" r="2.5" fill="white"/>
-  <circle cx="131" cy="76" r="2.5" fill="white"/>
-  <!-- Confident eyebrows -->
-  <path d="M82 66 Q93 63 102 67" stroke="#2D1B0E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M118 67 Q127 63 138 66" stroke="#2D1B0E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <rect width="200" height="260" rx="22" fill="#060612"/>
+  <!-- Football -->
+  <circle cx="160" cy="240" r="10" fill="white" opacity=".25"/>
+  <path d="M155 235 L160 240 L165 235 M153 240 L160 247 L167 240" fill="none" stroke="#555" stroke-width=".8" opacity=".25"/>
+  <!-- TINY tall body in dark jersey -->
+  <path d="M68 195 Q56 182 68 174 L132 174 Q144 182 132 195 L138 238 Q100 252 62 238Z" fill="#222"/>
+  <path d="M84 174 L100 182 L116 174" stroke="#555" stroke-width="2" fill="none"/>
+  <rect x="80" y="190" width="40" height="14" rx="3" fill="#004481" opacity=".5"/>
+  <text x="100" y="201" font-family="system-ui" font-size="8" font-weight="700" fill="white" text-anchor="middle">BBVA</text>
+  <text x="100" y="226" font-family="system-ui" font-size="18" font-weight="900" fill="#555" text-anchor="middle" opacity=".3">8</text>
+  <ellipse cx="56" cy="186" rx="14" ry="9" fill="#222"/>
+  <ellipse cx="144" cy="186" rx="14" ry="9" fill="#222"/>
+  <!-- Neck -->
+  <rect x="88" y="164" width="24" height="12" rx="4" fill="url(#tfs)"/>
+  <!-- HUGE HEAD -->
+  <ellipse cx="100" cy="80" rx="70" ry="74" fill="url(#tfs)"/>
+  <!-- Dark thinning hair -->
+  <path d="M30 66 Q30 8 100 4 Q170 8 170 66" fill="#2a1a0a"/>
+  <path d="M34 70 Q34 14 100 10 Q166 14 166 70" fill="#3D2B1F" opacity=".6"/>
+  <!-- Thinning on crown -->
+  <ellipse cx="100" cy="18" rx="28" ry="12" fill="url(#tfs)" opacity=".2"/>
+  <ellipse cx="92" cy="16" rx="18" ry="8" fill="url(#tfs)" opacity=".15"/>
+  <!-- Hair strands -->
+  <path d="M50 58 Q56 28 76 14" stroke="#2a1a0a" stroke-width="2.5" fill="none" opacity=".4"/>
+  <path d="M150 58 Q144 28 124 14" stroke="#2a1a0a" stroke-width="2.5" fill="none" opacity=".4"/>
+  <!-- Ears -->
+  <ellipse cx="28" cy="84" rx="10" ry="16" fill="#D8A878"/>
+  <ellipse cx="28" cy="84" rx="5" ry="10" fill="#C49060" opacity=".25"/>
+  <ellipse cx="172" cy="84" rx="10" ry="16" fill="#D8A878"/>
+  <ellipse cx="172" cy="84" rx="5" ry="10" fill="#C49060" opacity=".25"/>
+  <!-- HUGE thick-frame glasses (pasta!) -->
+  <rect x="36" y="66" width="48" height="34" rx="8" fill="rgba(180,200,220,.06)" stroke="#111" stroke-width="5"/>
+  <rect x="116" y="66" width="48" height="34" rx="8" fill="rgba(180,200,220,.06)" stroke="#111" stroke-width="5"/>
+  <path d="M84 82 L116 82" stroke="#111" stroke-width="5"/>
+  <path d="M34 78 L28 76" stroke="#111" stroke-width="3.5"/>
+  <path d="M166 78 L172 76" stroke="#111" stroke-width="3.5"/>
+  <!-- Eyes behind thick glasses -->
+  <ellipse cx="60" cy="83" rx="12" ry="11" fill="white"/>
+  <ellipse cx="140" cy="83" rx="12" ry="11" fill="white"/>
+  <ellipse cx="62" cy="84" rx="7" ry="8" fill="#3D2B1F"/>
+  <ellipse cx="142" cy="84" rx="7" ry="8" fill="#3D2B1F"/>
+  <circle cx="65" cy="81" r="3" fill="white"/>
+  <circle cx="145" cy="81" r="3" fill="white"/>
+  <!-- Dark eyebrows -->
+  <path d="M38 58 Q60 44 82 58" stroke="#2D1B0E" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M118 58 Q140 44 162 58" stroke="#2D1B0E" stroke-width="4" fill="none" stroke-linecap="round"/>
   <!-- Nose -->
-  <ellipse cx="110" cy="88" rx="3.5" ry="2.5" fill="#C4956E" opacity=".7"/>
-  <!-- Cool smirk -->
-  <path d="M94 95 Q110 103 128 98" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M98 96 Q110 102 124 98" fill="white" opacity=".7"/>
-  <!-- Cheeks -->
-  <circle cx="80" cy="92" r="7" fill="url(#tf-cheek)"/>
-  <circle cx="140" cy="90" r="7" fill="url(#tf-cheek)"/>
-  <!-- Football at feet -->
-  <circle cx="140" cy="216" r="10" fill="white" stroke="#333" stroke-width="1"/>
-  <path d="M135 211 L140 216 L145 211 M133 216 L140 222 L147 216" fill="none" stroke="#333" stroke-width=".8" opacity=".5"/>
-  <!-- Name -->
-  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FCDD09" text-anchor="middle" opacity=".9">Toni</text>
+  <path d="M94 92 Q100 112 106 92" stroke="#B88050" stroke-width="2.2" fill="none"/>
+  <ellipse cx="100" cy="108" rx="7" ry="3.5" fill="#C49060" opacity=".5"/>
+  <!-- THICK BEARD (al 8) -->
+  <path d="M40 102 Q36 128 54 140 Q74 154 100 156 Q126 154 146 140 Q164 128 160 102" fill="#3D2B1F" opacity=".45"/>
+  <path d="M44 104 Q40 126 56 138 Q76 152 100 154 Q124 152 144 138 Q160 126 156 104" fill="#2D1B0E" opacity=".3"/>
+  <!-- Beard texture -->
+  <circle cx="66" cy="124" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="80" cy="132" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="100" cy="138" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="120" cy="132" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="134" cy="124" r="1" fill="#1a0f05" opacity=".3"/>
+  <!-- Smile in beard -->
+  <path d="M74 122 Q100 136 126 122" stroke="#8B5E3C" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Wine glass -->
+  <path d="M38 228 L38 242 M33 242 L43 242" stroke="#8B0000" stroke-width="1.5" opacity=".35"/>
+  <path d="M32 220 Q32 228 38 230 Q44 228 44 220Z" fill="#722F37" opacity=".35"/>
+  <text x="100" y="256" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#c9874a" text-anchor="middle" opacity=".9">Toni</text>
 </svg>

@@ -1,63 +1,62 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
   <defs>
-    <linearGradient id="t-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a0a0a"/><stop offset="100%" stop-color="#0a0a12"/></linearGradient>
-    <linearGradient id="t-helmet" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#DA121A"/><stop offset="40%" stop-color="#C60B1E"/><stop offset="100%" stop-color="#FCDD09"/></linearGradient>
-    <linearGradient id="t-suit-l" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#DA121A"/><stop offset="100%" stop-color="#A00E14"/></linearGradient>
-    <linearGradient id="t-suit-r" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#C60B1E"/><stop offset="100%" stop-color="#8B0710"/></linearGradient>
-    <radialGradient id="t-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#F5D4B8"/><stop offset="100%" stop-color="#DDA882"/></radialGradient>
-    <radialGradient id="t-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F5A0A0" stop-opacity=".4"/><stop offset="100%" stop-color="#F5A0A0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="ts" cx="50%" cy="38%" r="50%"><stop offset="0%" stop-color="#FFE0C0"/><stop offset="100%" stop-color="#D8A878"/></radialGradient>
+    <linearGradient id="th" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#222"/><stop offset="50%" stop-color="#555"/><stop offset="100%" stop-color="#222"/></linearGradient>
   </defs>
-  <rect width="220" height="240" rx="24" fill="url(#t-bg)"/>
-  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#DA121A" stroke-width="1" opacity=".2"/>
-  <!-- Cataluña + Burgos accent -->
-  <rect x="8" y="210" width="102" height="5" rx="2.5" fill="#FCDD09" opacity=".4"/>
-  <rect x="110" y="210" width="102" height="5" rx="2.5" fill="#C60B1E" opacity=".4"/>
-  <rect x="8" y="217" width="102" height="4" rx="2" fill="#DA121A" opacity=".3"/>
-  <rect x="110" y="217" width="102" height="4" rx="2" fill="white" opacity=".25"/>
-  <!-- Body - split design -->
-  <clipPath id="t-body-l"><rect x="70" y="155" width="40" height="60"/></clipPath>
-  <clipPath id="t-body-r"><rect x="110" y="155" width="40" height="60"/></clipPath>
-  <path d="M70 175 Q70 160 85 155 L135 155 Q150 160 150 175 L150 205 Q150 215 110 215 Q70 215 70 205 Z" fill="url(#t-suit-l)" clip-path="url(#t-body-l)"/>
-  <path d="M70 175 Q70 160 85 155 L135 155 Q150 160 150 175 L150 205 Q150 215 110 215 Q70 215 70 205 Z" fill="url(#t-suit-r)" clip-path="url(#t-body-r)"/>
-  <path d="M110 155 L110 205" stroke="white" stroke-width="1.2" opacity=".3"/>
-  <!-- Senyera stripe left, Burgos stripe right -->
-  <rect x="70" y="165" width="35" height="4" rx="2" fill="#FCDD09" opacity=".7"/>
-  <rect x="115" y="165" width="30" height="4" rx="2" fill="white" opacity=".5"/>
-  <!-- Arms -->
-  <ellipse cx="58" cy="175" rx="14" ry="10" fill="url(#t-suit-l)"/>
-  <ellipse cx="162" cy="175" rx="14" ry="10" fill="url(#t-suit-r)"/>
-  <!-- BIG head -->
-  <ellipse cx="110" cy="90" rx="56" ry="54" fill="url(#t-helmet)"/>
-  <!-- Helmet split: Cataluña / Burgos -->
-  <clipPath id="t-h-l"><rect x="54" y="36" width="56" height="75"/></clipPath>
-  <clipPath id="t-h-r"><rect x="110" y="36" width="56" height="75"/></clipPath>
-  <ellipse cx="110" cy="66" rx="46" ry="22" fill="#FCDD09" clip-path="url(#t-h-l)" opacity=".8"/>
-  <ellipse cx="110" cy="66" rx="46" ry="22" fill="white" clip-path="url(#t-h-r)" opacity=".65"/>
-  <rect x="62" y="56" width="96" height="4" rx="2" fill="#C60B1E" opacity=".6"/>
-  <!-- Helmet shine -->
-  <ellipse cx="92" cy="56" rx="16" ry="7" fill="white" opacity=".12"/>
+  <rect width="200" height="260" rx="22" fill="#060612"/>
+  <!-- TINY tall body -->
+  <path d="M76 210 Q66 198 76 190 L124 190 Q134 198 124 210 L130 242 Q100 254 70 242Z" fill="#333"/>
+  <rect x="82" y="196" width="36" height="12" rx="3" fill="#004481" opacity=".6"/>
+  <text x="100" y="206" font-family="system-ui" font-size="7" font-weight="700" fill="white" text-anchor="middle">BBVA</text>
+  <ellipse cx="66" cy="202" rx="12" ry="8" fill="#333"/>
+  <ellipse cx="134" cy="202" rx="12" ry="8" fill="#333"/>
+  <!-- Neck -->
+  <rect x="88" y="180" width="24" height="12" rx="4" fill="url(#ts)"/>
+  <!-- HUGE HELMET (dark/carbon) -->
+  <ellipse cx="100" cy="86" rx="76" ry="74" fill="url(#th)"/>
+  <ellipse cx="100" cy="54" rx="66" ry="40" fill="url(#th)"/>
+  <ellipse cx="76" cy="44" rx="22" ry="10" fill="white" opacity=".08"/>
   <!-- Visor -->
-  <path d="M62 82 Q62 70 110 68 Q158 70 158 82 L158 108 Q158 120 110 122 Q62 120 62 108 Z" fill="#0f172a" stroke="#1a1d26" stroke-width="1.5"/>
-  <!-- Face - strong jaw, slight smirk -->
-  <ellipse cx="110" cy="95" rx="38" ry="24" fill="url(#t-skin)"/>
-  <!-- Cool eyes -->
-  <ellipse cx="93" cy="89" rx="8" ry="9" fill="white"/>
-  <ellipse cx="127" cy="89" rx="8" ry="9" fill="white"/>
-  <ellipse cx="95" cy="90" rx="5" ry="6" fill="#2D1B0E"/>
-  <ellipse cx="129" cy="90" rx="5" ry="6" fill="#2D1B0E"/>
-  <circle cx="97" cy="87" r="2.5" fill="white"/>
-  <circle cx="131" cy="87" r="2.5" fill="white"/>
-  <!-- Confident eyebrows (slightly angled) -->
-  <path d="M82 77 Q93 74 102 78" stroke="#2D1B0E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M118 78 Q127 74 138 77" stroke="#2D1B0E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M34 76 Q34 64 100 60 Q166 64 166 76 L166 128 Q166 156 100 162 Q34 156 34 128Z" fill="#0a1520"/>
+  <!-- Face -->
+  <ellipse cx="100" cy="118" rx="54" ry="42" fill="url(#ts)"/>
+  <!-- Dark thinning hair from helmet -->
+  <path d="M38 82 Q36 74 40 68" stroke="#2D1B0E" stroke-width="3" fill="none" opacity=".6"/>
+  <path d="M162 82 Q164 74 160 68" stroke="#2D1B0E" stroke-width="3" fill="none" opacity=".6"/>
+  <!-- HUGE thick-frame glasses (pasta - his signature) -->
+  <rect x="46" y="96" width="42" height="30" rx="7" fill="rgba(180,200,220,.08)" stroke="#111" stroke-width="5"/>
+  <rect x="112" y="96" width="42" height="30" rx="7" fill="rgba(180,200,220,.08)" stroke="#111" stroke-width="5"/>
+  <path d="M88 110 L112 110" stroke="#111" stroke-width="4.5"/>
+  <path d="M44 108 L34 104" stroke="#111" stroke-width="3.5"/>
+  <path d="M156 108 L166 104" stroke="#111" stroke-width="3.5"/>
+  <!-- Eyes behind thick glasses -->
+  <ellipse cx="67" cy="111" rx="10" ry="10" fill="white"/>
+  <ellipse cx="133" cy="111" rx="10" ry="10" fill="white"/>
+  <ellipse cx="69" cy="112" rx="6" ry="7" fill="#3D2B1F"/>
+  <ellipse cx="135" cy="112" rx="6" ry="7" fill="#3D2B1F"/>
+  <circle cx="72" cy="109" r="2.8" fill="white"/>
+  <circle cx="138" cy="109" r="2.8" fill="white"/>
+  <!-- Dark eyebrows above glasses -->
+  <path d="M48 90 Q67 78 86 90" stroke="#2D1B0E" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M114 90 Q133 78 152 90" stroke="#2D1B0E" stroke-width="3.5" fill="none" stroke-linecap="round"/>
   <!-- Nose -->
-  <ellipse cx="110" cy="98" rx="3.5" ry="2.5" fill="#C4956E" opacity=".7"/>
-  <!-- Cool smirk -->
-  <path d="M94 105 Q110 113 128 108" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M98 106 Q110 112 124 108" fill="white" opacity=".7"/>
-  <!-- Cheeks -->
-  <circle cx="80" cy="102" r="7" fill="url(#t-cheek)"/>
-  <circle cx="140" cy="100" r="7" fill="url(#t-cheek)"/>
-  <!-- Name -->
-  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FCDD09" text-anchor="middle" opacity=".9">Toni</text>
+  <path d="M95 120 Q100 136 105 120" stroke="#B88050" stroke-width="2" fill="none"/>
+  <ellipse cx="100" cy="133" rx="6" ry="3" fill="#C49060" opacity=".5"/>
+  <!-- THICK BEARD (al 8 - his signature) -->
+  <path d="M50 128 Q46 150 62 162 Q80 174 100 176 Q120 174 138 162 Q154 150 150 128" fill="#3D2B1F" opacity=".45"/>
+  <path d="M54 130 Q50 148 64 160 Q82 172 100 174 Q118 172 136 160 Q150 148 146 130" fill="#2D1B0E" opacity=".3"/>
+  <!-- Beard texture dots -->
+  <circle cx="70" cy="148" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="82" cy="155" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="100" cy="160" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="118" cy="155" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="130" cy="148" r="1" fill="#1a0f05" opacity=".3"/>
+  <circle cx="76" cy="140" r="1" fill="#1a0f05" opacity=".25"/>
+  <circle cx="124" cy="140" r="1" fill="#1a0f05" opacity=".25"/>
+  <!-- Smile in beard -->
+  <path d="M78 146 Q100 158 122 146" stroke="#8B5E3C" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Wine glass near body -->
+  <path d="M148 226 L148 240 M143 240 L153 240" stroke="#8B0000" stroke-width="2" opacity=".4"/>
+  <path d="M142 218 Q142 226 148 228 Q154 226 154 218Z" fill="#722F37" opacity=".4"/>
+  <text x="100" y="256" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#c9874a" text-anchor="middle" opacity=".9">Toni</text>
 </svg>

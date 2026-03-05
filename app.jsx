@@ -1,16 +1,49 @@
 
 /* global React, ReactDOM */
-const { useState, useEffect, useMemo, useRef, useCallback } = React;
+const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } = React;
 const CACHE_BUST = "v20260301";
 console.info("[PorraF1] Versión carga", CACHE_BUST);
 
+const I18N={
+  es:{
+    login:"Entrar",save:"Guardar",cancel:"Cancelar",loading:"Cargando...",ranking:"Ranking",
+    participant:"Participante",admin:"Admin",rules:"Reglas",stats:"Estadísticas",questions:"Preguntas",
+    historic:"Histórico",shareBet:"Compartir apuesta",exportCsv:"Exportar CSV",
+    darkMode:"Modo claro",lightMode:"Modo oscuro",language:"Idioma",
+    betSaved:"Apuesta guardada correctamente",betLate:"Apuesta registrada (fuera de plazo: penalización -2 pts)",
+    noData:"No hay datos disponibles",position:"Pos",name:"Nombre",points:"Puntos",
+    victories:"Vict.",podiums:"Pod.",hits:"Aciert.",penalties:"Pen.",
+  },
+  en:{
+    login:"Log in",save:"Save",cancel:"Cancel",loading:"Loading...",ranking:"Ranking",
+    participant:"Participant",admin:"Admin",rules:"Rules",stats:"Statistics",questions:"Questions",
+    historic:"History",shareBet:"Share bet",exportCsv:"Export CSV",
+    darkMode:"Light mode",lightMode:"Dark mode",language:"Language",
+    betSaved:"Bet saved successfully",betLate:"Bet registered (late: -2 pts penalty)",
+    noData:"No data available",position:"Pos",name:"Name",points:"Points",
+    victories:"Wins",podiums:"Pod.",hits:"Hits",penalties:"Pen.",
+  }
+};
+const LangCtx=createContext("es");
+function useLang(){return useContext(LangCtx);}
+function t(key,lang){return I18N[lang]?.[key]||I18N.es[key]||key;}
+
+/* === CONFIG === */
+const CONFIG={
+  participants:["Antonio","Carlos","Pere","Toni","Manrique"],
+  timezone:"Europe/Madrid",
+  sessionTimeoutMs:30*60*1000,
+  questionAuthorsOrder:["Pere","Antonio","Manrique","Toni","Carlos"],
+  futbolTeams:["Real Madrid","FC Barcelona","Real Sociedad","Real Sporting de Gijón"],
+  futbolDeadlineHour:"15:00",
+};
 const LS_KEY = "porra_f1_clean_v3";
 const DEFAULT_PASSWORD_HASH = "3c9aed6bcbf0ebf23367e34557722796f040290945a9abc608599bda30c4c0d3";
 const RECOVERY_CODE_HASH = DEFAULT_PASSWORD_HASH;
 const ADMIN_SECRET_HASH = "3c456c5124d0660a8bc1b4a6c1e09f5e72c5de8fd36dd0c4ec4607bc22325652";
-const QUESTION_AUTHORS_ORDER = ["Pere","Antonio","Manrique","Toni","Carlos"];
-const MADRID_TZ = "Europe/Madrid";
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const QUESTION_AUTHORS_ORDER = CONFIG.questionAuthorsOrder;
+const MADRID_TZ = CONFIG.timezone;
+const SESSION_TIMEOUT_MS = CONFIG.sessionTimeoutMs;
 const nowISO = ()=>new Date().toISOString();
 const loadDB = ()=>{ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch{return {};} };
 function _saveDBNow(db){
@@ -55,7 +88,7 @@ async function loadCalendar(){ const r = await fetch(`./assets/calendar_2026.jso
 async function loadDrivers(){ const r = await fetch(`./assets/drivers_2026.json?${CACHE_BUST}`); return r.json(); }
 async function loadTeams(){ const r = await fetch(`./assets/teams_2026.json?${CACHE_BUST}`); return r.json(); }
 async function loadCircuits(){ const r = await fetch(`./assets/circuits_2026.json?${CACHE_BUST}`); return r.json(); }
-async function loadHistorical(year){ const r = await fetch(`./assets/historical_${year}.json?${CACHE_BUST}`); return r.json(); }
+async function loadHistorical(year){ const r = await fetch(`./assets/historical_${year}.json?${CACHE_BUST}`); if(!r.ok){ const e=new Error(`HTTP ${r.status}`); e.status=r.status; throw e; } return r.json(); }
 async function hashPassword(pwd){
   const data=new TextEncoder().encode(pwd||"");
   const digest=await crypto.subtle.digest("SHA-256", data);
@@ -122,6 +155,20 @@ async function verifyAdminSecret(input, dbMeta){
   if(dbMeta?.adminSecretHash) return inputHash===dbMeta.adminSecretHash;
   if(dbMeta?.adminSecret) return input===dbMeta.adminSecret;
   return inputHash===ADMIN_SECRET_HASH;
+}
+
+function shareBet(text){
+  if(navigator.share) navigator.share({title:"Porra Birreros",text}).catch(()=>{});
+  else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,"_blank");
+}
+
+function exportCSV(filename, headers, rows){
+  const bom="\uFEFF";
+  const csv=bom+[headers.join(";"),...rows.map(r=>r.map(c=>String(c??"").replace(/;/g,",")).join(";"))].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 const FUTBOL_BASE_TEAMS=["Real Madrid","FC Barcelona","Real Sociedad","Real Sporting de Gijón"];
@@ -377,11 +424,11 @@ function ChangeAvatarModal({open,onClose,db,setDb,user}){
     onClose();
   };
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="avatar-modal-title" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="bg-white text-slate-900 rounded-xl p-5 w-full max-w-sm">
-        <div className="font-semibold mb-3">Cambiar avatar</div>
-        <p className="text-sm text-slate-600 mb-3">JPG, PNG o SVG. Máx. ~100KB.</p>
-        <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml" onChange={handleFile} className="block w-full text-sm mb-3" disabled={busy} />
+        <div id="avatar-modal-title" className="font-semibold mb-3">Cambiar avatar</div>
+        <label htmlFor="avatar-file" className="text-sm text-slate-600 mb-3 block">JPG, PNG o SVG. Máx. ~100KB.</label>
+        <input id="avatar-file" ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml" onChange={handleFile} className="block w-full text-sm mb-3" disabled={busy} />
         <div className="flex gap-2 justify-end">
           <button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button>
           {db.meta?.avatars?.[user]&&<button type="button" className="px-3 py-2 rounded bg-red-100 text-red-700" onClick={removeAvatar}>Quitar avatar</button>}
@@ -410,13 +457,13 @@ function ChangePasswordModal({open,onClose,db,setDb,user}){
     }finally{setBusy(false);}
   };
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="pwd-modal-title" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="bg-white text-slate-900 rounded-xl p-5 w-full max-w-sm">
-        <div className="font-semibold mb-2">Cambiar contraseña</div>
+        <div id="pwd-modal-title" className="font-semibold mb-2">Cambiar contraseña</div>
         <form onSubmit={submit} className="grid gap-2">
-          <label className="text-sm">Actual</label><input type="password" autoComplete="current-password" className="border rounded px-3 py-2" value={curr} onChange={e=>setCurr(e.target.value)} />
-          <label className="text-sm">Nueva</label><input type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n1} onChange={e=>setN1(e.target.value)} />
-          <label className="text-sm">Repetir nueva</label><input type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n2} onChange={e=>setN2(e.target.value)} />
+          <label htmlFor="pwd-curr" className="text-sm">Actual</label><input id="pwd-curr" type="password" autoComplete="current-password" className="border rounded px-3 py-2" value={curr} onChange={e=>setCurr(e.target.value)} />
+          <label htmlFor="pwd-new" className="text-sm">Nueva</label><input id="pwd-new" type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n1} onChange={e=>setN1(e.target.value)} />
+          <label htmlFor="pwd-repeat" className="text-sm">Repetir nueva</label><input id="pwd-repeat" type="password" autoComplete="new-password" className="border rounded px-3 py-2" value={n2} onChange={e=>setN2(e.target.value)} />
           <div className="flex gap-2 mt-2 justify-end"><button type="button" className="px-3 py-2 rounded bg-slate-200" onClick={onClose}>Cancelar</button><button disabled={busy} className="px-3 py-2 rounded bg-slate-900 text-white disabled:opacity-50">{busy?"Guardando...":"Guardar"}</button></div>
         </form>
       </div>
@@ -495,15 +542,15 @@ function Login({db,setDb,onLogged}){
               🔑 Pide el código de recuperación al administrador de la porra.
             </div>
             <div>
-              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Tu usuario</label>
-              <select className="select border rounded px-3 py-2.5 text-base w-full" value={recoverUser} onChange={e=>setRecoverUser(e.target.value)}>
+              <label htmlFor="recover-user" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Tu usuario</label>
+              <select id="recover-user" className="select border rounded px-3 py-2.5 text-base w-full" value={recoverUser} onChange={e=>setRecoverUser(e.target.value)}>
                 <option value="">— elige —</option>
                 {Object.keys(db.users||{}).sort().map(n=><option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Código de recuperación</label>
-              <input type="password" autoComplete="off" className="select border rounded px-3 py-2.5 w-full" placeholder="Código que te dio el admin" value={recoverCode} onChange={e=>setRecoverCode(e.target.value)} />
+              <label htmlFor="recover-code" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Código de recuperación</label>
+              <input id="recover-code" type="password" autoComplete="off" className="select border rounded px-3 py-2.5 w-full" placeholder="Código que te dio el admin" value={recoverCode} onChange={e=>setRecoverCode(e.target.value)} />
             </div>
             <button className="mt-1 px-4 py-2.5 rounded-xl bg-amber-600/80 border border-amber-500/30 text-white font-medium hover:bg-amber-600 transition-all">Verificar código</button>
           </form>
@@ -511,12 +558,12 @@ function Login({db,setDb,onLogged}){
           <form onSubmit={doRecover} className="grid gap-3">
             <div className="text-sm text-emerald-300/80">✅ Código correcto. Elige tu nueva contraseña, <b>{recoverUser}</b>.</div>
             <div>
-              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label>
-              <input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN1} onChange={e=>setRecoverN1(e.target.value)} />
+              <label htmlFor="recover-n1" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label>
+              <input id="recover-n1" type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN1} onChange={e=>setRecoverN1(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label>
-              <input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN2} onChange={e=>setRecoverN2(e.target.value)} />
+              <label htmlFor="recover-n2" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label>
+              <input id="recover-n2" type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={recoverN2} onChange={e=>setRecoverN2(e.target.value)} />
             </div>
             <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl bg-emerald-600/80 border border-emerald-500/30 text-white font-medium hover:bg-emerald-600 transition-all disabled:opacity-50">{busy?"Guardando...":"Guardar nueva contraseña"}</button>
           </form>
@@ -530,15 +577,15 @@ function Login({db,setDb,onLogged}){
       {!needsChange ? (
         <form onSubmit={tryLogin} className="grid gap-3">
           <div>
-            <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Usuario</label>
-            <select className="select border rounded px-3 py-2.5 text-base w-full" value={name} onChange={e=>setName(e.target.value)}>
+            <label htmlFor="login-user" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Usuario</label>
+            <select id="login-user" className="select border rounded px-3 py-2.5 text-base w-full" value={name} onChange={e=>setName(e.target.value)}>
               <option value="">— elige —</option>
               {Object.keys(db.users||{}).sort().map(n=><option key={n} value={n}>{n}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Contraseña</label>
-            <input type="password" autoComplete="current-password" className="select border rounded px-3 py-2.5 w-full" value={pass} onChange={e=>setPass(e.target.value)} />
+            <label htmlFor="login-pass" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Contraseña</label>
+            <input id="login-pass" type="password" autoComplete="current-password" className="select border rounded px-3 py-2.5 w-full" value={pass} onChange={e=>setPass(e.target.value)} />
           </div>
           <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl border text-white font-bold tracking-wide shadow-lg transition-all disabled:opacity-50" style={{background:"linear-gradient(135deg,rgba(225,6,0,.8),rgba(217,119,6,.7))",borderColor:"rgba(245,158,11,.3)",boxShadow:"0 4px 20px rgba(225,6,0,.15),0 2px 10px rgba(245,158,11,.1)"}} onClick={tryLogin}>{busy?"Entrando...":"🍺 ENTRAR"}</button>
           <button type="button" onClick={()=>setShowRecover(true)} className="text-xs text-white/40 hover:text-amber-300/70 transition-colors mt-0.5">🔑 ¿Olvidaste tu contraseña?</button>
@@ -546,8 +593,8 @@ function Login({db,setDb,onLogged}){
       ) : (
         <form onSubmit={doChange} className="grid gap-3">
           <div className="text-sm text-amber-300/80">Es tu primer acceso. Cambia tu contraseña.</div>
-          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label><input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={n1} onChange={e=>setN1(e.target.value)} /></div>
-          <div><label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label><input type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={n2} onChange={e=>setN2(e.target.value)} /></div>
+          <div><label htmlFor="change-n1" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Nueva contraseña</label><input id="change-n1" type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={n1} onChange={e=>setN1(e.target.value)} /></div>
+          <div><label htmlFor="change-n2" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Repite contraseña</label><input id="change-n2" type="password" autoComplete="new-password" className="select border rounded px-3 py-2.5 w-full" value={n2} onChange={e=>setN2(e.target.value)} /></div>
           <button disabled={busy} className="mt-1 px-4 py-2.5 rounded-xl bg-emerald-600/80 border border-emerald-500/30 text-white font-medium hover:bg-emerald-600 transition-all disabled:opacity-50">{busy?"Guardando...":"Guardar y entrar"}</button>
         </form>
       )}
@@ -869,8 +916,8 @@ function PositionEvolutionChart({db,races,scope,participants}){
   },[db,races,scope,participants]);
 
   if(!chartData||chartData.length<1) return null;
-  const sorted=[...participants].sort();
-  const colorOf=n=>PILOT_COLORS[n]||FALLBACK_COLORS[sorted.indexOf(n)%FALLBACK_COLORS.length];
+  const sorted=useMemo(()=>[...participants].sort(),[participants]);
+  const colorOf=useCallback(n=>PILOT_COLORS[n]||FALLBACK_COLORS[sorted.indexOf(n)%FALLBACK_COLORS.length],[sorted]);
   const nR=chartData.length;
   const nP=participants.length;
   const padL=28,padR=82,padT=22,padB=32;
@@ -951,7 +998,6 @@ function Ranking({db,races,setDb,currentUser}){
   const [scope,setScope]=useState("all"); const participants=Object.keys(db.participants||{});
   const isAdmin=!!db.users?.[currentUser]?.isAdmin;
   const forceAuto=!!db.meta?.forceAutoStandings;
-  const backupDefaults={Antonio:0,Carlos:0,Manrique:0,Pere:0,Toni:0};
   const basePoints=db.meta?.basePoints||{};
   const baseEntries=Object.entries(basePoints).filter(([_,v])=>Number(v)>0);
   const manualStandings=useMemo(()=>{
@@ -1003,7 +1049,10 @@ function Ranking({db,races,setDb,currentUser}){
   };
   const podiumIcon=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1;
   return (<div className="space-y-4">
-    <div className="card card-racing p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title text-lg">🏎️ Ranking F1 <span className="text-sm opacity-60">🍺</span></h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10"></th><th className="text-left">Piloto</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;const isLast=i===data.length-1&&data.length>1;const pCls=i===0?"podium-1":i===1?"podium-2":i===2?"podium-3":isLast?"border-l-2 border-l-amber-600/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":"";return(<tr key={r.name} className={pCls} style={i<3?{animationDelay:`${i*0.08}s`}:{}}><td className="text-white/50">{podiumIcon(i)}</td><td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${i===0?"text-white":""}`}>{r.name}</span>{isLast&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 paga las birras</span>}<div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:``}Pod:${r.exact} Aciert:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right pts-cell">{r.points}</td>{scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/45 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/30 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-3 flex flex-wrap items-center gap-2">Clasificación importada.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/35 mt-3">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/50 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}</div>
+    <div className="card card-racing p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title text-lg">🏎️ Ranking F1 <span className="text-sm opacity-60">🍺</span></h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">Global</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10"></th><th className="text-left">Piloto</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;const allTied=data.length>1&&data.every(d=>d.points===data[0].points);const isLast=i===data.length-1&&data.length>1&&!allTied;const pCls=i===0&&!allTied?"podium-1":i===1&&!allTied?"podium-2":i===2&&!allTied?"podium-3":isLast?"border-l-2 border-l-amber-600/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":"";return(<tr key={r.name} className={pCls} style={i<3&&!allTied?{animationDelay:`${i*0.08}s`}:{}}><td className="text-white/50">{allTied?"—":podiumIcon(i)}</td><td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm"/><div><span className={`font-semibold ${i===0&&!allTied?"text-white":""}`}>{r.name}</span>{isLast&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 paga las birras</span>}{allTied&&i===0&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 todos pagamos</span>}<div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:``}Pod:${r.exact} Aciert:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right pts-cell">{r.points}</td>{scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/45 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/30 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-3 flex flex-wrap items-center gap-2">Clasificación importada.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/35 mt-3">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/50 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}
+    <button className="mt-3 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
+      exportCSV("ranking_f1.csv",["Pos","Nombre","Puntos","Victorias","Podios","Aciertos","Pen."],data.map((r,i)=>[i+1,r.name,r.points,r.wins,r.exact,r.hits,r.pen]));
+    }}>📥 Exportar CSV</button></div>
     <PositionEvolutionChart db={db} races={races} scope={scope} participants={participants}/>
     <RaceBreakdown db={db} races={races} raceKey={scope} rows={data} />
     <div className="card card-racing p-4 md:p-5"><h3 className="section-title mb-3">🏆 Campeonatos mundiales <span className="text-sm opacity-50">🍻</span></h3>{champData.length?(<ul className="space-y-2">{champData.map((item,idx)=>(<li key={item.name} className="flex items-center justify-between border border-white/10 rounded px-3 py-2 bg-neutral-900"><div className="flex items-center gap-2"><Avatar name={item.name} avatar={db.meta?.avatars?.[item.name]} size="sm"/><span className="font-medium">{idx+1}. {item.name}</span></div><span className="text-sm">{item.titles} 🏆</span></li>))}</ul>):(<p className="text-sm text-slate-300">No hay participantes registrados.</p>)}<p className="text-xs text-slate-400 mt-2">Se edita desde Admin &gt; Campeonatos mundiales.</p></div>
@@ -1051,25 +1100,26 @@ function QuestionsHistory({db,races}){
   return (<div className="card card-racing p-4 md:p-5 space-y-3"><h2 className="section-title">❓ Histórico de preguntas</h2>{(races||[]).map(r=>{ const qs=db.questions?.[r.key]||["","",""]; const st=db.questionsStatus?.[r.key]; const owner=db.questionOwner?.[r.key]||""; return (<div key={r.key} className="border border-white/10 rounded p-3 bg-neutral-900"><div className="flex flex-wrap items-center justify-between gap-2"><div className="font-medium min-w-0"><span className="break-words">{r.round}. {r.grand_prix}</span> <span className="text-slate-300 text-sm">— {r.date_local}</span></div><div className="flex-shrink-0">{st?.published?<span className="badge badge-green">Publicado</span>:<span className="badge badge-amber">Pendiente</span>}</div></div><div className="text-xs text-slate-300">Autor: {owner||"—"}</div>{st?.published?<ol className="list-decimal pl-5 text-sm">{qs.map((q,i)=><li key={i}>{q||"—"}</li>)}</ol>:<div className="text-sm text-slate-400">Aún no publicadas.</div>}</div>); })}</div>);
 }
 
+const REAL_HISTORICAL_2025_KEYS = ["las_vegas","qatar","abu_dhabi"];
+const REAL_HISTORICAL_2025_ROUNDS = [22,23,24];
+
 function Historico(){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
   const [year,setYear]=useState(2025);
-  useEffect(()=>{ loadHistorical(year).then(setData).catch(e=>{ setError(e.message); setData(null); }).finally(()=>setLoading(false)); },[year]);
-  useEffect(()=>{ setLoading(true); },[year]);
-  if(loading) return <div className="card p-4"><p className="text-slate-300">Cargando histórico...</p></div>;
-  if(error) return <div className="card p-4"><p className="text-amber-300">Error al cargar: {error}</p></div>;
-  if(!data) return <div className="card p-4"><p className="text-slate-300">No hay datos históricos disponibles.</p></div>;
+  useEffect(()=>{ setLoading(true); setError(null); loadHistorical(year).then(setData).catch(e=>{ setError(e.status===404||e.message?.includes("404")?`No hay datos históricos para ${year}`:`Error al cargar: ${e.message}`); setData(null); }).finally(()=>setLoading(false)); },[year]);
+  const yearSelector=<select className="select border rounded px-3 py-2 text-sm" value={year} onChange={e=>setYear(Number(e.target.value))}>{Array.from({length:new Date().getFullYear()-2024},(_,i)=>2025+i).map(y=><option key={y} value={y}>{y}</option>)}</select>;
+  if(loading) return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3"><h2 className="section-title text-lg">Histórico</h2>{yearSelector}</div><div className="card p-4"><p className="text-slate-300">Cargando histórico...</p></div></div>;
+  if(error) return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3"><h2 className="section-title text-lg">Histórico</h2>{yearSelector}</div><div className="card p-4"><p className="text-amber-300">{error}</p></div></div>;
+  if(!data) return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3"><h2 className="section-title text-lg">Histórico</h2>{yearSelector}</div><div className="card p-4"><p className="text-slate-300">No hay datos históricos disponibles.</p></div></div>;
   const races=data.races||[];
   const hasStandings=!!data?.standings?.length;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="section-title text-lg">{data.title||`Porra F1 ${data.year}`}</h2>
-        <select className="select border rounded px-3 py-2 text-sm" value={year} onChange={e=>setYear(Number(e.target.value))}>
-          <option value={2025}>2025</option>
-        </select>
+        {yearSelector}
       </div>
       {hasStandings && (
         <div className="card p-4">
@@ -1513,6 +1563,7 @@ const F1_SUGG=[
   "Clasificación GP Bahréin 2024","Vuelta rápida Monza 2023","¿Quién ha ganado más en Silverstone?",
   "Hamilton temporada 2020","Constructores 2023","Próxima carrera",
   "Alonso en Mónaco","Compañero de Leclerc en 2024",
+  "🔮 Predice el podio del próximo GP","🔮 ¿Quién será campeón este año?",
 ];
 
 const FUTBOL_SUGG=[
@@ -1520,6 +1571,7 @@ const FUTBOL_SUGG=[
   "¿Cuántos Balones de Oro tiene Messi?","Historia del Clásico Barça-Madrid","¿Quién ha ganado más Eurocopas?",
   "Mejores porteros de la historia","Récord de goles en una temporada","¿Qué es el fuera de juego?",
   "Mayores goleadas en mundiales","Mejor once histórico","¿Cuándo se inventó el VAR?",
+  "🔮 Predice el resultado del próximo Clásico","🔮 ¿Quién ganará la Champions este año?",
 ];
 
 async function processFutbolQuery(question){
@@ -1555,18 +1607,17 @@ function AIAssistant({open,onClose,races,mode="f1"}){
     finally{setLoading(false);}
   };
   if(!open) return null;
-  const accent=isFutbol?"emerald":"emerald";
   const loadingText=isFutbol?"Consultando sobre fútbol...":"Consultando datos de F1...";
   const welcomeText=isFutbol
     ?"¡Biip boop! Soy ManriBot ⚽, tu experto futbolero con más datos que cromos. Pregúntame sobre cualquier cosa del mundo del fútbol: historia, equipos, jugadores, tácticas..."
     :"¡Biip boop! Soy ManriBot 🏎️, tu enciclopedia F1 con tanto dato inútil como Manrique. Pregúntame lo que quieras: resultados, campeonatos, pilotos, circuitos...";
   const subtitleText=isFutbol?"Powered by Gemma 3 27B · Todo sobre fútbol":"Datos desde 1950 hasta hoy · Jolpica/Ergast API";
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:justify-end p-0 md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:justify-end p-0 md:p-6" role="dialog" aria-modal="true" aria-labelledby="manribot-title">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
       <div className="relative w-full md:max-w-lg max-h-[100vh] md:max-h-[85vh] flex flex-col bg-[#12141b] border border-white/10 rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden">
         <div className={`flex items-center justify-between p-4 border-b ${isFutbol?"border-emerald-500/20":"border-white/10"}`}>
-          <h2 className="font-semibold flex items-center gap-2"><img src="./assets/manribot.svg" alt="" className="w-7 h-7 inline-block"/> ManriBot {isFutbol?"⚽":"🏎️"}</h2>
+          <h2 id="manribot-title" className="font-semibold flex items-center gap-2"><img src="./assets/manribot.svg" alt="" className="w-7 h-7 inline-block"/> ManriBot {isFutbol?"⚽":"🏎️"}</h2>
           <div className="flex items-center gap-2">
             <button className="text-xs text-slate-500 hover:text-slate-300" onClick={()=>setMessages([])}>Limpiar</button>
             <button className="text-slate-400 hover:text-white p-1" onClick={onClose}>✕</button>
@@ -1585,11 +1636,11 @@ function AIAssistant({open,onClose,races,mode="f1"}){
             </div>
           )}
           {messages.map((m,i)=>(
-            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-4 md:ml-8":`bg-${accent}-900/20 border border-${accent}-500/10 mr-2 md:mr-4`}`}>
+            <div key={i} className={`rounded-xl p-3 ${m.role==="user"?"bg-slate-800/80 ml-4 md:ml-8":"bg-emerald-900/20 border border-emerald-500/10 mr-2 md:mr-4"}`}>
               <p className="text-sm whitespace-pre-wrap">{m.text}</p>
             </div>
           ))}
-          {loading && <div className={`rounded-xl p-3 bg-${accent}-900/20 border border-${accent}-500/10 mr-4`}><p className="text-sm text-slate-300 animate-pulse">{loadingText}</p></div>}
+          {loading && <div className="rounded-xl p-3 bg-emerald-900/20 border border-emerald-500/10 mr-4"><p className="text-sm text-slate-300 animate-pulse">{loadingText}</p></div>}
         </div>
         {messages.length>0 && (
           <div className="px-4 pb-1">
@@ -2348,6 +2399,64 @@ function FutbolRanking({db}){
           </div>
         )}
         <p className="text-[11px] text-white/30">Desempates: puntos → victorias → exactos → signos → menos pen. → menor dif. goles.</p>
+        <button className="mt-3 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
+          exportCSV("ranking_futbol.csv",["Pos","Nombre","Puntos","Victorias","Exactos","Signos","Pen."],standings.map((r,i)=>[i+1,r.name,r.points,r.wins,r.exact,r.signs,r.penCount]));
+        }}>📥 Exportar CSV</button>
+      </div>
+    </div>
+  );
+}
+
+function FutbolEvolutionChart({db}){
+  const futbol=db.futbol||defaultFutbolState();
+  const participants=useMemo(()=>Object.keys(db.participants||{}),[db.participants]);
+  const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
+  const chartData=useMemo(()=>{
+    if(participants.length<2) return null;
+    const withRes=jornadas.filter(j=>futbol.results?.[j.id]);
+    if(!withRes.length) return null;
+    const sorted=[...participants].sort();
+    const startPos={}; sorted.forEach((n,i)=>{startPos[n]=i+1;});
+    const evol=[{label:"🏁",positions:startPos}];
+    withRes.forEach((j,ji)=>{
+      const keysUpTo=withRes.slice(0,ji+1).map(x=>x.id);
+      const st=participants.map(name=>{
+        let pts=0,exact=0,signs=0;
+        keysUpTo.forEach(id=>{const s=scoreFutbolJornada(db,id,name);pts+=s.points;exact+=s.exact;signs+=s.signs;});
+        return{name,points:pts,exact,signs};
+      }).sort((a,b)=>b.points-a.points||b.exact-a.exact||b.signs-a.signs);
+      const pos={}; st.forEach((s,i)=>{pos[s.name]=i+1;});
+      evol.push({label:j.name||`J${ji+1}`,positions:pos});
+    });
+    return evol;
+  },[futbol,participants,jornadas,db]);
+  if(!chartData||chartData.length<2) return null;
+  const sorted=useMemo(()=>[...participants].sort(),[participants]);
+  const colorOf=useCallback(n=>PILOT_COLORS[n]||FALLBACK_COLORS[sorted.indexOf(n)%FALLBACK_COLORS.length],[sorted]);
+  const nR=chartData.length; const nP=participants.length;
+  const padL=28,padR=82,padT=22,padB=32;
+  const colW=Math.max(48,280/nR); const rowH=Math.max(26,160/nP);
+  const chartW=nR>1?(nR-1)*colW:colW; const chartH=nP>1?(nP-1)*rowH:rowH;
+  const W=padL+chartW+padR,H=padT+chartH+padB;
+  const xOf=i=>padL+(nR>1?(i/(nR-1))*chartW:chartW/2);
+  const yOf=p=>padT+((p-1)/(nP-1))*chartH;
+  return (
+    <div className="card p-4 md:p-5">
+      <h2 className="section-title text-base mb-3">📈 Evolución por jornada</h2>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{minWidth:Math.max(400,nR*50)}}>
+          {Array.from({length:nP},(_,i)=><line key={i} x1={padL} x2={padL+chartW} y1={yOf(i+1)} y2={yOf(i+1)} stroke="rgba(255,255,255,.06)" strokeWidth=".5"/>)}
+          {sorted.map(name=>{
+            const pts=chartData.map((d,i)=>({x:xOf(i),y:yOf(d.positions[name]||nP)}));
+            const path=pts.map((p,i)=>i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`).join(" ");
+            return <g key={name}>
+              <path d={path} fill="none" stroke={colorOf(name)} strokeWidth="2" strokeLinejoin="round" opacity=".9"/>
+              {pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3" fill={colorOf(name)}/>)}
+              <text x={pts[pts.length-1].x+6} y={pts[pts.length-1].y+4} fill={colorOf(name)} fontSize="10" fontWeight="600">{name}</text>
+            </g>;
+          })}
+          {chartData.map((d,i)=><text key={i} x={xOf(i)} y={H-6} textAnchor="middle" fill="rgba(255,255,255,.4)" fontSize="8">{d.label}</text>)}
+        </svg>
       </div>
     </div>
   );
@@ -2660,8 +2769,6 @@ const baseCalendar=baseCal;
 }
 
 const CURRENT_SEASON_YEAR = 2026;
-const REAL_HISTORICAL_2025_KEYS = ["las_vegas","qatar","abu_dhabi"];
-const REAL_HISTORICAL_2025_ROUNDS = [22,23,24];
 
 function CountdownBadge({target}){
   const [tick,setTick]=useState(()=>Date.now());
@@ -2744,6 +2851,26 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
   const showStatusOnly=isAdmin && race && !canViewFull;
   const others=Object.keys(db.participants||{}).filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
+  const handleBetSubmit=useCallback((b)=>{
+    const late=new Date()>=race?.cutoff;
+    setDb(prev=>{
+      const timestamp=nowISO();
+      const rk=race?.key; if(!rk) return prev;
+      const prevRaceBets={...(prev.bets?.[rk]||{})};
+      const prevBet=prevRaceBets[user];
+      const nextBet={...prevBet,...b,submittedAt:timestamp,late};
+      const nextBets={...(prev.bets||{}), [rk]:{...prevRaceBets, [user]:nextBet}};
+      let betHistory=prev.betHistory||{};
+      if(!prevBet || !betsAreEqual(prevBet,b)){
+        const raceHistory={...(betHistory[rk]||{})};
+        const userLog=[...(raceHistory[user]||[])];
+        userLog.push({ts:timestamp,pole:b.pole||"",podium:[...(b.podium||["","",""])],q:[...(b.q||["","",""])],late});
+        betHistory={...betHistory,[rk]:{...raceHistory,[user]:userLog}};
+      }
+      return {...prev, bets:nextBets, betHistory};
+    });
+    late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
+  },[race?.key,race?.cutoff,user,setDb]);
   const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
@@ -2821,21 +2948,11 @@ function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setS
           <div className="text-sm text-amber-300/80 mt-1">El plazo de apuestas ha cerrado. Puedes apostar igualmente, pero se aplicará una <b>penalización de -2 puntos</b>. No apostar supone <b>-3 puntos</b>.</div>
         </div>
       )}
-      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit} canEdit={canEdit} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={(b)=>{ const late=new Date()>=race.cutoff; setDb(prev=>{
-        const timestamp=nowISO();
-        const prevRaceBets={...(prev.bets?.[race.key]||{})};
-        const prevBet=prevRaceBets[user];
-        const nextBet={...prevBet,...b,submittedAt:timestamp,late};
-        const nextBets={...(prev.bets||{}), [race.key]:{...prevRaceBets, [user]:nextBet}};
-        let betHistory=prev.betHistory||{};
-        if(!prevBet || !betsAreEqual(prevBet,b)){
-          const raceHistory={...(betHistory[race.key]||{})};
-          const userLog=[...(raceHistory[user]||[])];
-          userLog.push({ts:timestamp,pole:b.pole||"",podium:[...(b.podium||["","",""])],q:[...(b.q||["","",""])],late});
-          betHistory={...betHistory,[race.key]:{...raceHistory,[user]:userLog}};
-        }
-        return {...prev, bets:nextBets, betHistory};
-      }); late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente"); }}/>}      
+      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit} canEdit={canEdit} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={handleBetSubmit}/>}
+      {race && bet?.submittedAt && <button className="mt-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
+        const lines=[`🏎️ Porra Birreros — ${race.grand_prix}`,`📋 Apuesta de ${user}:`,bet.pole?`🏁 Pole: ${bet.pole}`:"",bet.podium?.filter(Boolean).length?`🥇🥈🥉 Podio: ${bet.podium.filter(Boolean).join(", ")}`:""].filter(Boolean);
+        shareBet(lines.join("\n"));
+      }}>📤 Compartir apuesta</button>}
       {race && prevYearResult && REAL_HISTORICAL_2025_KEYS.includes(race.key) && (
         <div className="mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-600/30">
           <h3 className="text-sm font-semibold text-slate-200 mb-2">📋 Resultado año anterior ({race.grand_prix} {CURRENT_SEASON_YEAR-1})</h3>
@@ -3017,6 +3134,10 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
 }
 
 function App(){
+  const [lang,setLang]=useState(()=>localStorage.getItem("porra_lang")||"es");
+  useEffect(()=>{localStorage.setItem("porra_lang",lang);},[lang]);
+  const [theme,setTheme]=useState(()=>localStorage.getItem("porra_theme")||"dark");
+  useEffect(()=>{localStorage.setItem("porra_theme",theme); document.documentElement.dataset.theme=theme;},[theme]);
   const [db,setDb]=useState(loadDB()); const [cal,setCal]=useState([]); const [drivers,setDrivers]=useState([]); const [teams,setTeams]=useState([]); const [circuits,setCircuits]=useState({}); const [selectedRaceKey,setSelectedRaceKey]=useState(()=>sessionStorage.getItem("porra_selected_race")||""); useEffect(()=>{ if(selectedRaceKey&&!cal?.find(r=>r.key===selectedRaceKey)&&cal?.length) setSelectedRaceKey(cal[0].key); },[cal,selectedRaceKey]); useEffect(()=>{ if(selectedRaceKey) sessionStorage.setItem("porra_selected_race",selectedRaceKey); },[selectedRaceKey]); const [user,setUser]=useState(()=>{ const s=getSession(); return s?.user||sessionStorage.getItem("porra_session_user")||""; }); const [view,setView]=useState("participante"); const [mode,setMode]=useState(()=>localStorage.getItem("porra_mode")||"f1"); const [showPass,setShowPass]=useState(false); const [showAvatar,setShowAvatar]=useState(false); const [showAI,setShowAI]=useState(false); const [hydrated,setHydrated]=useState(false); const [defaultPwdHash,setDefaultPwdHash]=useState("");
   const [showBanner,setShowBanner]=useState(false);
   const userActionRef=useRef(false);
@@ -3052,7 +3173,15 @@ function App(){
     if(!hydrated) return;
     saveRemoteDebounced(db);
   },[db,hydrated]);
-  useEffect(()=>{ loadCalendar().then(setCal); loadDrivers().then(setDrivers); loadTeams().then(setTeams); loadCircuits().then(setCircuits).catch(()=>{}); setDefaultPwdHash(DEFAULT_PASSWORD_HASH); },[]);
+  const [loadError,setLoadError]=useState(null);
+  useEffect(()=>{
+    const safe=(fn,label)=>fn().catch(err=>{console.error(`Error cargando ${label}:`,err);setLoadError(prev=>prev||`No se pudo cargar ${label}`);return null;});
+    safe(loadCalendar,"calendario").then(d=>{if(d)setCal(d);});
+    safe(loadDrivers,"pilotos").then(d=>{if(d)setDrivers(d);});
+    safe(loadTeams,"equipos").then(d=>{if(d)setTeams(d);});
+    safe(loadCircuits,"circuitos").then(d=>{if(d)setCircuits(d);});
+    setDefaultPwdHash(DEFAULT_PASSWORD_HASH);
+  },[]);
   useEffect(()=>{
     const stored=Number(localStorage.getItem("porra_last_active")||0);
     if(user && stored && Date.now()-stored>SESSION_TIMEOUT_MS){
@@ -3138,7 +3267,7 @@ function App(){
     });
   },[hydrated,db.futbol,db.meta]);
   const raceOverrides=db.meta?.raceOverrides||{};
-  const races=(Array.isArray(cal)?cal:[]).map(item=>{
+  const races=useMemo(()=>(Array.isArray(cal)?cal:[]).map(item=>{
     const override=raceOverrides[item.key]||{};
     const timeZone=override.timezone||item.timezone||MADRID_TZ;
     const qDate=override.qDate || item.q_date_local || item.date_local;
@@ -3152,7 +3281,7 @@ function App(){
     const authorCutoff=qStart?new Date(qStart.getTime()-24*60*60*1000):null;
     const labels=qStart?{qLocal:formatDateTime(qStart,timeZone), qMadrid:formatDateTime(qStart,MADRID_TZ), raceLocal:raceStart?formatDateTime(raceStart,timeZone):null, raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null}:{qLocal:"—",qMadrid:"—",raceLocal:raceStart?formatDateTime(raceStart,timeZone):null,raceMadrid:raceStart?formatDateTime(raceStart,MADRID_TZ):null};
     return {...item,q_date_local:qDate,race_date_local:raceDate,timeZone,qStart,raceStart,cutoff,showBetsAt,authorCutoff,labels};
-  }).filter(r=>r.qStart);
+  }).filter(r=>r.qStart),[cal,raceOverrides]);
   useEffect(()=>{
     if(!races?.length || !hydrated) return;
     const participants=Object.keys(db.participants||{});
@@ -3183,7 +3312,7 @@ function App(){
       setView("participante");
     }
   };
-  return (<div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-3 md:p-4 space-y-4">
+  return (<LangCtx.Provider value={lang}><div className="w-full max-w-4xl lg:max-w-5xl mx-auto p-3 md:p-4 space-y-4">
     <header className="hero speed-lines p-4 md:p-6">
       <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -3198,6 +3327,8 @@ function App(){
         <div className="flex items-center gap-2">
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode==="f1"?"bg-red-600/25 text-white border border-red-500/30 shadow-lg shadow-red-600/10":"bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={()=>handleModeChange("f1")}>F1</button>
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode==="futbol"?"bg-emerald-600/25 text-white border border-emerald-500/30 shadow-lg shadow-emerald-600/10":"bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={()=>handleModeChange("futbol")}>FUT</button>
+          <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={()=>setTheme(theme==="dark"?"light":"dark")} title={theme==="dark"?"Modo claro":"Modo oscuro"}>{theme==="dark"?"☀️":"🌙"}</button>
+          <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={()=>setLang(lang==="es"?"en":"es")} title="Cambiar idioma">{lang==="es"?"EN":"ES"}</button>
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">
             <Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm" mode={mode}/>
             <span className="text-sm font-semibold text-white/80">{user}</span>
@@ -3223,6 +3354,7 @@ function App(){
       {db.users?.[user]?.isAdmin && <button role="tab" aria-selected={view==="admin"} className={view==="admin"?"nav-active":""} onClick={()=>setView("admin")}>⚙ Admin</button>}
     </nav>}
     {!user ? (<div className="card card-racing beer-glow p-6 max-w-sm mx-auto"><h2 className="section-title text-center mb-1">Entra en la porra</h2><p className="text-center text-xs text-white/30 mb-4">🍺 Que empiecen las apuestas — y las birras</p>{!hydrated?<div className="text-center py-4"><div className="text-sm text-white/40 animate-pulse">Conectando con el servidor...</div></div>:<Login db={db} setDb={setDbUser} onLogged={(u)=>{ setUser(u); createSession(u); localStorage.setItem("porra_user", u); setShowBanner(true); }} />}</div>) : (<>
+      {loadError && <div className="card p-4 mb-3 border border-red-500/30 bg-red-900/20 text-sm text-red-300">⚠️ {loadError}. Recarga la página para reintentar.</div>}
       {showBanner && <WelcomeBanner user={user} db={db} races={races} mode={mode} onDismiss={()=>setShowBanner(false)}/>}
       <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]} mode={mode}/><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={()=>setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/40 mt-1 tracking-wider uppercase">birreros club</div>{sidebarRace&&<div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact/></div>}</aside><main className="flex-1 space-y-4 min-w-0">
         {mode==="f1" && (
@@ -3240,7 +3372,7 @@ function App(){
           <>
             {view==="participante" && <FutbolParticipante user={user} db={db} setDb={setDbUser}/>}
             {view==="admin" && <FutbolAdmin db={db} setDb={setDbUser} currentUser={user}/>}
-            {view==="ranking" && <FutbolRanking db={db}/>}
+            {view==="ranking" && <><FutbolRanking db={db}/><FutbolEvolutionChart db={db}/></>}
             {view==="rules" && <FutbolRules/>}
           </>
         )}
@@ -3250,7 +3382,7 @@ function App(){
     <ChangePasswordModal open={showPass} onClose={()=>setShowPass(false)} db={db} setDb={setDbUser} user={user} /><ChangeAvatarModal open={showAvatar} onClose={()=>setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />
     <AIAssistant open={showAI} onClose={()=>setShowAI(false)} races={races} mode={mode} />
     <ToastContainer/>
-  </div>);
+  </div></LangCtx.Provider>);
 }
 
 try {

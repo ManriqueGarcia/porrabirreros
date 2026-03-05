@@ -1,76 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
   <defs>
-    <linearGradient id="cf-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#081020"/><stop offset="100%" stop-color="#0a0a14"/></linearGradient>
-    <linearGradient id="cf-jersey" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#005DA6"/><stop offset="40%" stop-color="white"/><stop offset="60%" stop-color="white"/><stop offset="100%" stop-color="#005DA6"/></linearGradient>
-    <linearGradient id="cf-shorts" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#005DA6"/><stop offset="100%" stop-color="#003B6B"/></linearGradient>
-    <radialGradient id="cf-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#FDDCB5"/><stop offset="100%" stop-color="#E8B896"/></radialGradient>
-    <radialGradient id="cf-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFAAAA" stop-opacity=".5"/><stop offset="100%" stop-color="#FFAAAA" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cfs" cx="50%" cy="38%" r="50%"><stop offset="0%" stop-color="#F5D0B0"/><stop offset="100%" stop-color="#D4A070"/></radialGradient>
   </defs>
-  <rect width="220" height="240" rx="24" fill="url(#cf-bg)"/>
-  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#005DA6" stroke-width="1" opacity=".25"/>
-  <!-- San Sebastián accent -->
-  <rect x="8" y="210" width="204" height="5" rx="2.5" fill="#005DA6" opacity=".4"/>
-  <rect x="8" y="217" width="204" height="4" rx="2" fill="white" opacity=".25"/>
-  <!-- Shorts -->
-  <rect x="78" y="192" width="26" height="20" rx="6" fill="url(#cf-shorts)"/>
-  <rect x="116" y="192" width="26" height="20" rx="6" fill="url(#cf-shorts)"/>
-  <!-- Body - Real Sociedad jersey -->
-  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#cf-jersey)"/>
-  <!-- Collar -->
-  <path d="M95 143 Q110 150 125 143" stroke="#005DA6" stroke-width="2.5" fill="none"/>
-  <!-- Blue stripes -->
-  <rect x="70" y="153" width="70" height="4" rx="2" fill="#005DA6" opacity=".5"/>
-  <rect x="70" y="160" width="70" height="3" rx="1.5" fill="white" opacity=".4"/>
-  <rect x="70" y="166" width="70" height="4" rx="2" fill="#005DA6" opacity=".5"/>
-  <!-- Wave pattern (Donostia) -->
-  <path d="M75 178 Q85 174 95 178 Q105 182 115 178 Q125 174 135 178 Q145 182 148 178" fill="none" stroke="#005DA6" stroke-width="1.5" opacity=".3"/>
-  <!-- Number -->
-  <text x="110" y="195" font-family="system-ui,sans-serif" font-size="14" font-weight="900" fill="#005DA6" text-anchor="middle" opacity=".5">21</text>
-  <!-- Arms -->
-  <ellipse cx="58" cy="165" rx="14" ry="10" fill="#005DA6"/>
-  <ellipse cx="162" cy="165" rx="14" ry="10" fill="#005DA6"/>
-  <!-- BIG head -->
-  <ellipse cx="110" cy="80" rx="50" ry="48" fill="url(#cf-skin)"/>
-  <!-- Curly hair -->
-  <path d="M64 72 Q64 36 110 28 Q156 36 156 72" fill="#5C3A20"/>
-  <ellipse cx="110" cy="48" rx="46" ry="24" fill="#5C3A20"/>
-  <!-- Curly hair texture -->
-  <circle cx="78" cy="46" r="8" fill="#4A2E18"/>
-  <circle cx="95" cy="38" r="9" fill="#4A2E18"/>
-  <circle cx="112" cy="35" r="9" fill="#4A2E18"/>
-  <circle cx="130" cy="38" r="9" fill="#4A2E18"/>
-  <circle cx="144" cy="46" r="8" fill="#4A2E18"/>
-  <circle cx="70" cy="58" r="7" fill="#4A2E18"/>
-  <circle cx="150" cy="58" r="7" fill="#4A2E18"/>
-  <!-- Curly bits peeking from sides -->
-  <path d="M62 78 Q56 72 58 66 Q60 60 64 64 Q62 70 64 75" fill="#5C3A20" opacity=".7"/>
-  <path d="M65 84 Q58 78 60 72 Q62 66 66 70 Q64 76 66 82" fill="#5C3A20" opacity=".5"/>
-  <path d="M158 78 Q164 72 162 66 Q160 60 156 64 Q158 70 156 75" fill="#5C3A20" opacity=".7"/>
-  <path d="M155 84 Q162 78 160 72 Q158 66 154 70 Q156 76 154 82" fill="#5C3A20" opacity=".5"/>
-  <!-- Hair shine -->
-  <ellipse cx="100" cy="40" rx="14" ry="6" fill="white" opacity=".06"/>
-  <!-- Big happy eyes -->
-  <ellipse cx="92" cy="78" rx="9" ry="10" fill="white"/>
-  <ellipse cx="128" cy="78" rx="9" ry="10" fill="white"/>
-  <ellipse cx="94" cy="79" rx="5.5" ry="6.5" fill="#2D1B0E"/>
-  <ellipse cx="130" cy="79" rx="5.5" ry="6.5" fill="#2D1B0E"/>
-  <circle cx="96" cy="76" r="2.5" fill="white"/>
-  <circle cx="132" cy="76" r="2.5" fill="white"/>
-  <!-- Happy eyebrows -->
-  <path d="M80 66 Q92 61 102 66" stroke="#4A3020" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M118 66 Q128 61 140 66" stroke="#4A3020" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <rect width="200" height="260" rx="22" fill="#000820"/>
+  <!-- Football -->
+  <circle cx="160" cy="240" r="10" fill="white" opacity=".25"/>
+  <path d="M155 235 L160 240 L165 235 M153 240 L160 247 L167 240" fill="none" stroke="#555" stroke-width=".8" opacity=".25"/>
+  <!-- TINY athletic body in Real Sociedad jersey -->
+  <path d="M70 195 Q58 184 70 176 L130 176 Q142 184 130 195 L136 238 Q100 250 64 238Z" fill="#0055A4"/>
+  <path d="M85 176 L100 184 L115 176" stroke="white" stroke-width="2" fill="none"/>
+  <rect x="60" y="200" width="80" height="3" rx="1" fill="white" opacity=".3"/>
+  <rect x="60" y="218" width="80" height="3" rx="1" fill="white" opacity=".3"/>
+  <circle cx="100" cy="192" r="8" fill="white" opacity=".6"/>
+  <text x="100" y="196" font-family="system-ui" font-size="9" font-weight="900" fill="#0055A4" text-anchor="middle">RS</text>
+  <text x="100" y="216" font-family="system-ui" font-size="16" font-weight="900" fill="white" text-anchor="middle" opacity=".4">10</text>
+  <ellipse cx="58" cy="188" rx="14" ry="9" fill="#0055A4"/>
+  <ellipse cx="142" cy="188" rx="14" ry="9" fill="#0055A4"/>
+  <!-- Neck -->
+  <rect x="90" y="166" width="20" height="12" rx="4" fill="url(#cfs)"/>
+  <!-- HUGE HEAD -->
+  <ellipse cx="100" cy="82" rx="68" ry="72" fill="url(#cfs)"/>
+  <!-- Short dark hair -->
+  <path d="M32 68 Q32 12 100 8 Q168 12 168 68" fill="#2D1B0E"/>
+  <path d="M36 72 Q36 18 100 14 Q164 18 164 72" fill="#1a0f05" opacity=".6"/>
+  <path d="M50 60 Q56 30 76 16" stroke="#1a0f05" stroke-width="2.5" fill="none" opacity=".4"/>
+  <path d="M150 60 Q144 30 124 16" stroke="#1a0f05" stroke-width="2.5" fill="none" opacity=".4"/>
+  <!-- Ears -->
+  <ellipse cx="32" cy="86" rx="10" ry="16" fill="#D4A070"/>
+  <ellipse cx="32" cy="86" rx="5" ry="10" fill="#C09060" opacity=".25"/>
+  <ellipse cx="168" cy="86" rx="10" ry="16" fill="#D4A070"/>
+  <ellipse cx="168" cy="86" rx="5" ry="10" fill="#C09060" opacity=".25"/>
+  <!-- Big determined eyes (no glasses!) -->
+  <ellipse cx="74" cy="80" rx="14" ry="14" fill="white"/>
+  <ellipse cx="126" cy="80" rx="14" ry="14" fill="white"/>
+  <ellipse cx="76" cy="81" rx="8" ry="9" fill="#2D6B3A"/>
+  <ellipse cx="128" cy="81" rx="8" ry="9" fill="#2D6B3A"/>
+  <circle cx="79" cy="78" r="3.5" fill="white"/>
+  <circle cx="131" cy="78" r="3.5" fill="white"/>
+  <!-- Intense thick eyebrows -->
+  <path d="M56 62 Q74 50 92 62" stroke="#1a0f05" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M108 62 Q126 50 144 62" stroke="#1a0f05" stroke-width="4" fill="none" stroke-linecap="round"/>
   <!-- Nose -->
-  <ellipse cx="110" cy="88" rx="4" ry="3" fill="#D4A574" opacity=".6"/>
-  <!-- Big laughing mouth -->
-  <path d="M88 94 Q110 114 132 94" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M92 96 Q110 110 128 96" fill="white" opacity=".9"/>
-  <path d="M96 102 Q110 108 124 102" fill="#E88" opacity=".35"/>
+  <path d="M94 90 Q100 108 106 90" stroke="#B88050" stroke-width="2.2" fill="none"/>
+  <ellipse cx="100" cy="104" rx="7" ry="3.5" fill="#C49060" opacity=".5"/>
+  <!-- Fierce competitive grin -->
+  <path d="M68 120 Q100 142 132 120" stroke="#5C3A20" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <path d="M74 122 Q100 139 126 122" fill="white" opacity=".8"/>
+  <!-- Square athletic jaw -->
+  <path d="M48 130 Q100 155 152 130" stroke="#C49060" stroke-width="1" fill="none" opacity=".2"/>
   <!-- Cheeks -->
-  <circle cx="78" cy="92" r="9" fill="url(#cf-cheek)"/>
-  <circle cx="142" cy="92" r="9" fill="url(#cf-cheek)"/>
-  <!-- Football at feet -->
-  <circle cx="80" cy="218" r="10" fill="white" stroke="#333" stroke-width="1"/>
-  <path d="M75 213 L80 218 L85 213 M73 218 L80 224 L87 218" fill="none" stroke="#333" stroke-width=".8" opacity=".5"/>
-  <!-- Name -->
-  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#7DBCE8" text-anchor="middle" opacity=".9">Carlos</text>
+  <circle cx="48" cy="104" r="12" fill="#E88080" opacity=".16"/>
+  <circle cx="152" cy="104" r="12" fill="#E88080" opacity=".16"/>
+  <!-- Anti-Athletic crossed emblem -->
+  <circle cx="36" cy="240" r="7" fill="#D52B1E" opacity=".2"/>
+  <path d="M31 235 L41 245 M41 235 L31 245" stroke="white" stroke-width="1.5" opacity=".25"/>
+  <text x="100" y="256" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#5a9abf" text-anchor="middle" opacity=".9">Carlos</text>
 </svg>

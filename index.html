@@ -8,7 +8,17 @@
   <meta http-equiv="Expires" content="0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https://images.unsplash.com; connect-src 'self' https://porra.manriquegarcia.com https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com https://api.jolpi.ca; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
   <title>Porra de los birreros — F1 y Fútbol</title>
-  <link rel="icon" href="data:,">
+  <meta name="description" content="Porra entre amigos de F1 y Fútbol. Apuesta resultados, consulta rankings y estadísticas. El que pierde, pone las birras.">
+  <meta name="theme-color" content="#06060e">
+  <meta property="og:title" content="Porra Birreros — F1 y Fútbol">
+  <meta property="og:description" content="Apuestas entre amigos. El que pierde, pone las birras 🍺">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://porra.manriquegarcia.com">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="preconnect" href="https://porra.manriquegarcia.com">
+  <link rel="preconnect" href="https://api.jolpi.ca">
+  <link rel="preconnect" href="https://images.unsplash.com">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="./assets/vendor/react.js?v=20260301"></script>
   <script src="./assets/vendor/react-dom.js?v=20260301"></script>
@@ -366,6 +376,12 @@
     window.PORRA_AI_URL = "https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com";
   </script>
   <div id="root">
+    <noscript>
+      <div style="padding:40px;color:#f5f5f5;text-align:center;font-family:system-ui,sans-serif;">
+        <p style="font-size:1.2rem;margin-bottom:8px;">🍺 Porra Birreros</p>
+        <p>Esta aplicación necesita JavaScript para funcionar. Actívalo en tu navegador.</p>
+      </div>
+    </noscript>
     <div style="padding:20px;color:#f5f5f5;text-align:center;">
       <p>Cargando aplicación...</p>
       <p style="font-size:12px;color:#888;">Si esto no desaparece, hay un error. Abre la consola (F12).</p>
@@ -381,5 +397,6 @@
     });
   </script>
   <script type="text/babel" data-presets="react" src="./app.jsx?v=20260301"></script>
+  <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});</script>
 </body>
 </html>

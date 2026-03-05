@@ -5,12 +5,20 @@
     "build": "node build.mjs",
     "build:css": "npx @tailwindcss/cli -i ./src.css -o ./dist/styles.css --minify",
     "build:js": "npx esbuild app.jsx --bundle --minify --sourcemap --target=es2020 --format=iife --global-name=PorraApp --outfile=dist/app.js --define:process.env.NODE_ENV=\\\"production\\\" --loader:.jsx=jsx --jsx=automatic",
-    "preview": "npx serve dist"
+    "preview": "npx serve dist",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0",
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/cli": "^4.0.0",
-    "tailwindcss": "^4.0.0"
+    "esbuild": "^0.25.0",
+    "eslint": "^10.0.2",
+    "serve": "^14.2.6",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.0.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "react": "^18.3.1",

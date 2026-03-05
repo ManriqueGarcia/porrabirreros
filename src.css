@@ -1,10 +1,20 @@
 @import "tailwindcss";
 @source "./app.jsx";
 
+/* === THEME VARIABLES === */
+:root{
+  --bg-base:#06060e;--bg-card:rgba(12,12,24,.75);--bg-overlay:rgba(6,6,14,.78);
+  --text-primary:#f0f0f5;--text-muted:rgba(255,255,255,.5);
+  --accent-f1:#e10600;--accent-f1-glow:rgba(225,6,0,.14);--accent-f1-soft:rgba(225,6,0,.25);
+  --accent-futbol:#22c55e;--accent-futbol-glow:rgba(34,197,94,.1);--accent-futbol-soft:rgba(34,197,94,.25);
+  --accent-amber:#d97706;--border-subtle:rgba(255,255,255,.1);
+  --blur-card:blur(28px) saturate(1.4);
+}
+
 /* === BASE === */
 *{box-sizing:border-box;}
-html,body{margin:0;min-height:100vh;color:#f0f0f5;font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:.01em;}
-html{background:#06060e;scroll-behavior:smooth;}
+html,body{margin:0;min-height:100vh;color:var(--text-primary);font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:.01em;}
+html{background:var(--bg-base);scroll-behavior:smooth;}
 body{background:transparent;}
 
 body::before{content:'';position:fixed;inset:0;background:
@@ -19,7 +29,7 @@ body[data-porra-mode="futbol"]::before{background:
   linear-gradient(180deg,rgba(6,6,14,.1) 0%,transparent 40%,rgba(6,6,14,.3) 100%);}
 
 #bg-f1,#bg-futbol{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
-#bg-f1::after,#bg-futbol::after{content:'';position:absolute;inset:0;background:rgba(6,6,14,.78);z-index:1;}
+#bg-f1::after,#bg-futbol::after{content:'';position:absolute;inset:0;background:var(--bg-overlay);z-index:1;}
 #root{position:relative;z-index:2;}
 
 body[data-porra-mode="f1"] #bg-f1{display:block !important} body[data-porra-mode="f1"] #bg-futbol{display:none !important}
@@ -27,9 +37,9 @@ body[data-porra-mode="futbol"] #bg-f1{display:none !important} body[data-porra-m
 
 /* === GLASSMORPHISM CORE === */
 .card,.sidebar{
-  background:rgba(12,12,24,.75);
-  backdrop-filter:blur(28px) saturate(1.4);-webkit-backdrop-filter:blur(28px) saturate(1.4);
-  border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  background:var(--bg-card);
+  backdrop-filter:var(--blur-card);-webkit-backdrop-filter:var(--blur-card);
+  border:1px solid var(--border-subtle);border-radius:16px;
   box-shadow:0 8px 32px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06);
   transition:border-color .3s ease, box-shadow .3s ease, transform .25s ease;
 }
@@ -99,6 +109,14 @@ body[data-porra-mode="futbol"] .porra-nav button.nav-active{
 
 /* === BUTTONS === */
 button,[type="button"],[type="submit"]{transition:all .15s ease;}
+button:focus-visible,[type="button"]:focus-visible,[type="submit"]:focus-visible{
+  outline:2px solid rgba(250,204,21,.7);outline-offset:2px;
+}
+.porra-nav button:focus-visible{
+  outline:2px solid rgba(250,204,21,.7);outline-offset:2px;
+  background:rgba(255,255,255,.08) !important;
+}
+a:focus-visible{outline:2px solid rgba(250,204,21,.7);outline-offset:2px;}
 
 /* === INPUTS & SELECTS === */
 select,.select{
@@ -238,25 +256,15 @@ body[data-porra-mode="futbol"] .card-racing::before{
   transform:rotate(-2deg);pointer-events:none;
 }
 
-/* === WINNER CELEBRATION === */
-.winner-shine{position:relative;}
-.winner-shine::after{
-  content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;
-  background:linear-gradient(90deg,transparent,rgba(250,204,21,.06),transparent);
-  animation:shimmer 4s ease-in-out infinite;pointer-events:none;
-}
-
 /* === ANIMATIONS === */
 @keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideInLeft{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
 @keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.7}}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes bubble-float{
   0%{transform:translateY(0) scale(1);opacity:.4;}
   50%{transform:translateY(-8px) scale(1.1);opacity:.6;}
   100%{transform:translateY(0) scale(1);opacity:.4;}
 }
-@keyframes revving{0%{letter-spacing:-.02em}50%{letter-spacing:.02em}100%{letter-spacing:-.02em}}
 .card,.hero,.sidebar{animation:fadeInUp .4s cubic-bezier(.16,1,.3,1) both;}
 .card:nth-child(2){animation-delay:.05s;}
 .card:nth-child(3){animation-delay:.1s;}
@@ -340,4 +348,78 @@ body[data-porra-mode="futbol"] .card-racing::before{
   button,a,.select{min-height:44px;}
   .hero{padding:12px !important;}
   .card{padding:12px !important;}
+}
+
+/* === LIGHT THEME === */
+html[data-theme="light"]{
+  --bg-base:#f5f5f7;--bg-card:rgba(255,255,255,.85);--bg-overlay:rgba(245,245,247,.85);
+  --text-primary:#1a1a2e;--text-muted:rgba(0,0,0,.5);--border-subtle:rgba(0,0,0,.1);
+  --blur-card:blur(20px) saturate(1.2);
+}
+html[data-theme="light"]{background:var(--bg-base);color:var(--text-primary);}
+html[data-theme="light"] body::before{opacity:.3;}
+html[data-theme="light"] .card,html[data-theme="light"] .sidebar{
+  background:var(--bg-card);border-color:var(--border-subtle);
+  box-shadow:0 2px 12px rgba(0,0,0,.08);
+}
+html[data-theme="light"] .hero{background:rgba(255,255,255,.7) !important;backdrop-filter:blur(16px);}
+html[data-theme="light"] .porra-nav{background:rgba(255,255,255,.6) !important;}
+html[data-theme="light"] .porra-nav button{color:#333 !important;}
+html[data-theme="light"] .porra-nav button.active,html[data-theme="light"] .porra-nav button:hover{
+  background:rgba(0,0,0,.06) !important;color:#111 !important;
+}
+html[data-theme="light"] .section-title{color:#1a1a2e;}
+html[data-theme="light"] thead th{background:rgba(0,0,0,.04) !important;color:#333 !important;}
+html[data-theme="light"] tbody td{color:#333;border-color:rgba(0,0,0,.06) !important;}
+html[data-theme="light"] tbody tr{border-color:rgba(0,0,0,.06) !important;}
+html[data-theme="light"] .pts-cell{color:#111 !important;}
+html[data-theme="light"] #bg-f1::after,html[data-theme="light"] #bg-futbol::after{background:rgba(245,245,247,.9);}
+html[data-theme="light"] select,html[data-theme="light"] .select{
+  background:rgba(255,255,255,.9) !important;color:#222 !important;border-color:rgba(0,0,0,.15) !important;
+}
+html[data-theme="light"] input[type="text"],html[data-theme="light"] input[type="password"],html[data-theme="light"] input[type="number"],html[data-theme="light"] textarea{
+  background:rgba(255,255,255,.95) !important;color:#222 !important;border-color:rgba(0,0,0,.15) !important;
+}
+html[data-theme="light"] input::placeholder,html[data-theme="light"] textarea::placeholder{color:rgba(0,0,0,.4) !important;}
+html[data-theme="light"] .score-input{
+  background:rgba(255,255,255,.95) !important;color:#222 !important;border-color:rgba(0,0,0,.12) !important;
+}
+html[data-theme="light"] .futbol-result-card{
+  background:linear-gradient(135deg,rgba(34,197,94,.08) 0%,rgba(255,255,255,.8) 100%) !important;
+  border-color:rgba(34,197,94,.2) !important;
+}
+html[data-theme="light"] .futbol-score-exact{background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3);}
+html[data-theme="light"] .futbol-score-sign{background:rgba(245,158,11,.1);color:#b45309;border-color:rgba(245,158,11,.25);}
+html[data-theme="light"] .futbol-score-miss{background:rgba(0,0,0,.04);color:rgba(0,0,0,.35);border-color:rgba(0,0,0,.08);}
+html[data-theme="light"] .vs-badge{background:rgba(34,197,94,.1);color:#16a34a;border-color:rgba(34,197,94,.25);}
+html[data-theme="light"] .team-name{color:#222;}
+html[data-theme="light"] .podium-1{background:linear-gradient(90deg,rgba(234,179,8,.08),transparent) !important;}
+html[data-theme="light"] .podium-2{background:linear-gradient(90deg,rgba(148,163,184,.08),transparent) !important;}
+html[data-theme="light"] .podium-3{background:linear-gradient(90deg,rgba(180,83,9,.06),transparent) !important;}
+html[data-theme="light"] [role="dialog"]{background:rgba(0,0,0,.4) !important;}
+html[data-theme="light"] [role="dialog"]>div{
+  background:#fff !important;color:#222 !important;border:1px solid rgba(0,0,0,.1) !important;
+  box-shadow:0 8px 32px rgba(0,0,0,.15) !important;
+}
+html[data-theme="light"] [role="dialog"] h3,[role="dialog"] h2{color:#111 !important;}
+html[data-theme="light"] [role="dialog"] label{color:#444 !important;}
+html[data-theme="light"] button{color:#333;}
+html[data-theme="light"] .text-white\/30,html[data-theme="light"] .text-white\/35,html[data-theme="light"] .text-white\/40,html[data-theme="light"] .text-white\/45,html[data-theme="light"] .text-white\/50,html[data-theme="light"] .text-white\/60{color:rgba(0,0,0,.45) !important;}
+html[data-theme="light"] .text-slate-300,html[data-theme="light"] .text-slate-400{color:#555 !important;}
+html[data-theme="light"] .text-emerald-300\/50{color:rgba(22,163,74,.6) !important;}
+html[data-theme="light"] .text-amber-300,html[data-theme="light"] .text-amber-400\/80{color:#b45309 !important;}
+html[data-theme="light"] .border-white\/5,html[data-theme="light"] .border-white\/10,html[data-theme="light"] .border-white\/15{border-color:rgba(0,0,0,.08) !important;}
+html[data-theme="light"] .bg-slate-800{background:#eee !important;color:#333 !important;}
+html[data-theme="light"] .bg-white\/5,html[data-theme="light"] .bg-white\/10{background:rgba(0,0,0,.04) !important;}
+html[data-theme="light"] .futbol-info-panel{
+  background:linear-gradient(135deg,rgba(34,197,94,.06) 0%,rgba(255,255,255,.7) 50%,rgba(34,197,94,.04) 100%) !important;
+  border-color:rgba(34,197,94,.15) !important;
+}
+
+/* === REDUCED MOTION === */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;scroll-behavior:auto !important;
+  }
 }

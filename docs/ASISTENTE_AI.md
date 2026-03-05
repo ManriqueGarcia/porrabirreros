@@ -31,7 +31,7 @@ En la consola AWS Lambda:
 | Variable | Descripción |
 |----------|-------------|
 | `OPENAI_API_KEY` | Tu API key de OpenAI (obligatorio) |
-| `ALLOWED_ORIGIN` | Origen CORS, ej: `https://porra.manriquegarcia.com` |
+| `ALLOWED_ORIGIN` | Origen CORS, ej: `https://tu-dominio.com` |
 | `API_SECRET` | Opcional: mismo que `x-porra-secret` si usas autenticación |
 
 ### 3. Permisos
@@ -42,7 +42,7 @@ La Lambda necesita acceso a internet para:
 
 ### 4. Añadir ruta en API Gateway
 
-Si tu API está en API Gateway (porra.manriquegarcia.com):
+Si tu API está en API Gateway:
 
 - Crear recurso: `/assistant`
 - Método: `POST`

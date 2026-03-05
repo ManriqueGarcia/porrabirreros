@@ -1,26 +1,34 @@
-# Despliegue Automático a S3
+# Despliegue a AWS (S3 + CloudFront)
 
-Este repositorio está configurado para desplegar automáticamente a S3 cuando se hace push a la rama `main`.
+Guía para configurar el despliegue automático desde GitHub Actions a AWS S3.
 
-## Configuración Requerida
+## 1. Crear recursos en AWS
 
-### 1. Secrets de GitHub
+### Bucket S3 (Hosting)
 
-Necesitas configurar los siguientes secrets en GitHub:
-- Ve a: `Settings` → `Secrets and variables` → `Actions`
-- Añade los siguientes secrets:
+Crea un bucket para servir los archivos estáticos:
 
-#### Requeridos:
-- `AWS_ACCESS_KEY_ID`: Tu Access Key ID de AWS
-- `AWS_SECRET_ACCESS_KEY`: Tu Secret Access Key de AWS
-- `AWS_REGION`: Región de AWS (ej: `eu-west-1`, `us-east-1`)
+```bash
+aws s3 mb s3://TU-BUCKET-NOMBRE
+```
 
-#### Opcionales:
-- `CLOUDFRONT_DISTRIBUTION_ID`: ID de distribución de CloudFront (si usas CloudFront)
+Configura el bucket para Static Website Hosting o úsalo detrás de CloudFront.
 
-### 2. Permisos IAM en AWS
+### Bucket S3 (Datos — opcional, separado)
 
-El usuario/rol de AWS necesita los siguientes permisos:
+Si quieres almacenar el estado de la porra en S3, crea un bucket separado para los datos JSON.
+
+### CloudFront (recomendado)
+
+Crea una distribución de CloudFront apuntando al bucket de hosting:
+- **Origin**: tu bucket S3
+- **Default Root Object**: `index.html`
+- **Custom domain**: tu dominio (requiere certificado ACM)
+- **Cache Policy**: CachingOptimized para assets, CachingDisabled para `index.html`
+
+## 2. Permisos IAM
+
+Crea un usuario IAM (o usa OIDC) con los siguientes permisos:
 
 ```json
 {
@@ -35,93 +43,84 @@ El usuario/rol de AWS necesita los siguientes permisos:
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::porra-birreros-f1",
-        "arn:aws:s3:::porra-birreros-f1/*"
+        "arn:aws:s3:::TU-BUCKET-NOMBRE",
+        "arn:aws:s3:::TU-BUCKET-NOMBRE/*"
       ]
     }
   ]
 }
 ```
 
-Si usas CloudFront, añade también:
+Si usas CloudFront, añade:
+
 ```json
 {
   "Effect": "Allow",
-  "Action": [
-    "cloudfront:CreateInvalidation"
-  ],
-  "Resource": "*"
+  "Action": "cloudfront:CreateInvalidation",
+  "Resource": "arn:aws:cloudfront::TU-ACCOUNT-ID:distribution/TU-DISTRIBUTION-ID"
 }
 ```
 
-### 3. Configuración del Bucket S3
+## 3. Configurar GitHub Secrets
 
-Asegúrate de que el bucket `porra-birreros-f1` tenga:
-- **Permisos públicos de lectura** para los archivos estáticos (o configura CloudFront)
-- **Política de bucket** que permita el acceso desde GitHub Actions
+Ve a tu repositorio en GitHub: `Settings → Secrets and variables → Actions`.
 
-Ejemplo de política de bucket:
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicReadGetObject",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::porra-birreros-f1/*"
-    }
-  ]
-}
+| Secret | Descripción | Ejemplo |
+|--------|-------------|---------|
+| `AWS_ACCESS_KEY_ID` | Access Key ID del usuario IAM | `AKIA...` |
+| `AWS_SECRET_ACCESS_KEY` | Secret Access Key | `wJal...` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | *(opcional)* ID de distribución CF | `E1ABC2DEF3` |
+
+## 4. Configurar el workflow
+
+Edita `.github/workflows/deploy-s3.yml` y reemplaza el nombre del bucket:
+
+```yaml
+- name: Sincronizar dist/ con S3
+  run: |
+    aws s3 sync dist/ s3://TU-BUCKET-NOMBRE \
+      --delete \
+      --cache-control "public, max-age=31536000, immutable" \
+      --exclude "index.html" \
+      --exclude "*.gz"
+
+    aws s3 cp dist/index.html s3://TU-BUCKET-NOMBRE/index.html \
+      --cache-control "no-cache, no-store, must-revalidate"
 ```
 
-## Cómo Funciona
+Si tu bucket está en otra región, cambia `aws-region` en el paso de configuración de credenciales.
 
-1. Cuando haces `git push origin main`, GitHub Actions se activa automáticamente
-2. El workflow:
-   - Hace checkout del código
-   - Configura las credenciales de AWS
-   - Sincroniza los archivos con S3 (excluyendo archivos innecesarios)
-   - Opcionalmente invalida la caché de CloudFront
+## 5. Despliegue
 
-## Archivos Excluidos
+### Automático (recomendado)
 
-Los siguientes archivos NO se suben a S3:
-- `.git/` y `.github/`
-- Archivos de documentación (`.md`)
-- `node_modules/`
-- `.env`
-- `cors-proxy.py` (solo para desarrollo local)
-- `clear-local-data.html` (herramienta de desarrollo)
-- `test.html`
+Cada push a `main` activa el workflow:
 
-## Ejecución Manual
+1. `npm ci` — instala dependencias
+2. `npm audit` — auditoría de seguridad
+3. `node build.mjs` — compila JS (esbuild) y CSS (Tailwind)
+4. `aws s3 sync dist/` — sube a S3
+5. `aws cloudfront create-invalidation` — limpia caché CDN
 
-También puedes ejecutar el despliegue manualmente:
-1. Ve a `Actions` en GitHub
-2. Selecciona "Deploy to S3"
-3. Haz clic en "Run workflow"
+### Manual
 
-## Verificación
-
-Después del despliegue, verifica que los archivos estén en S3:
 ```bash
-aws s3 ls s3://porra-birreros-f1/
+npm run build
+aws s3 sync dist/ s3://TU-BUCKET-NOMBRE --delete
+aws cloudfront create-invalidation --distribution-id TU_ID --paths "/*"
 ```
+
+### Desde GitHub
+
+1. Ve a `Actions` en tu repositorio
+2. Selecciona "Build & Deploy to S3"
+3. Clic en "Run workflow"
 
 ## Troubleshooting
 
-### Error: "Access Denied"
-- Verifica que las credenciales de AWS sean correctas
-- Verifica los permisos IAM del usuario
-
-### Error: "Bucket not found"
-- Verifica que el bucket `porra-birreros-f1` exista
-- Verifica que estés en la región correcta
-
-### Los cambios no se ven
-- Si usas CloudFront, verifica que la invalidación se haya ejecutado
-- Verifica que el bucket tenga permisos públicos de lectura
-- Limpia la caché del navegador (Ctrl+F5)
-
+| Error | Solución |
+|-------|----------|
+| Access Denied | Verifica credenciales AWS y permisos IAM |
+| Bucket not found | Verifica nombre del bucket y región |
+| Cambios no se ven | Invalida CloudFront + Ctrl+F5 en el navegador |
+| Deploy falla | Revisa los logs en GitHub Actions; se crea un issue automáticamente |

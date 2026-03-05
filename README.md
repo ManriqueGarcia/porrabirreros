@@ -1,111 +1,293 @@
-# Porra de los birreros — F1 y Fútbol
+# Porra Birreros — F1 y Fútbol 🍺
 
-Aplicación web para gestionar porras de Fórmula 1 y Fútbol entre amigos. El que pierde, pone las birras 🍺
+Aplicación web para gestionar porras de Fórmula 1 y Fútbol entre amigos. El que pierde, pone las birras.
 
-**URL en producción:** https://porra.manriquegarcia.com
+## 🏗️ Arquitectura
 
-## 🚀 Desarrollo local
+```mermaid
+graph TB
+    subgraph Usuario["👤 Usuario"]
+        Browser["🌐 Navegador (PWA)"]
+        LS["💾 localStorage<br/>(caché + sesión)"]
+        SW["⚙️ Service Worker<br/>(cache offline)"]
+    end
 
-### Requisitos
+    subgraph Frontend["⚛️ Frontend — React 18 + Tailwind CSS v4"]
+        App["App.jsx<br/>Routing · Estado Global · Sync"]
+        
+        subgraph F1["🏎️ Modo F1"]
+            Participante["Participante<br/>Apuestas + Countdown"]
+            RankingF1["Ranking<br/>Standings + Desglose"]
+            Stats["Stats<br/>Birras · Tendencia · Suerte · WhatIf"]
+            Historico["Histórico"]
+        end
+        
+        subgraph Futbol["⚽ Modo Fútbol"]
+            FutPart["FutbolParticipante<br/>Apuestas + Countdown"]
+            FutRank["FutbolRanking<br/>Standings + Evolución"]
+        end
+        
+        subgraph Shared["🔧 Compartidos"]
+            Welcome["WelcomeBanner"]
+            Avatar["Avatar (SVG)"]
+            Auth["Auth (Login)"]
+            ManriBot["🤖 ManriBot"]
+            Charts["Charts (SVG)"]
+        end
 
-- Node.js 22+
-- npm
+        subgraph Logic["📐 Lógica de negocio"]
+            Scoring["scoring.js"]
+            FutUtils["futbol-utils.js"]
+            Utils["utils.js"]
+            Config["config.js"]
+        end
+    end
 
-### Instalar dependencias
+    subgraph AWS["☁️ AWS"]
+        CF["🌍 CloudFront (CDN)"]
+        S3H["📦 S3 — Static Hosting<br/>dist/"]
+        APIGW["🔌 API Gateway"]
+        LState["λ Lambda — Estado<br/>GET/PUT JSON"]
+        LAI["λ Lambda — AI<br/>ManriBot backend"]
+        S3D["📦 S3 — Datos<br/>Estado JSON"]
+    end
 
-```bash
-npm install
+    subgraph External["🌐 APIs externas"]
+        GoogleAI["🧠 Google AI API<br/>Gemma 3 27B"]
+        Jolpica["📊 Jolpica/Ergast API<br/>F1 desde 1950"]
+    end
+
+    subgraph CICD["🔄 CI/CD"]
+        GH["🐙 GitHub"]
+        Actions["⚡ GitHub Actions<br/>build → deploy"]
+    end
+
+    Browser -->|HTTPS| CF
+    CF --> S3H
+    Browser -->|React SPA| App
+    Browser --> LS
+    Browser --> SW
+    App --> F1
+    App --> Futbol
+    App -->|REST API| APIGW
+    APIGW --> LState
+    APIGW --> LAI
+    LState --> S3D
+    LAI --> GoogleAI
+    ManriBot -->|Client-side F1| Jolpica
+    ManriBot -->|Fútbol AI| LAI
+    GH -->|push main| Actions
+    Actions -->|s3 sync| S3H
+    Scoring --> RankingF1
+    FutUtils --> FutRank
 ```
 
-### Build
+> Diagrama editable en detalle: abrir [`architecture.drawio.xml`](./architecture.drawio.xml) en [draw.io](https://app.diagrams.net/).
 
-```bash
-node build.mjs
+### Estructura de archivos
+
+```
+src/
+├── index.jsx              Punto de entrada React
+├── config.js              Constantes (participantes, timezone, equipos, colores)
+├── api.js                 Comunicación con backend (fetch/save estado remoto)
+├── scoring.js             Lógica de puntuación F1 (scoreForRace, standings, stats)
+├── futbol-utils.js        Lógica de puntuación fútbol (scoreFutbolJornada, standings)
+├── utils.js               Utilidades (hash, fechas, sesión, export CSV/PDF, share)
+├── f1-data.js             NLP + datos históricos F1 (Jolpica/Ergast API)
+├── toast.jsx              Sistema de notificaciones toast
+├── i18n.jsx               Contexto de idioma (es/en)
+└── components/
+    ├── App.jsx             Componente raíz (routing, estado global, sync)
+    ├── Auth.jsx            Login, cambio de contraseña, cambio de avatar
+    ├── WelcomeBanner.jsx   Mini-dashboard personal al entrar
+    ├── Participante.jsx    Vista de apuestas F1 (con countdown y reminder)
+    ├── BetForm.jsx         Formulario de apuesta F1
+    ├── FutbolParticipante.jsx  Vista de apuestas fútbol
+    ├── FutbolBetForm.jsx   Formulario de apuesta fútbol
+    ├── Ranking.jsx         Ranking F1 + desglose + resumen post-carrera
+    ├── FutbolRanking.jsx   Ranking fútbol + gráfico evolución
+    ├── Stats.jsx           Estadísticas, birras, tendencia, suerte, simulador
+    ├── Charts.jsx          Gráfico de evolución de posiciones F1
+    ├── Admin.jsx           Panel admin F1
+    ├── FutbolAdmin.jsx     Panel admin fútbol
+    ├── Rules.jsx           Normas F1 y fútbol
+    ├── Historico.jsx       Histórico de temporadas anteriores
+    ├── AIAssistant.jsx     Asistente AI (chat F1/fútbol)
+    ├── Avatar.jsx          Avatares SVG con fallback por modo
+    └── CircuitCard.jsx     Tarjeta de circuito con trazado SVG
+
+assets/
+├── avatars/               Caricaturas SVG (F1 + fútbol) + default
+├── circuit_tracks/        24 trazados de circuitos SVG
+├── calendar_YYYY.json     Calendario F1 de la temporada
+├── drivers_YYYY.json      Pilotos F1 de la temporada
+├── teams_YYYY.json        Escuderías F1 de la temporada
+├── circuits_YYYY.json     Info de circuitos
+└── historical_YYYY.json   Resultados históricos
+
+porra-ai.mjs               Lambda AWS (AI backend)
+build.mjs                  Script de build (esbuild + Tailwind CLI)
 ```
 
-Genera la carpeta `dist/` con:
-- `app.js` — React + app bundled y minificado (esbuild)
-- `styles.css` — Tailwind CSS v4 + estilos custom precompilados
-- `index.html` — sin dependencias CDN
-- `assets/` — avatares, circuitos, datos JSON
+### Stack tecnológico
 
-### Previsualizar
-
-```bash
-npx serve dist
-```
-
-### Desarrollo sin build (legacy)
-
-Para desarrollo rápido sin build, puedes servir directamente los archivos raíz con un servidor estático (usa Babel + Tailwind CDN en el navegador):
-
-```bash
-python3 -m http.server 8000
-```
+| Capa | Tecnología |
+|------|-----------|
+| **Frontend** | React 18, Tailwind CSS v4, glassmorphism UI |
+| **Build** | esbuild (bundle + minify), @tailwindcss/cli |
+| **Backend** | AWS Lambda (Node.js), API Gateway |
+| **AI** | Google AI API (Gemma / Gemini), client-side Jolpica/Ergast |
+| **Storage** | AWS S3 (estado remoto) + localStorage (caché local) |
+| **Hosting** | S3 + CloudFront (CDN) |
+| **CI/CD** | GitHub Actions (build + deploy en push a main) |
 
 ## 📋 Características
 
 ### Porra F1
-- Apuestas por pole, podio y preguntas adicionales
-- Ranking con desempates (victorias GP → podios exactos → aciertos)
-- Estadísticas detalladas y histórico 2025
+- Apuestas por pole, podio y 3 preguntas adicionales (autor rotativo)
+- Ranking global con desempates: puntos → victorias GP → podios exactos → aciertos → menos penalizaciones → apuesta más temprana
+- Apuesta ciega: no ves las apuestas de otros hasta después de la quali
+- Countdown en tiempo real con indicador de urgencia
+- Resultado del año anterior y puntos del usuario en cada circuito
 - 24 circuitos SVG con trazados realistas
-- ManriBot 🏎️ — asistente AI con datos históricos F1 desde 1950 (Jolpica/Ergast API)
+- Compartir apuesta por WhatsApp (incluye preguntas)
 
 ### Porra Fútbol
-- 4 partidos por jornada (Madrid, Barça, Real Sociedad, Sporting)
-- Puntuación: 3 pts exacto, 1 pt signo, 0 pts fallo
-- Penalizaciones: -3 por no apostar, -2 por apuesta fuera de plazo
-- ManriBot ⚽ — asistente AI de fútbol powered by Gemma 3 27B
+- N partidos por jornada (configurable)
+- Puntuación: 3 pts exacto, 1 pt signo correcto, 0 pts fallo, -1 catastrófica
+- Desempates: puntos → victorias → exactos → signos → menos penalizaciones → menor diferencia de goles → apuesta más temprana
+- Apuesta ciega hasta después del cierre
 
-### ManriBot (Asistente AI)
-- **F1**: consultas locales contra Jolpica/Ergast API (resultados, campeonatos, pilotos, circuitos desde 1950)
-- **Fútbol**: consultas a Lambda AWS con Gemma 3 27B (historia, equipos, jugadores, tácticas)
-- Sugerencias de preguntas contextuales
-- Interfaz de chat con historial
+### Penalizaciones (ambos modos)
+- No apostar: **-3 pts**
+- Apuesta fuera de plazo: **-2 pts**
+- Apuesta catastrófica (fútbol, 0 aciertos): **-1 pt**
 
-## 🏗️ Arquitectura
+### Estadísticas y análisis
+- **Histórico de birras**: quién ha pagado más rondas por GP/jornada
+- **Tendencia de puntos**: gráfico SVG de barras agrupadas por carrera
+- **Índice de suerte**: tasa de aciertos, eficiencia, consistencia, plenos
+- **Simulador "¿Qué habría pasado si...?"**: modifica resultados y recalcula ranking
+- **Resumen post-carrera**: ganador, perdedor, aciertos de pole, plenos
+- **Gráfico de evolución**: posiciones por carrera/jornada
 
+### Calidad de vida
+- **Mini-dashboard**: posición, tendencia, estado de apuesta al entrar
+- **Banner recordatorio**: alerta si faltan <24h y no has apostado
+- **Asistente AI**: datos F1 históricos (1950-hoy) + fútbol
+- **Exportar**: CSV y PDF de rankings
+- **PWA**: instalable como app, Service Worker con cache
+- **Avatares**: caricaturas SVG personalizadas por participante y modo
+- **Multidioma**: soporte es/en
+
+## 🚀 Cómo usar este proyecto (Fork)
+
+### 1. Haz fork del repositorio
+
+```bash
+git clone https://github.com/TU_USUARIO/porra-birreros-f1.git
+cd porra-birreros-f1
+npm install
 ```
-app.jsx          → Código fuente React (JSX)
-src.css          → Tailwind v4 + CSS custom
-build.mjs        → Script de build (esbuild + Tailwind CLI)
-index.html       → HTML fuente (dev con Babel/CDN)
-porra-ai.mjs     → Lambda AWS (ManriBot AI)
-assets/          → Avatares SVG, circuitos, datos JSON
-dist/            → Build de producción (generado)
+
+### 2. Configura los participantes
+
+Edita `src/config.js` y cambia los datos a los de tu grupo:
+
+```javascript
+export const CONFIG = {
+  participants: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
+  timezone: "Europe/Madrid",           // Tu zona horaria
+  sessionTimeoutMs: 30 * 60 * 1000,
+  questionAuthorsOrder: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
+  futbolTeams: ["Equipo1", "Equipo2", "Equipo3", "Equipo4"],
+  futbolDeadlineHour: "15:00",
+};
 ```
 
-### Stack
-- **Frontend**: React 18, Tailwind CSS v4, glassmorphism UI
-- **Build**: esbuild (bundle + minify), @tailwindcss/cli
-- **Backend**: AWS Lambda (Node.js), API Gateway
-- **AI**: Gemma 3 27B (Google AI API) con fallback a Gemini Flash
-- **Datos F1**: Jolpica/Ergast API (client-side)
-- **Storage**: AWS (estado remoto) + localStorage (caché local)
-- **Hosting**: S3 + CloudFront
-- **CI/CD**: GitHub Actions (build + deploy automático en push a main)
+También en `config.js`, actualiza:
+- `DEFAULT_PASSWORD_HASH` — hash SHA-256 de la contraseña inicial que quieras
+- `ADMIN_SECRET_HASH` — hash SHA-256 del secreto de administrador
+- `PILOT_COLORS` — colores para cada participante en los gráficos
 
-## 🔐 Acceso
+Para generar un hash SHA-256:
+```bash
+echo -n "TuContraseña" | sha256sum
+```
 
-- **Usuarios**: Antonio, Carlos, Pere, Toni, Manrique
-- **Contraseña inicial**: `B1rr3r0s` (se pide cambiar en el primer acceso)
-- **Admin**: Manrique
+### 3. Personaliza los avatares (opcional)
 
-## 🌐 Despliegue
+Reemplaza los SVGs en `assets/avatars/` con las caricaturas de tus participantes:
+- `nombre.svg` — avatar para modo F1
+- `nombre-futbol.svg` — avatar para modo fútbol
+- `default.svg` — avatar por defecto
 
-El despliegue es automático al hacer push a `main` via GitHub Actions:
+Los nombres deben coincidir (en minúsculas, sin espacios) con los de `CONFIG.participants`.
 
-1. `npm ci` — instala dependencias
-2. `node build.mjs` — compila JS (esbuild) y CSS (Tailwind)
-3. `aws s3 sync dist/` — sube a S3
-4. CloudFront invalidation — limpia caché CDN
+### 4. Configura el backend AWS
 
-Ver [DEPLOY.md](DEPLOY.md) para configuración de secrets AWS.
+Necesitas crear los siguientes recursos en AWS:
+
+#### S3 Buckets
+- **Hosting**: bucket para servir los archivos estáticos (`dist/`)
+- **Datos**: bucket para almacenar el estado JSON de la porra
+
+#### API Gateway + Lambda (Estado)
+Una Lambda que haga GET/PUT del JSON de estado desde S3. Configura las variables de entorno correspondientes en `src/api.js`.
+
+#### API Gateway + Lambda (AI — opcional)
+Si quieres el asistente AI, despliega `porra-ai.mjs` como Lambda y configura:
+- Variable de entorno `GOOGLE_AI_KEY` con tu API key de Google AI Studio
+- El endpoint en `src/components/AIAssistant.jsx`
+
+#### CloudFront (recomendado)
+Configura una distribución de CloudFront apuntando al bucket de hosting para CDN y HTTPS con tu dominio personalizado.
+
+### 5. Configura CI/CD (GitHub Actions)
+
+Añade estos secrets en tu repositorio (`Settings → Secrets → Actions`):
+
+| Secret | Descripción |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | Access Key de un usuario IAM con permisos S3 |
+| `AWS_SECRET_ACCESS_KEY` | Secret Key del mismo usuario |
+| `CLOUDFRONT_DISTRIBUTION_ID` | *(opcional)* ID de tu distribución CloudFront |
+
+Edita `.github/workflows/deploy-s3.yml` y cambia el nombre del bucket S3 al tuyo.
+
+Ver [DEPLOY.md](DEPLOY.md) para permisos IAM detallados.
+
+### 6. Build y previsualización local
+
+```bash
+node build.mjs        # Compila JS + CSS → dist/
+npx serve dist        # Previsualizar en http://localhost:3000
+```
+
+### 7. Despliegue
+
+```bash
+# Manual
+aws s3 sync dist/ s3://TU-BUCKET --delete
+aws cloudfront create-invalidation --distribution-id TU_DIST_ID --paths "/*"
+
+# Automático: haz push a main y GitHub Actions se encarga
+git push origin main
+```
+
+## 🔐 Seguridad
+
+- Contraseñas hasheadas con SHA-256 (nunca se almacenan en texto plano)
+- Sesiones con token aleatorio en sessionStorage (expiran tras 30 min)
+- Rate limiting en login (5 intentos, cooldown 30s)
+- Panel admin protegido con secreto independiente
+- CSP (Content Security Policy) configurado en producción
 
 ## 📝 Notas
 
 - El modo seleccionado (F1/Fútbol) se guarda en localStorage
-- Los datos se sincronizan automáticamente con la API remota (AWS)
-- Sesión expira tras 30 minutos de inactividad
-- **Histórico 2025**: solo Las Vegas, Qatar y Abu Dhabi tienen datos reales
+- Los datos se sincronizan automáticamente con el backend remoto
+- Si no hay resultados publicados, no se asigna quién paga las birras
+- Datos de F1 históricos (1950-hoy) disponibles vía Jolpica/Ergast API (client-side, sin coste)
+- La app funciona offline gracias al Service Worker (PWA)

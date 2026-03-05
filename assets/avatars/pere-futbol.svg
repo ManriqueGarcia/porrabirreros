@@ -1,63 +1,69 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
   <defs>
-    <linearGradient id="pf-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2a1a08"/><stop offset="100%" stop-color="#0a0a12"/></linearGradient>
-    <linearGradient id="pf-jersey" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#A50044"/><stop offset="50%" stop-color="#A50044"/><stop offset="50%" stop-color="#004D98"/><stop offset="100%" stop-color="#004D98"/></linearGradient>
-    <linearGradient id="pf-shorts" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#004D98"/><stop offset="100%" stop-color="#003570"/></linearGradient>
-    <radialGradient id="pf-skin" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#FDDCB5"/><stop offset="100%" stop-color="#E8B896"/></radialGradient>
-    <radialGradient id="pf-cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F5A0A0" stop-opacity=".5"/><stop offset="100%" stop-color="#F5A0A0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="pfs" cx="50%" cy="38%" r="50%"><stop offset="0%" stop-color="#FFE0C0"/><stop offset="100%" stop-color="#D8A878"/></radialGradient>
   </defs>
-  <rect width="220" height="240" rx="24" fill="url(#pf-bg)"/>
-  <rect x="8" y="8" width="204" height="224" rx="22" fill="none" stroke="#FCDD09" stroke-width="1" opacity=".2"/>
-  <!-- Senyera accent -->
-  <rect x="8" y="210" width="204" height="6" rx="3" fill="#DA121A" opacity=".4"/>
-  <rect x="8" y="218" width="204" height="4" rx="2" fill="#FCDD09" opacity=".3"/>
-  <!-- Shorts -->
-  <rect x="78" y="192" width="26" height="20" rx="6" fill="url(#pf-shorts)"/>
-  <rect x="116" y="192" width="26" height="20" rx="6" fill="url(#pf-shorts)"/>
-  <!-- Body - Barça jersey -->
-  <path d="M70 160 Q70 148 85 143 L135 143 Q150 148 150 160 L150 195 Q150 200 110 200 Q70 200 70 195 Z" fill="url(#pf-jersey)"/>
-  <!-- Collar -->
-  <path d="M95 143 Q110 150 125 143" stroke="#FCDD09" stroke-width="2.5" fill="none"/>
-  <!-- Senyera stripes on sleeve -->
-  <rect x="70" y="155" width="12" height="3" rx="1" fill="#FCDD09" opacity=".7"/>
-  <rect x="70" y="160" width="12" height="3" rx="1" fill="#DA121A" opacity=".7"/>
-  <rect x="138" y="155" width="12" height="3" rx="1" fill="#FCDD09" opacity=".7"/>
-  <rect x="138" y="160" width="12" height="3" rx="1" fill="#DA121A" opacity=".7"/>
-  <!-- Number -->
-  <text x="110" y="185" font-family="system-ui,sans-serif" font-size="14" font-weight="900" fill="#FCDD09" text-anchor="middle" opacity=".7">8</text>
-  <!-- Arms -->
-  <ellipse cx="58" cy="165" rx="14" ry="10" fill="#A50044"/>
-  <ellipse cx="162" cy="165" rx="14" ry="10" fill="#004D98"/>
-  <!-- BIG head -->
-  <ellipse cx="110" cy="80" rx="50" ry="48" fill="url(#pf-skin)"/>
-  <!-- Hair - short, neat -->
-  <ellipse cx="110" cy="50" rx="46" ry="24" fill="#2D1B0E"/>
-  <path d="M64 70 Q64 38 110 30 Q156 38 156 70" fill="#2D1B0E"/>
-  <path d="M68 76 Q66 64 72 56" fill="#2D1B0E"/>
-  <path d="M152 76 Q154 64 148 56" fill="#2D1B0E"/>
-  <!-- Hair shine -->
-  <ellipse cx="98" cy="44" rx="16" ry="7" fill="white" opacity=".08"/>
-  <!-- Big cartoon eyes -->
-  <ellipse cx="93" cy="79" rx="9" ry="10" fill="white"/>
-  <ellipse cx="127" cy="79" rx="9" ry="10" fill="white"/>
-  <ellipse cx="95" cy="80" rx="5" ry="6" fill="#3B2510"/>
-  <ellipse cx="129" cy="80" rx="5" ry="6" fill="#3B2510"/>
-  <circle cx="97" cy="77" r="2.5" fill="white"/>
-  <circle cx="131" cy="77" r="2.5" fill="white"/>
-  <!-- Eyebrows -->
-  <path d="M82 67 Q93 63 102 67" stroke="#3B2510" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M118 67 Q127 63 138 67" stroke="#3B2510" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <!-- Nose -->
-  <ellipse cx="110" cy="88" rx="3.5" ry="2.5" fill="#D4A574" opacity=".7"/>
-  <!-- Big warm smile -->
-  <path d="M92 95 Q110 108 128 95" stroke="#5C3A20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M96 96 Q110 104 124 96" fill="white" opacity=".8"/>
-  <!-- Cheeks -->
-  <circle cx="82" cy="92" r="8" fill="url(#pf-cheek)"/>
-  <circle cx="138" cy="92" r="8" fill="url(#pf-cheek)"/>
-  <!-- Football at feet -->
-  <circle cx="85" cy="216" r="10" fill="white" stroke="#333" stroke-width="1"/>
-  <path d="M80 211 L85 216 L90 211 M78 216 L85 222 L92 216" fill="none" stroke="#333" stroke-width=".8" opacity=".5"/>
-  <!-- Name -->
-  <text x="110" y="230" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#FCDD09" text-anchor="middle" opacity=".9">Pere</text>
+  <rect width="200" height="260" rx="22" fill="#08001a"/>
+  <!-- Football -->
+  <circle cx="160" cy="240" r="10" fill="white" opacity=".25"/>
+  <path d="M155 235 L160 240 L165 235 M153 240 L160 247 L167 240" fill="none" stroke="#555" stroke-width=".8" opacity=".25"/>
+  <!-- TINY strong body in Barca jersey -->
+  <path d="M66 195 Q54 182 66 174 L134 174 Q146 182 134 195 L140 238 Q100 252 60 238Z" fill="#004D98"/>
+  <!-- Blaugrana stripes -->
+  <rect x="72" y="174" width="10" height="64" fill="#A50044" opacity=".5"/>
+  <rect x="94" y="174" width="10" height="64" fill="#A50044" opacity=".5"/>
+  <rect x="118" y="174" width="10" height="64" fill="#A50044" opacity=".5"/>
+  <path d="M82 174 L100 182 L118 174" stroke="#FCDD09" stroke-width="2" fill="none"/>
+  <text x="100" y="212" font-family="system-ui" font-size="20" font-weight="900" fill="#FCDD09" text-anchor="middle" opacity=".45">5</text>
+  <ellipse cx="56" cy="186" rx="14" ry="9" fill="#A50044"/>
+  <ellipse cx="144" cy="186" rx="14" ry="9" fill="#004D98"/>
+  <!-- Neck thick -->
+  <rect x="86" y="164" width="28" height="12" rx="5" fill="url(#pfs)"/>
+  <!-- HUGE HEAD -->
+  <ellipse cx="100" cy="80" rx="70" ry="74" fill="url(#pfs)"/>
+  <!-- White straight hair -->
+  <path d="M30 66 Q30 8 100 4 Q170 8 170 66" fill="#E8E4E0"/>
+  <path d="M34 70 Q34 14 100 10 Q166 14 166 70" fill="#F0ECE8" opacity=".7"/>
+  <!-- Straight hair lines -->
+  <path d="M52 56 L58 14" stroke="#D8D4D0" stroke-width="2" fill="none" opacity=".5"/>
+  <path d="M72 50 L76 10" stroke="#D8D4D0" stroke-width="1.5" fill="none" opacity=".4"/>
+  <path d="M100 48 L100 8" stroke="#D8D4D0" stroke-width="1.5" fill="none" opacity=".4"/>
+  <path d="M128 50 L124 10" stroke="#D8D4D0" stroke-width="1.5" fill="none" opacity=".4"/>
+  <path d="M148 56 L142 14" stroke="#D8D4D0" stroke-width="2" fill="none" opacity=".5"/>
+  <!-- Sideburns -->
+  <path d="M32 68 Q30 55 34 42" fill="#E0DCD8" opacity=".4"/>
+  <path d="M168 68 Q170 55 166 42" fill="#E0DCD8" opacity=".4"/>
+  <!-- Big ears -->
+  <ellipse cx="28" cy="84" rx="12" ry="18" fill="#D8A878"/>
+  <ellipse cx="28" cy="84" rx="6" ry="11" fill="#C49060" opacity=".25"/>
+  <ellipse cx="172" cy="84" rx="12" ry="18" fill="#D8A878"/>
+  <ellipse cx="172" cy="84" rx="6" ry="11" fill="#C49060" opacity=".25"/>
+  <!-- Huge friendly eyes -->
+  <ellipse cx="70" cy="78" rx="16" ry="15" fill="white"/>
+  <ellipse cx="130" cy="78" rx="16" ry="15" fill="white"/>
+  <ellipse cx="72" cy="79" rx="9" ry="10" fill="#4A7030"/>
+  <ellipse cx="132" cy="79" rx="9" ry="10" fill="#4A7030"/>
+  <circle cx="75" cy="76" r="4" fill="white"/>
+  <circle cx="135" cy="76" r="4" fill="white"/>
+  <!-- White friendly eyebrows -->
+  <path d="M50 60 Q70 48 90 60" stroke="#C0B8B0" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M110 60 Q130 48 150 60" stroke="#C0B8B0" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Generous nose -->
+  <path d="M93 90 Q100 112 107 90" stroke="#B88050" stroke-width="2.5" fill="none"/>
+  <ellipse cx="100" cy="108" rx="8" ry="4" fill="#C49060" opacity=".5"/>
+  <!-- HUGE warm smile -->
+  <path d="M60 126 Q100 155 140 126" stroke="#5C3A20" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M66 128 Q100 152 134 128" fill="white" opacity=".85"/>
+  <!-- Laugh lines -->
+  <path d="M52 120 Q58 126 60 126" stroke="#C49060" stroke-width="1.2" fill="none" opacity=".35"/>
+  <path d="M148 120 Q142 126 140 126" stroke="#C49060" stroke-width="1.2" fill="none" opacity=".35"/>
+  <!-- Rosy cheeks -->
+  <circle cx="44" cy="104" r="14" fill="#E88080" opacity=".16"/>
+  <circle cx="156" cy="104" r="14" fill="#E88080" opacity=".16"/>
+  <!-- NBA ball -->
+  <circle cx="36" cy="240" r="8" fill="#FF6B00" opacity=".35"/>
+  <path d="M31 240 Q36 235 41 240 Q36 245 31 240" stroke="white" stroke-width=".8" fill="none" opacity=".35"/>
+  <!-- Pharmacy cross on sleeve -->
+  <rect x="46" y="182" width="14" height="4" rx="1" fill="#22c55e" opacity=".4"/>
+  <rect x="50" y="178" width="5" height="12" rx="1" fill="#22c55e" opacity=".4"/>
+  <text x="100" y="256" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#5fb8a8" text-anchor="middle" opacity=".9">Pere</text>
 </svg>

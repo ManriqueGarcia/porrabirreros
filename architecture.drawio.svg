@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1480 610" width="1480" height="610" style="background:#fff;font-family:Segoe UI,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#666"/></marker>
+    <marker id="arrow-orange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#ff6f00"/></marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#2563eb"/></marker>
+    <marker id="arrow-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#7b1fa2"/></marker>
+    <marker id="arrow-teal" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#00695c"/></marker>
+    <marker id="arrow-brown" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#795548"/></marker>
+    <style>
+      text { font-family: Segoe UI, Helvetica, Arial, sans-serif; }
+      .title { font-size: 18px; font-weight: 700; fill: #1a1a2e; }
+      .group-label { font-size: 12px; font-weight: 700; }
+      .box { rx: 8; ry: 8; stroke-width: 1.5; }
+      .box-sm { rx: 6; ry: 6; stroke-width: 1.2; }
+      .box-text { font-size: 10px; fill: #333; }
+      .box-text-sm { font-size: 9px; fill: #555; }
+      .edge { fill: none; stroke-width: 1.5; }
+      .edge-label { font-size: 8px; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="740" y="28" text-anchor="middle" class="title"><z Porra Birreros  Arquitectura de Aplicación</text>
+
+  <!-- ====== USUARIO ====== -->
+  <rect x="20" y="50" width="190" height="175" rx="12" fill="#f5f5f5" stroke="#999" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+  <text x="115" y="72" text-anchor="middle" class="group-label" fill="#333">=d Usuario</text>
+  <rect x="35" y="82" width="160" height="40" class="box" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="115" y="100" text-anchor="middle" font-size="11" font-weight="700" fill="#333">< Navegador</text>
+  <text x="115" y="114" text-anchor="middle" font-size="9" fill="#555">(PWA / Mobile)</text>
+  <rect x="35" y="130" width="160" height="35" class="box-sm" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="115" y="148" text-anchor="middle" font-size="9" fill="#555">=¾ localStorage (caché + sesión)</text>
+  <rect x="35" y="173" width="160" height="35" class="box-sm" fill="#e1d5e7" stroke="#9673a6"/>
+  <text x="115" y="194" text-anchor="middle" font-size="9" fill="#555">™ Service Worker (offline)</text>
+
+  <!-- ====== FRONTEND ====== -->
+  <rect x="240" y="50" width="530" height="400" rx="12" fill="#e6f3ff" stroke="#4a90d9" stroke-width="1.5" opacity="0.4"/>
+  <text x="505" y="72" text-anchor="middle" class="group-label" fill="#2563eb">› Frontend  React 18 + Tailwind CSS v4</text>
+
+  <!-- App.jsx -->
+  <rect x="370" y="82" width="270" height="38" class="box" fill="#1a1a2e" stroke="#e10600" stroke-width="2"/>
+  <text x="505" y="100" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">App.jsx</text>
+  <text x="505" y="114" text-anchor="middle" font-size="8" fill="#ccc">Routing · Estado Global · Sync</text>
+
+  <!-- F1 Mode -->
+  <rect x="250" y="130" width="240" height="218" rx="10" fill="#fce4ec" stroke="#e10600" opacity="0.5"/>
+  <text x="370" y="150" text-anchor="middle" class="group-label" fill="#e10600"><Î Modo F1</text>
+  <rect x="260" y="158" width="220" height="28" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="370" y="176" text-anchor="middle" class="box-text-sm">Participante  Apuestas + Countdown + Reminder</text>
+  <rect x="260" y="192" width="220" height="28" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="370" y="210" text-anchor="middle" class="box-text-sm">Ranking  Standings + Desglose + Resumen GP</text>
+  <rect x="260" y="226" width="220" height="28" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="370" y="244" text-anchor="middle" class="box-text-sm">Stats  Birras · Tendencia · Suerte · WhatIf</text>
+  <rect x="260" y="260" width="220" height="24" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="370" y="276" text-anchor="middle" class="box-text-sm">Histórico (temporadas anteriores)</text>
+  <rect x="260" y="290" width="105" height="24" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="312" y="306" text-anchor="middle" class="box-text-sm">Admin F1</text>
+  <rect x="375" y="290" width="105" height="24" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="427" y="306" text-anchor="middle" class="box-text-sm">Normas F1</text>
+  <rect x="260" y="320" width="220" height="24" class="box-sm" fill="#fff" stroke="#e10600"/>
+  <text x="370" y="336" text-anchor="middle" class="box-text-sm">Charts  Evolución posiciones (SVG)</text>
+
+  <!-- Fútbol Mode -->
+  <rect x="505" y="130" width="255" height="172" rx="10" fill="#e8f5e9" stroke="#2e7d32" opacity="0.5"/>
+  <text x="632" y="150" text-anchor="middle" class="group-label" fill="#2e7d32">½ Modo Fútbol</text>
+  <rect x="515" y="158" width="235" height="28" class="box-sm" fill="#fff" stroke="#2e7d32"/>
+  <text x="632" y="176" text-anchor="middle" class="box-text-sm">FutbolParticipante  Apuestas + Countdown</text>
+  <rect x="515" y="192" width="235" height="28" class="box-sm" fill="#fff" stroke="#2e7d32"/>
+  <text x="632" y="210" text-anchor="middle" class="box-text-sm">FutbolRanking  Standings + Evolución</text>
+  <rect x="515" y="226" width="110" height="24" class="box-sm" fill="#fff" stroke="#2e7d32"/>
+  <text x="570" y="242" text-anchor="middle" class="box-text-sm">FutbolAdmin</text>
+  <rect x="635" y="226" width="115" height="24" class="box-sm" fill="#fff" stroke="#2e7d32"/>
+  <text x="692" y="242" text-anchor="middle" class="box-text-sm">Normas Fútbol</text>
+  <rect x="515" y="258" width="235" height="28" class="box-sm" fill="#fff" stroke="#2e7d32"/>
+  <text x="632" y="276" text-anchor="middle" class="box-text-sm">Evolución por jornada (SVG)</text>
+
+  <!-- Shared Components -->
+  <rect x="250" y="362" width="520" height="55" rx="8" fill="#f3e5f5" stroke="#7b1fa2" opacity="0.4"/>
+  <text x="260" y="377" font-size="10" font-weight="700" fill="#7b1fa2">=' Componentes compartidos</text>
+  <rect x="258" y="385" width="95" height="26" class="box-sm" fill="#fff" stroke="#7b1fa2"/>
+  <text x="305" y="402" text-anchor="middle" font-size="8" fill="#555">WelcomeBanner</text>
+  <rect x="360" y="385" width="70" height="26" class="box-sm" fill="#fff" stroke="#7b1fa2"/>
+  <text x="395" y="402" text-anchor="middle" font-size="8" fill="#555">Avatar</text>
+  <rect x="437" y="385" width="70" height="26" class="box-sm" fill="#fff" stroke="#7b1fa2"/>
+  <text x="472" y="402" text-anchor="middle" font-size="8" fill="#555">Auth</text>
+  <rect x="514" y="385" width="95" height="26" class="box-sm" fill="#fff" stroke="#7b1fa2"/>
+  <text x="561" y="402" text-anchor="middle" font-size="8" fill="#555">> ManriBot</text>
+  <rect x="616" y="385" width="70" height="26" class="box-sm" fill="#fff" stroke="#7b1fa2"/>
+  <text x="651" y="402" text-anchor="middle" font-size="8" fill="#555">CircuitCard</text>
+  <rect x="693" y="385" width="70" height="26" class="box-sm" fill="#fff" stroke="#7b1fa2"/>
+  <text x="728" y="402" text-anchor="middle" font-size="8" fill="#555">BetForm</text>
+
+  <!-- ====== LÓGICA ====== -->
+  <rect x="250" y="430" width="520" height="55" rx="8" fill="#fff8e1" stroke="#f9a825" opacity="0.4"/>
+  <text x="510" y="448" text-anchor="middle" font-size="10" font-weight="700" fill="#f57f17">=Ð Lógica de negocio (módulos JS puros)</text>
+  <rect x="258" y="455" width="120" height="26" class="box-sm" fill="#fff" stroke="#f9a825"/>
+  <text x="318" y="468" text-anchor="middle" font-size="8" fill="#555">scoring.js</text>
+  <text x="318" y="478" text-anchor="middle" font-size="7" fill="#888">scoreForRace · standings</text>
+  <rect x="386" y="455" width="110" height="26" class="box-sm" fill="#fff" stroke="#f9a825"/>
+  <text x="441" y="468" text-anchor="middle" font-size="8" fill="#555">futbol-utils.js</text>
+  <text x="441" y="478" text-anchor="middle" font-size="7" fill="#888">scoreFutbolJornada</text>
+  <rect x="504" y="455" width="110" height="26" class="box-sm" fill="#fff" stroke="#f9a825"/>
+  <text x="559" y="468" text-anchor="middle" font-size="8" fill="#555">utils.js</text>
+  <text x="559" y="478" text-anchor="middle" font-size="7" fill="#888">hash · dates · CSV/PDF</text>
+  <rect x="622" y="455" width="65" height="26" class="box-sm" fill="#fff" stroke="#f9a825"/>
+  <text x="654" y="472" text-anchor="middle" font-size="8" fill="#555">config.js</text>
+  <rect x="695" y="455" width="65" height="26" class="box-sm" fill="#fff" stroke="#f9a825"/>
+  <text x="727" y="472" text-anchor="middle" font-size="8" fill="#555">api.js</text>
+
+  <!-- ====== AWS ====== -->
+  <rect x="820" y="50" width="310" height="470" rx="12" fill="#fff3e0" stroke="#ff6f00" stroke-width="1.5" opacity="0.4"/>
+  <text x="975" y="72" text-anchor="middle" class="group-label" fill="#ff6f00"> AWS</text>
+  <rect x="840" y="82" width="270" height="38" class="box" fill="#ff9800" stroke="#e65100"/>
+  <text x="975" y="105" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">< CloudFront (CDN)</text>
+  <rect x="840" y="130" width="270" height="34" class="box-sm" fill="#fff" stroke="#ff6f00"/>
+  <text x="975" y="148" text-anchor="middle" font-size="10" fill="#333">=æ S3  Static Hosting (dist/)</text>
+  <text x="975" y="160" text-anchor="middle" font-size="8" fill="#888">HTML · JS · CSS · assets</text>
+  <rect x="840" y="178" width="270" height="30" class="box-sm" fill="#fff" stroke="#ff6f00"/>
+  <text x="975" y="197" text-anchor="middle" font-size="10" fill="#333">= API Gateway (REST)</text>
+  <rect x="840" y="220" width="270" height="34" class="box-sm" fill="#fff" stroke="#ff6f00"/>
+  <text x="975" y="237" text-anchor="middle" font-size="10" fill="#333">» Lambda  Estado</text>
+  <text x="975" y="250" text-anchor="middle" font-size="8" fill="#888">GET/PUT estado de la porra</text>
+  <rect x="840" y="266" width="270" height="34" class="box-sm" fill="#fff" stroke="#ff6f00"/>
+  <text x="975" y="283" text-anchor="middle" font-size="10" fill="#333">» Lambda  porra-ai.mjs</text>
+  <text x="975" y="296" text-anchor="middle" font-size="8" fill="#888">ManriBot (AI backend)</text>
+  <rect x="840" y="312" width="270" height="34" class="box-sm" fill="#fff" stroke="#ff6f00"/>
+  <text x="975" y="330" text-anchor="middle" font-size="10" fill="#333">=æ S3  Datos</text>
+  <text x="975" y="342" text-anchor="middle" font-size="8" fill="#888">Estado JSON de la porra</text>
+
+  <!-- External APIs -->
+  <rect x="840" y="365" width="270" height="34" class="box" fill="#e8eaf6" stroke="#3f51b5"/>
+  <text x="975" y="382" text-anchor="middle" font-size="10" font-weight="600" fill="#333">>à Google AI API</text>
+  <text x="975" y="395" text-anchor="middle" font-size="8" fill="#666">Gemma 3 27B / Gemini Flash</text>
+  <rect x="840" y="412" width="270" height="34" class="box" fill="#e0f2f1" stroke="#00695c"/>
+  <text x="975" y="430" text-anchor="middle" font-size="10" font-weight="600" fill="#333">=Ê Jolpica/Ergast API</text>
+  <text x="975" y="442" text-anchor="middle" font-size="8" fill="#666">Datos F1 históricos (1950hoy)</text>
+
+  <!-- GitHub Actions -->
+  <rect x="840" y="462" width="130" height="48" rx="8" fill="#efebe9" stroke="#795548" opacity="0.8"/>
+  <text x="905" y="480" text-anchor="middle" font-size="9" font-weight="700" fill="#795548">= GitHub</text>
+  <text x="905" y="493" text-anchor="middle" font-size="8" fill="#795548">push ’ Actions</text>
+  <text x="905" y="504" text-anchor="middle" font-size="7" fill="#999">build ’ s3 sync ’ CF inv.</text>
+
+  <rect x="980" y="462" width="130" height="48" rx="8" fill="#efebe9" stroke="#795548" opacity="0.8"/>
+  <text x="1045" y="480" text-anchor="middle" font-size="9" font-weight="700" fill="#795548">>ê Testing</text>
+  <text x="1045" y="493" text-anchor="middle" font-size="8" fill="#795548">Vitest (19 tests)</text>
+  <text x="1045" y="504" text-anchor="middle" font-size="7" fill="#999">ESLint + npm audit</text>
+
+  <!-- ====== BUILD ====== -->
+  <rect x="250" y="498" width="520" height="30" rx="6" fill="#fce4ec" stroke="#c62828" opacity="0.3"/>
+  <text x="510" y="518" text-anchor="middle" font-size="9" font-weight="700" fill="#c62828">=( Build: esbuild (bundle+minify) ’ Tailwind CLI v4 (CSS) ’ gzip ’ dist/</text>
+
+  <!-- ====== ASSETS ====== -->
+  <rect x="250" y="540" width="520" height="55" rx="8" fill="#e8f5e9" stroke="#388e3c" opacity="0.3"/>
+  <text x="260" y="557" font-size="10" font-weight="700" fill="#388e3c"><¨ Assets</text>
+  <text x="260" y="573" font-size="8" fill="#555">=d 10 Avatares SVG (F1 Vizcarra + Fútbol Alberto Arias)</text>
+  <text x="260" y="585" font-size="8" fill="#555"><Á 24 Circuitos SVG con trazados Bézier</text>
+  <text x="530" y="573" font-size="8" fill="#555">=Ë JSON: calendario, pilotos, equipos, histórico</text>
+  <text x="530" y="585" font-size="8" fill="#555">> ManriBot icon (R2-D2 SVG)</text>
+
+  <!-- ====== EDGES ====== -->
+  <!-- Browser ’ CloudFront -->
+  <path d="M195,100 L300,100 Q330,100 330,100 L840,100" class="edge" stroke="#666" marker-end="url(#arrow)"/>
+  <text x="500" y="94" class="edge-label" fill="#666">HTTPS</text>
+
+  <!-- CloudFront ’ S3 Hosting -->
+  <line x1="975" y1="120" x2="975" y2="130" class="edge" stroke="#ff6f00" marker-end="url(#arrow-orange)"/>
+
+  <!-- Browser ’ App (React SPA) -->
+  <path d="M195,90 Q250,82 370,100" class="edge" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="270" y="80" class="edge-label" fill="#2563eb" font-weight="600">React SPA</text>
+
+  <!-- App ’ F1 group -->
+  <path d="M440,120 L370,130" class="edge" stroke="#e10600" marker-end="url(#arrow)"/>
+
+  <!-- App ’ Futbol group -->
+  <path d="M570,120 L632,130" class="edge" stroke="#2e7d32" marker-end="url(#arrow)"/>
+
+  <!-- App ’ API Gateway -->
+  <path d="M640,100 L840,193" class="edge" stroke="#ff6f00" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+  <text x="730" y="138" class="edge-label" fill="#ff6f00">REST API (estado)</text>
+
+  <!-- API GW ’ Lambda State -->
+  <line x1="975" y1="208" x2="975" y2="220" class="edge" stroke="#ff6f00" marker-end="url(#arrow-orange)"/>
+
+  <!-- API GW ’ Lambda AI (via side) -->
+  <path d="M840,193 L830,193 L830,283 L840,283" class="edge" stroke="#ff6f00" marker-end="url(#arrow-orange)"/>
+
+  <!-- Lambda State ’ S3 Data -->
+  <line x1="975" y1="254" x2="975" y2="312" class="edge" stroke="#ff6f00" marker-end="url(#arrow-orange)"/>
+  <text x="985" y="285" class="edge-label" fill="#ff6f00">JSON</text>
+
+  <!-- Lambda AI ’ Google AI -->
+  <line x1="975" y1="300" x2="975" y2="365" class="edge" stroke="#3f51b5" marker-end="url(#arrow)"/>
+  <text x="985" y="340" class="edge-label" fill="#3f51b5">Gemma 3</text>
+
+  <!-- ManriBot ’ Jolpica (client-side) -->
+  <path d="M561,411 L561,430 Q800,430 840,430" class="edge" stroke="#00695c" stroke-dasharray="4,3" marker-end="url(#arrow-teal)"/>
+  <text x="700" y="425" class="edge-label" fill="#00695c">Client-side (F1 datos)</text>
+
+  <!-- ManriBot ’ Lambda AI -->
+  <path d="M580,385 L780,283 L840,283" class="edge" stroke="#7b1fa2" stroke-dasharray="4,3" marker-end="url(#arrow-purple)"/>
+  <text x="690" y="318" class="edge-label" fill="#7b1fa2">Fútbol AI</text>
+
+  <!-- GitHub ’ S3 deploy -->
+  <path d="M905,462 L905,148 L840,148" class="edge" stroke="#795548" stroke-dasharray="5,3" marker-end="url(#arrow-brown)"/>
+  <text x="870" y="458" class="edge-label" fill="#795548">deploy</text>
+</svg>
