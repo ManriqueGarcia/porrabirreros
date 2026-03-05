@@ -175,7 +175,7 @@ Puedes responder sobre:
 Si no tienes datos exactos sobre algo muy reciente, dilo honestamente. Usa emojis de fútbol (⚽🏆🥅) para hacer las respuestas más divertidas.
 ${PROMPT_GUARD}`;
 
-const GEMINI_MODELS = ["gemma-3-27b-it", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemma-3-27b-it"];
 
 function sanitizeInput(q) {
   return q.replace(/<<<|>>>/g, "").replace(/\x00/g, "").slice(0, 500);
@@ -190,22 +190,26 @@ async function callGemini(question, context, systemPrompt) {
   let lastErr = "";
   for (const model of GEMINI_MODELS) {
     try {
+      const supportsSystemInstruction = !model.startsWith("gemma");
+      const requestBody = {
+        contents: [{ role: "user", parts: [{ text: supportsSystemInstruction ? userContent : `${systemPrompt}\n\n${userContent}` }] }],
+        generationConfig: { maxOutputTokens: 800, temperature: 0.3 },
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        ],
+      };
+      if (supportsSystemInstruction) {
+        requestBody.systemInstruction = { parts: [{ text: systemPrompt }] };
+      }
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ role: "user", parts: [{ text: userContent }] }],
-            generationConfig: { maxOutputTokens: 800, temperature: 0.3 },
-            safetySettings: [
-              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-              { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-              { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            ],
-          }),
+          body: JSON.stringify(requestBody),
           signal: AbortSignal.timeout(30000),
         }
       );
@@ -213,9 +217,9 @@ async function callGemini(question, context, systemPrompt) {
       if (!res.ok) {
         lastErr = `Gemini ${model}: ${res.status} - ${body.slice(0, 200)}`;
         log("warn", "Gemini HTTP error", { model, status: res.status, body: body.slice(0, 150) });
-        if (res.status === 404) continue;
+        if (res.status === 404 || res.status === 400) continue;
         if (res.status === 429) { await sleep(2000); continue; }
-        if (res.status === 400 || res.status === 403) break;
+        if (res.status === 403) break;
         continue;
       }
       let data;
