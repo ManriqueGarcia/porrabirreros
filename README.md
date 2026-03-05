@@ -86,7 +86,7 @@ graph TB
 
 ### Infraestructura AWS
 
-![Diagrama de infraestructura AWS](docs/aws-infrastructure.svg)
+![Diagrama de infraestructura AWS](docs/aws-infrastructure.png)
 
 > **Flujo**: El usuario accede vía CloudFront (CDN + HTTPS). La SPA se carga desde S3 Hosting. Las llamadas a `/state` y `/assistant` van a API Gateway → Lambda. GitHub Actions despliega automáticamente en cada push a `main`.
 
