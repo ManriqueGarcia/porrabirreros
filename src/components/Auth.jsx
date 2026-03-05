@@ -146,10 +146,7 @@ export function Login({ db, setDb, onLogged }) {
             </div>
             <div>
               <label htmlFor="recover-user" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Tu usuario</label>
-              <select id="recover-user" className="select border rounded px-3 py-2.5 text-base w-full" value={recoverUser} onChange={e => setRecoverUser(e.target.value)}>
-                <option value="">— elige —</option>
-                {Object.keys(db.users || {}).sort().map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <input id="recover-user" type="text" autoComplete="username" className="select border rounded px-3 py-2.5 w-full" placeholder="Escribe tu nombre de usuario" value={recoverUser} onChange={e => setRecoverUser(e.target.value)} />
             </div>
             <div>
               <label htmlFor="recover-code" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Código de recuperación</label>
@@ -181,10 +178,7 @@ export function Login({ db, setDb, onLogged }) {
         <form onSubmit={tryLogin} className="grid gap-3">
           <div>
             <label htmlFor="login-user" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Usuario</label>
-            <select id="login-user" className="select border rounded px-3 py-2.5 text-base w-full" value={name} onChange={e => setName(e.target.value)}>
-              <option value="">— elige —</option>
-              {Object.keys(db.users || {}).sort().map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <input id="login-user" type="text" autoComplete="username" className="select border rounded px-3 py-2.5 w-full" placeholder="Escribe tu nombre de usuario" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
             <label htmlFor="login-pass" className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1 block">Contraseña</label>
