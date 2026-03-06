@@ -4,7 +4,7 @@ import { DEFAULT_PASSWORD_HASH } from "../config.js";
 import { toast } from "../toast.jsx";
 import { Avatar } from "./Avatar.jsx";
 import { getAdminRoles, hasAnyAdminRole } from "../admin-roles.js";
-import { fetchUserGroups, fetchGroupsList, getActiveGroupId, API_BASE_URL, API_HEADERS } from "../api.js";
+import { updateUser, fetchUserGroups, fetchGroupsList, getActiveGroupId, API_BASE_URL, API_HEADERS } from "../api.js";
 
 export function UserManagement({ db, setDb, currentUser }) {
   const [newUserName, setNewUserName] = useState("");
@@ -64,6 +64,8 @@ export function UserManagement({ db, setDb, currentUser }) {
       }
       return { ...prev, users };
     });
+    updateUser(name, currentUser, { passwordHash: DEFAULT_PASSWORD_HASH, mustChange: true, blocked: false })
+      .catch(err => console.error("Error sync reset password:", err));
     toast.success("Contraseña reseteada");
   };
 

@@ -71,8 +71,14 @@ export function ChangePasswordModal({ open, onClose, db, setDb, user, forceChang
       if (n1.length < 6) return toast.error("Mínimo 6 caracteres");
       if (n1 !== n2) return toast.error("Las contraseñas no coinciden");
       const hash = await hashPassword(n1);
+      try {
+        await updateUser(user, user, { passwordHash: hash, mustChange: false });
+      } catch (err) {
+        console.error("Error sync password:", err);
+        toast.error("Error al guardar en el servidor. Inténtalo de nuevo.");
+        return;
+      }
       setDb(prev => { const users = { ...(prev.users || {}) }; users[user] = { ...users[user], passwordHash: hash, mustChange: false, changedAt: new Date().toISOString() }; delete users[user].password; return { ...prev, users }; });
-      updateUser(user, user, { passwordHash: hash, mustChange: false }).catch(err => console.error("Error sync password:", err));
       toast.success("Contraseña actualizada"); onClose();
     } finally { setBusy(false); }
   };

@@ -6,6 +6,7 @@ import { FUTBOL_BASE_TEAMS } from "../config.js";
 import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { isAdminFor } from "../admin-roles.js";
+import { adminFutbol, saveResultFutbol } from "../api.js";
 
 export function FutbolAdmin({db,setDb,currentUser}){
   const futbol=db.futbol||defaultFutbolState();
@@ -69,14 +70,17 @@ export function FutbolAdmin({db,setDb,currentUser}){
     if(!id) return toast.error("Define ID o nombre de jornada");
     const parsedDeadline=parseLocalDateTime(deadlineInput)||nextFridayAt1500();
     const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`}));
+    const jornadaData={id,name:jName||id,deadline:parsedDeadline?parsedDeadline.toISOString():null,matches:fixedMatches};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const jornadasMap={...(futbolPrev.jornadas||{})};
-      jornadasMap[id]={id,name:jName||id,deadline:parsedDeadline?parsedDeadline.toISOString():null,matches:fixedMatches};
+      jornadasMap[id]=jornadaData;
       const order=[...(futbolPrev.order||[])];
       if(!order.includes(id)) order.push(id);
       return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
     });
+    adminFutbol(id, currentUser, "jornada", {...jornadaData, order:[...(futbol.order||[]), ...(futbol.order?.includes(id)?[]:[id])]})
+      .catch(err => console.error("Error sync jornada:", err));
     setSelected(id);
     toast.success("Jornada guardada");
   };
@@ -94,34 +98,49 @@ export function FutbolAdmin({db,setDb,currentUser}){
       const revealMap={...(futbolPrev.betsReveal||{})}; delete revealMap[selected];
       return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order, results:resultsMap, bets:betsMap, betsWindow:windowMap, betsReveal:revealMap}};
     });
+    adminFutbol(selected, currentUser, "delete", {})
+      .catch(err => console.error("Error sync delete jornada:", err));
     setSelected("");
   };
   const saveResults=()=>{
     const id=ensureId()||selected;
     if(!id) return toast.error("Guarda la jornada primero");
     const parsedScores=scores.slice(0,matches.length).map(s=>({home:s.home===""||s.home==null?null:Number(s.home), away:s.away===""||s.away==null?null:Number(s.away)}));
+    const resultData={matches:parsedScores};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const resultsMap={...(futbolPrev.results||{})};
-      resultsMap[id]={matches:parsedScores};
+      resultsMap[id]=resultData;
       return {...prev, futbol:{...futbolPrev, results:resultsMap}};
     });
+    saveResultFutbol(id, currentUser, resultData)
+      .catch(err => console.error("Error sync resultados futbol:", err));
     toast.success("Resultados guardados");
   };
   const setBetsOverride=(mode)=>{
     const id=ensureId()||selected;
     if(!id) return;
+    const windowData=mode==="auto"?{}:{forceOpen:mode==="open", forceClosed:mode==="close"};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
-      const map={...(futbolPrev.betsWindow||{})};
-      if(mode==="auto"){ delete map[id]; }
-      else map[id]={forceOpen:mode==="open", forceClosed:mode==="close"};
-      return {...prev, futbol:{...futbolPrev, betsWindow:map}};
+      const windowMap={...(futbolPrev.betsWindow||{})};
+      if(mode==="auto"){ delete windowMap[id]; }
+      else windowMap[id]=windowData;
+      const revealMap={...(futbolPrev.betsReveal||{})};
+      if(mode==="close") revealMap[id]={forceShow:true};
+      return {...prev, futbol:{...futbolPrev, betsWindow:windowMap, betsReveal:revealMap}};
     });
+    adminFutbol(id, currentUser, "window", mode==="auto"?{}:windowData)
+      .catch(err => console.error("Error sync betsWindow:", err));
+    if(mode==="close"){
+      adminFutbol(id, currentUser, "reveal", {forceShow:true})
+        .catch(err => console.error("Error sync betsReveal:", err));
+    }
   };
   const setReveal=(mode)=>{
     const id=ensureId()||selected;
     if(!id) return;
+    const revealData=mode==="auto"?{}:{forceShow:true};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const map={...(futbolPrev.betsReveal||{})};
@@ -129,21 +148,26 @@ export function FutbolAdmin({db,setDb,currentUser}){
       else map[id]={forceShow:true};
       return {...prev, futbol:{...futbolPrev, betsReveal:map}};
     });
+    adminFutbol(id, currentUser, "reveal", revealData)
+      .catch(err => console.error("Error sync betsReveal:", err));
   };
   const saveAdminBet=()=>{
     const id=ensureId()||selected;
     if(!id) return toast.error("Selecciona jornada");
     if(!editUser) return toast.error("Selecciona participante");
     const ts=nowISO();
+    const payload={matches:scores.map(s=>({home:s.home===""?null:Number(s.home), away:s.away===""?null:Number(s.away)}))};
+    const nextBet={...payload, submittedAt:ts, late:editLate, adminEdited:true};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const raceBets={...(futbolPrev.bets?.[id]||{})};
       const prevBet=raceBets[editUser];
-      const payload={matches:scores.map(s=>({home:s.home===""?null:Number(s.home), away:s.away===""?null:Number(s.away)}))};
-      const nextBet={...prevBet, ...payload, submittedAt:ts, late:editLate, adminEdited:true};
-      const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:nextBet}};
+      const fullBet={...prevBet, ...nextBet};
+      const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:fullBet}};
       return {...prev, futbol:{...futbolPrev, bets:nextBets}};
     });
+    adminFutbol(id, currentUser, "bet", {userName:editUser, bet:nextBet})
+      .catch(err => console.error("Error sync admin bet:", err));
     toast.success("Apuesta guardada para el usuario");
   };
   const manualStatus=selected ? (futbol.betsWindow?.[selected]?.forceOpen?"Abierto manualmente":futbol.betsWindow?.[selected]?.forceClosed?"Cerrado manualmente":"Automático (viernes 15:00)") : "—";

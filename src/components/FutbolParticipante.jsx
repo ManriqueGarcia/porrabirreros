@@ -74,11 +74,21 @@ export function FutbolParticipante({user,db,setDb}){
   const others=futbolParticipants.filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
   const myScore=jornada && res ? scoreFutbolJornada(db,selected,user) : null;
   const betsStatus=jornada ? (manualWindow?.forceClosed?"Cerrado por admin":(isFutbolLate?`Fuera de plazo (penalización -2 pts)`:(deadline?`Cierre: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto"))) : "—";
-  const saveBet=(payload)=>{
-    if(!jornada) return;
+  const [saving,setSaving]=useState(false);
+  const saveBet=async(payload)=>{
+    if(!jornada||saving) return;
+    setSaving(true);
     const ts=nowISO();
     const late=deadline ? new Date()>=deadline : false;
     const nextBet={matches:payload.matches, submittedAt:ts, late};
+    try {
+      await saveBetFutbol(selected, user, nextBet);
+    } catch(err) {
+      console.error("Error guardando apuesta futbol:", err);
+      toast.error("Error al guardar la apuesta. Inténtalo de nuevo.");
+      setSaving(false);
+      return;
+    }
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const raceBets={...(futbolPrev.bets?.[selected]||{})};
@@ -95,8 +105,8 @@ export function FutbolParticipante({user,db,setDb}){
       }
       return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
     });
-    saveBetFutbol(selected, user, nextBet).catch(err => { console.error("Error guardando apuesta futbol:", err); toast.error("Error al sincronizar apuesta"); });
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
+    setSaving(false);
   };
   const showOthersPanel=showOthers && !!jornada;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,340px)]":"";
@@ -150,7 +160,7 @@ export function FutbolParticipante({user,db,setDb}){
           </div>
         )}
         {jornada && (
-          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit} canEdit={canEdit} late={isFutbolLate} onSubmit={saveBet} />
+          <FutbolBetForm jornada={jornada} bet={bet} disabled={!canEdit||saving} canEdit={canEdit&&!saving} late={isFutbolLate} onSubmit={saveBet} />
         )}
         {myScore && (
           <div className="mt-4 futbol-result-card">
