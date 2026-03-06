@@ -91,11 +91,21 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const f1Participants=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
   const others=f1Participants.filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
-  const handleBetSubmit=useCallback((b)=>{
+  const [savingF1, setSavingF1] = useState(false);
+  const handleBetSubmit=useCallback(async(b)=>{
     const late=new Date()>=race?.cutoff;
     const timestamp=nowISO();
-    const rk=race?.key; if(!rk) return;
+    const rk=race?.key; if(!rk || savingF1) return;
     const nextBet={...b,submittedAt:timestamp,late};
+    setSavingF1(true);
+    try {
+      await saveBetF1(rk, user, nextBet);
+    } catch(err) {
+      console.error("Error guardando apuesta F1:", err);
+      toast.error("Error al guardar la apuesta. Inténtalo de nuevo.");
+      setSavingF1(false);
+      return;
+    }
     setDb(prev=>{
       const prevRaceBets={...(prev.bets?.[rk]||{})};
       const prevBet=prevRaceBets[user];
@@ -109,9 +119,9 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       }
       return {...prev, bets:nextBets, betHistory};
     });
-    saveBetF1(rk, user, nextBet).catch(err => { console.error("Error guardando apuesta F1:", err); toast.error("Error al sincronizar apuesta"); });
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
-  },[race?.key,race?.cutoff,user,setDb]);
+    setSavingF1(false);
+  },[race?.key,race?.cutoff,user,setDb,savingF1]);
   const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
@@ -201,7 +211,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           <div className="text-sm text-amber-300/80 mt-1">El plazo de apuestas ha cerrado. Puedes apostar igualmente, pero se aplicará una <b>penalización de -2 puntos</b>. No apostar supone <b>-3 puntos</b>.</div>
         </div>
       )}
-      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit} canEdit={canEdit} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={handleBetSubmit}/>}
+      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit||savingF1} canEdit={canEdit&&!savingF1} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={handleBetSubmit}/>}
       {race && bet?.submittedAt && <button className="mt-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
         const qs=questions||["","",""];
         const lines=[`🏎️ Porra Birreros — ${race.grand_prix}`,`📋 Apuesta de ${user}:`,bet.pole?`🏁 Pole: ${bet.pole}`:"",bet.podium?.filter(Boolean).length?`🥇🥈🥉 Podio: ${bet.podium.filter(Boolean).join(", ")}`:""];

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 
+const DEFAULT_AVATAR = "./assets/avatars/default.svg";
+
 const Avatar = React.memo(function Avatar({ name, avatar: customAvatar, size = "md", mode = "f1" }) {
-  const slug = (name || "").toLowerCase().replace(/\s+/g, "");
-  const primary = customAvatar || (mode === "futbol" ? `./assets/avatars/${slug}-futbol.svg` : `./assets/avatars/${slug}.svg`);
-  const fallbackSrc = mode === "futbol" ? `./assets/avatars/${slug}.svg` : "./assets/avatars/default.svg";
+  const primary = customAvatar || DEFAULT_AVATAR;
   const [src, setSrc] = useState(primary);
   const triedFallback = useRef(false);
 
@@ -15,7 +15,7 @@ const Avatar = React.memo(function Avatar({ name, avatar: customAvatar, size = "
   const handleError = () => {
     if (!triedFallback.current) {
       triedFallback.current = true;
-      setSrc(fallbackSrc);
+      setSrc(DEFAULT_AVATAR);
     }
   };
 

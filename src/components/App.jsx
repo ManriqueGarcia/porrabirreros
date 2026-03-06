@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
+import { useState, useEffect, useMemo, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, loadDB, saveDB, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
 import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser } from "../api.js";
@@ -231,8 +231,7 @@ function GroupApp({ groupId }) {
   const [db, setDb] = useState(loadGroupDB); const [cal, setCal] = useState([]); const [drivers, setDrivers] = useState([]); const [teams, setTeams] = useState([]); const [circuits, setCircuits] = useState({}); const [selectedRaceKey, setSelectedRaceKey] = useState(() => sessionStorage.getItem("porra_selected_race") || ""); useEffect(() => { if (selectedRaceKey && !cal?.find(r => r.key === selectedRaceKey) && cal?.length) setSelectedRaceKey(cal[0].key); }, [cal, selectedRaceKey]); useEffect(() => { if (selectedRaceKey) sessionStorage.setItem("porra_selected_race", selectedRaceKey); }, [selectedRaceKey]); const [user, setUser] = useState(() => { const s = getSession(); return s?.user || sessionStorage.getItem("porra_session_user") || ""; }); const [view, setView] = useState("participante"); const [mode, setMode] = useState(() => localStorage.getItem("porra_mode") || "f1"); const [showPass, setShowPass] = useState(false); const [showAvatar, setShowAvatar] = useState(false); const [showAI, setShowAI] = useState(false); const [hydrated, setHydrated] = useState(false); const [defaultPwdHash, setDefaultPwdHash] = useState("");
   const [showBanner, setShowBanner] = useState(false);
   useEffect(() => { setSaveRemoteUser(user); }, [user]);
-  const userActionRef = useRef(false);
-  const setDbUser = useCallback((updater) => { userActionRef.current = true; setDb(prev => typeof updater === "function" ? updater(prev) : updater); }, []);
+  const setDbUser = useCallback((updater) => { setDb(prev => typeof updater === "function" ? updater(prev) : updater); }, []);
   const userGroups = useMemo(() => getSession()?.groups || [], [user]);
   const currentGroupName = useMemo(() => userGroups.find(g => g.groupId === groupId)?.groupName || "", [userGroups, groupId]);
   const [forcePwdChange, setForcePwdChange] = useState(false);
@@ -246,23 +245,43 @@ function GroupApp({ groupId }) {
     if (reason) toast(reason);
     window.location.hash = "#/";
   }, []);
+  const refreshRemoteState = useCallback(async () => {
+    try {
+      const remote = await fetchRemoteState();
+      if (remote) {
+        setDb(prev => {
+          const merged = { ...remote };
+          if (prev.bets) merged.bets = { ...remote.bets, ...prev.bets };
+          if (prev.futbol?.bets) {
+            merged.futbol = { ...(remote.futbol || {}), bets: { ...(remote.futbol?.bets || {}), ...prev.futbol.bets } };
+          }
+          return merged;
+        });
+        saveGroupDB(remote);
+      }
+    } catch (err) { console.warn("No se pudo refrescar estado remoto", err); }
+  }, []);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const remote = await fetchRemoteState();
         if (remote && !cancelled) {
-          if (userActionRef.current) {
-            console.warn("Saltando carga remota: hay cambios locales recientes");
-          } else {
-            setDb(remote); saveGroupDB(remote);
-          }
+          setDb(remote); saveGroupDB(remote);
         }
       } catch (err) { console.warn("No se pudo cargar estado remoto", err); }
       finally { if (!cancelled) setHydrated(true); }
     })();
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    if (!hydrated) return;
+    const REFRESH_INTERVAL = 60_000;
+    const id = setInterval(refreshRemoteState, REFRESH_INTERVAL);
+    const onVisibility = () => { if (document.visibilityState === "visible") refreshRemoteState(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisibility); };
+  }, [hydrated, refreshRemoteState]);
   useEffect(() => {
     saveGroupDB(db);
     if (!hydrated) return;
