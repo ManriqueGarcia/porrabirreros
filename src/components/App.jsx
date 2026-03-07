@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Component } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, loadDB, saveDB, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
 import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser } from "../api.js";
@@ -245,18 +245,13 @@ function GroupApp({ groupId }) {
     if (reason) toast(reason);
     window.location.hash = "#/";
   }, []);
+  const skipRemoteSaveRef = useRef(false);
   const refreshRemoteState = useCallback(async () => {
     try {
       const remote = await fetchRemoteState();
       if (remote) {
-        setDb(prev => {
-          const merged = { ...remote };
-          if (prev.bets) merged.bets = { ...remote.bets, ...prev.bets };
-          if (prev.futbol?.bets) {
-            merged.futbol = { ...(remote.futbol || {}), bets: { ...(remote.futbol?.bets || {}), ...prev.futbol.bets } };
-          }
-          return merged;
-        });
+        skipRemoteSaveRef.current = true;
+        setDb(remote);
         saveGroupDB(remote);
       }
     } catch (err) { console.warn("No se pudo refrescar estado remoto", err); }
@@ -267,6 +262,7 @@ function GroupApp({ groupId }) {
       try {
         const remote = await fetchRemoteState();
         if (remote && !cancelled) {
+          skipRemoteSaveRef.current = true;
           setDb(remote); saveGroupDB(remote);
         }
       } catch (err) { console.warn("No se pudo cargar estado remoto", err); }
@@ -285,6 +281,10 @@ function GroupApp({ groupId }) {
   useEffect(() => {
     saveGroupDB(db);
     if (!hydrated) return;
+    if (skipRemoteSaveRef.current) {
+      skipRemoteSaveRef.current = false;
+      return;
+    }
     saveRemoteDebounced(db);
   }, [db, hydrated]);
   const [loadError, setLoadError] = useState(null);
@@ -340,6 +340,7 @@ function GroupApp({ groupId }) {
     if (db.meta?.seeded || !defaultPwdHash) return;
     const initial = CONFIG.participants;
     const adminUser = initial[initial.length - 1];
+    skipRemoteSaveRef.current = true;
     setDb(prev => {
       const baseUsers = { ...(prev.users || {}) }; initial.forEach(n => { if (!baseUsers[n]) baseUsers[n] = { name: n, passwordHash: defaultPwdHash, mustChange: true, isAdmin: n === adminUser, blocked: false }; else if (baseUsers[n].password && !baseUsers[n].passwordHash) { baseUsers[n] = { ...baseUsers[n], passwordHash: defaultPwdHash }; delete baseUsers[n].password; } });
       const baseParticipants = { ...(prev.participants || {}) }; initial.forEach(n => { if (!baseParticipants[n]) baseParticipants[n] = { name: n, createdAt: nowISO() }; });
@@ -355,6 +356,7 @@ function GroupApp({ groupId }) {
     if (!hydrated) return;
     const needsMigration = Object.entries(db.users || {}).filter(([_, u]) => !u.porras || (u.isAdmin && !u.adminRoles));
     if (!needsMigration.length) return;
+    skipRemoteSaveRef.current = true;
     setDb(prev => {
       const users = { ...(prev.users || {}) };
       needsMigration.forEach(([name]) => {
@@ -371,6 +373,7 @@ function GroupApp({ groupId }) {
   useEffect(() => {
     if (!hydrated) return;
     if (db.meta?.futbolJornadasV3) return;
+    skipRemoteSaveRef.current = true;
     const defaultJornadas = [
       { id: "J27", name: "Jornada 27 (6-9 Mar)", deadline: new Date(2026, 2, 6, 15, 0).toISOString(), matches: [{ home: "Celta de Vigo", away: "Real Madrid" }, { home: "Athletic Club", away: "FC Barcelona" }, { home: "Atlético de Madrid", away: "Real Sociedad" }, { home: "FC Andorra", away: "Real Sporting de Gijón" }] },
       { id: "J28", name: "Jornada 28 (13-16 Mar)", deadline: new Date(2026, 2, 13, 15, 0).toISOString(), matches: [{ home: "Real Madrid", away: "Elche" }, { home: "FC Barcelona", away: "Sevilla" }, { home: "Real Sociedad", away: "Osasuna" }, { home: "Real Sporting de Gijón", away: "Castellón" }] },
@@ -420,6 +423,7 @@ function GroupApp({ groupId }) {
     if (!participants.length) return;
     const needsUpdate = races.some(r => !db.questionOwner?.[r.key]);
     if (!needsUpdate) return;
+    skipRemoteSaveRef.current = true;
     setDb(prev => {
       const next = { ...prev, questionOwner: { ...(prev.questionOwner || {}) } };
       races.forEach(r => {

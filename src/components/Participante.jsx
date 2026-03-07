@@ -289,6 +289,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
               <div className="text-xs text-slate-400">{bet?(bet.submittedAt?`Enviada ${new Date(bet.submittedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`:"Enviada"):"Sin apuesta"}</div>
             </div>
             {bet?.late && <span className="text-xs text-amber-300">Fuera de plazo</span>}
+            {bet?.delegated && <span className="text-xs text-sky-300">Delegada</span>}
           </li>))}
         </ul>
       )}

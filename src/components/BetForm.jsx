@@ -59,6 +59,7 @@ function BetForm({bet,disabled,onSubmit,questions,drivers,late,canEdit}){
             <span className="text-sm font-semibold text-emerald-300">Apuesta registrada</span>
             {bet.submittedAt && <span className="text-[10px] text-white/30 ml-auto">{new Date(bet.submittedAt).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
             {bet.late && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20 ml-1">Fuera de plazo</span>}
+            {bet.delegated && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/20 ml-1">Delegada</span>}
           </div>
           <div className="grid gap-2 text-sm">
             <div className="flex items-baseline gap-2">

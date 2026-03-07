@@ -221,6 +221,7 @@ export function FutbolParticipante({user,db,setDb}){
                     <Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="futbol"/>
                     <span className="font-semibold text-white/80">{name}</span>
                     {other?.late && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">fuera de plazo</span>}
+                    {other?.delegated && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/20">delegada</span>}
                   </div>
                   {other ? (
                     <div className="space-y-1">

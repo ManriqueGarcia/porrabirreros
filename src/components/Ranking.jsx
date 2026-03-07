@@ -142,7 +142,7 @@ function RaceBreakdown({db,races,raceKey,rows}){
             <div key={row.name} className="border border-white/10 rounded p-3 bg-neutral-900">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2"><Avatar name={row.name} avatar={db.meta?.avatars?.[row.name]} avatarFutbol={db.meta?.avatarsFutbol?.[row.name]} size="sm" mode="f1"/><span className="font-medium">{row.name}</span></div>
-                <div className="text-sm">{row.points} pts {!bet && <span className="text-xs text-red-300 ml-2">(sin apuesta)</span>}{bet?.late && <span className="text-xs text-amber-300 ml-2">(fuera de plazo)</span>}</div>
+                <div className="text-sm">{row.points} pts {!bet && <span className="text-xs text-red-300 ml-2">(sin apuesta)</span>}{bet?.late && <span className="text-xs text-amber-300 ml-2">(fuera de plazo)</span>}{bet?.delegated && <span className="text-xs text-sky-300 ml-2">(delegada)</span>}</div>
               </div>
               <ul className="mt-2 space-y-1 text-xs text-slate-300">
                 {detail.items.map((item,idx)=>(<li key={idx} className="flex items-center justify-between border border-white/5 rounded px-2 py-1"><span>{item.label}</span><span className={`ml-2 ${item.delta>0?"text-emerald-300":item.delta<0?"text-amber-300":"text-slate-400"}`}>{item.delta>0?`+${item.delta}`:item.delta}</span></li>))}

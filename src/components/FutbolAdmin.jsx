@@ -19,6 +19,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
   const [scores,setScores]=useState(()=>matches.map(()=>({home:"",away:""})));
   const [editUser,setEditUser]=useState("");
   const [editLate,setEditLate]=useState(false);
+  const [editDelegated,setEditDelegated]=useState(false);
   const [editingMode,setEditingMode]=useState("results"); // "results" or "bet"
   useEffect(()=>{
     const j=selected?futbol.jornadas?.[selected]:null;
@@ -45,6 +46,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       const bet=futbol.bets?.[selected]?.[editUser];
       const baseMatches=matches;
       setEditLate(!!bet?.late);
+      setEditDelegated(!!bet?.delegated);
       if(bet){
         const betMatches=(bet.matches||[]).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)}));
         while(betMatches.length<baseMatches.length) betMatches.push({home:"",away:""});
@@ -151,13 +153,24 @@ export function FutbolAdmin({db,setDb,currentUser}){
     adminFutbol(id, currentUser, "reveal", revealData)
       .catch(err => console.error("Error sync betsReveal:", err));
   };
-  const saveAdminBet=()=>{
+  const [savingAdminBet,setSavingAdminBet]=useState(false);
+  const saveAdminBet=async()=>{
     const id=ensureId()||selected;
     if(!id) return toast.error("Selecciona jornada");
     if(!editUser) return toast.error("Selecciona participante");
+    if(savingAdminBet) return;
     const ts=nowISO();
     const payload={matches:scores.map(s=>({home:s.home===""?null:Number(s.home), away:s.away===""?null:Number(s.away)}))};
-    const nextBet={...payload, submittedAt:ts, late:editLate, adminEdited:true};
+    const nextBet={...payload, submittedAt:ts, late:editLate, adminEdited:true, delegated:editDelegated};
+    setSavingAdminBet(true);
+    try {
+      await adminFutbol(id, currentUser, "bet", {userName:editUser, bet:nextBet});
+    } catch(err) {
+      console.error("Error guardando apuesta delegada fútbol:", err);
+      toast.error("Error al guardar en el servidor. Inténtalo de nuevo.");
+      setSavingAdminBet(false);
+      return;
+    }
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const raceBets={...(futbolPrev.bets?.[id]||{})};
@@ -166,9 +179,8 @@ export function FutbolAdmin({db,setDb,currentUser}){
       const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:fullBet}};
       return {...prev, futbol:{...futbolPrev, bets:nextBets}};
     });
-    adminFutbol(id, currentUser, "bet", {userName:editUser, bet:nextBet})
-      .catch(err => console.error("Error sync admin bet:", err));
-    toast.success("Apuesta guardada para el usuario");
+    setSavingAdminBet(false);
+    toast.success(editDelegated ? `Apuesta delegada de ${editUser} guardada (a tiempo)` : "Apuesta guardada para el usuario");
   };
   const manualStatus=selected ? (futbol.betsWindow?.[selected]?.forceOpen?"Abierto manualmente":futbol.betsWindow?.[selected]?.forceClosed?"Cerrado manualmente":"Automático (viernes 15:00)") : "—";
   const revealStatus=selected ? (futbol.betsReveal?.[selected]?.forceShow?"Publicadas manualmente":"Automático tras cierre") : "—";
@@ -241,7 +253,8 @@ export function FutbolAdmin({db,setDb,currentUser}){
         <div className="text-xs text-slate-300">Visibilidad: {revealStatus}</div>
       </div>
       <div className="border border-white/10 rounded p-3 space-y-2">
-        <h3 className="font-semibold">Editar apuesta de participante</h3>
+        <h3 className="font-semibold">Introducir / editar apuestas de participantes</h3>
+        <p className="text-xs text-slate-400 mb-1">Introduce apuestas de usuarios que las han enviado por otra vía (WhatsApp, email...) o edita las existentes.</p>
         <div className="flex gap-2 mb-2">
           <button className={`px-3 py-1.5 rounded text-sm ${editingMode==="results"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>{setEditingMode("results"); setEditUser("");}}>Editar resultados</button>
           <button className={`px-3 py-1.5 rounded text-sm ${editingMode==="bet"?"bg-slate-900 text-white":"bg-neutral-900"}`} onClick={()=>{setEditingMode("bet");}}>Editar apuesta usuario</button>
@@ -253,10 +266,11 @@ export function FutbolAdmin({db,setDb,currentUser}){
                 <option value="">— Elige participante —</option>
                 {participants.map(n=><option key={n} value={n}>{n}</option>)}
               </select>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={editLate} onChange={e=>setEditLate(e.target.checked)} />
-                <span>Marcar como fuera de plazo</span>
-              </label>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="futbolBetTiming" checked={editDelegated && !editLate} onChange={()=>{setEditLate(false);setEditDelegated(true);}} /><span className="text-emerald-300">Delegada (a tiempo)</span></label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="futbolBetTiming" checked={!editLate && !editDelegated} onChange={()=>{setEditLate(false);setEditDelegated(false);}} /><span>Dentro de plazo</span></label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="futbolBetTiming" checked={editLate} onChange={()=>{setEditLate(true);setEditDelegated(false);}} /><span className="text-amber-300">Fuera de plazo (-2 pts)</span></label>
+              </div>
             </div>
             {editUser && (
               <div className="border border-white/10 rounded p-2 bg-neutral-900 mt-2">
@@ -274,7 +288,8 @@ export function FutbolAdmin({db,setDb,currentUser}){
                 </div>
               </div>
             )}
-            <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm mt-2" onClick={saveAdminBet} disabled={!editUser}>Guardar apuesta del usuario</button>
+            {editDelegated && <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">Esta apuesta se guardará como delegada: dentro de tiempo, válida y sin penalización por retraso.</div>}
+            <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm mt-2 disabled:opacity-50" onClick={saveAdminBet} disabled={!editUser||savingAdminBet}>{savingAdminBet?"Guardando...":"Guardar apuesta del usuario"}</button>
           </>
         )}
         {editingMode==="results" && (
