@@ -53,7 +53,7 @@ export function FutbolRanking({db}){
                     <div className="w-7 text-center flex-shrink-0">
                       {medal ? <span className="text-lg">{medal}</span> : <span className="text-sm text-white/40 font-bold">{idx+1}</span>}
                     </div>
-                    <Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} size="sm" mode="futbol"/>
+                    <Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} avatarFutbol={db.meta?.avatarsFutbol?.[r.name]} size="sm" mode="futbol"/>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-bold ${idx===0?"text-white":"text-white/80"}`}>{r.name}</span>

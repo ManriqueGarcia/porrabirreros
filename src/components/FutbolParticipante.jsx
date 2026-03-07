@@ -218,7 +218,7 @@ export function FutbolParticipante({user,db,setDb}){
               {others.map(({name,bet:other})=>(
                 <div key={name} className="border border-emerald-500/8 rounded-xl p-3 bg-white/[.02] hover:bg-white/[.04] transition-colors">
                   <div className="flex items-center gap-2.5 mb-2">
-                    <Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm" mode="futbol"/>
+                    <Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="futbol"/>
                     <span className="font-semibold text-white/80">{name}</span>
                     {other?.late && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">fuera de plazo</span>}
                   </div>

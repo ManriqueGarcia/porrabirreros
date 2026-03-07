@@ -462,14 +462,14 @@ function GroupApp({ groupId }) {
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setLang(lang === "es" ? "en" : "es")} title="Cambiar idioma">{lang === "es" ? "EN" : "ES"}</button>
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">
             {userGroups.length > 1 && <select value={groupId} onChange={e => { localStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded-lg px-2 py-1 cursor-pointer">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
-            <Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm" mode={mode} />
+            <Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} size="sm" mode={mode} />
             <span className="text-sm font-semibold text-white/80">{user}</span>
             <button className="text-white/40 hover:text-white/70 text-xs ml-1 transition-colors" onClick={() => setShowPass(true)}>🔑</button>
             <button className="text-white/40 hover:text-white/70 text-xs transition-colors" onClick={() => logout()}>Salir</button>
           </div>}
         </div>
         {user && <div className="flex md:hidden items-center justify-center gap-3 text-xs pt-2 mt-1 border-t border-white/8">
-          <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} size="sm" mode={mode} /><span className="font-semibold text-white/70">{user}</span></div>
+          <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} size="sm" mode={mode} /><span className="font-semibold text-white/70">{user}</span></div>
           {userGroups.length > 1 && <select value={groupId} onChange={e => { localStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded px-1 py-0.5">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
           <button className="text-white/35 hover:text-white/70 transition-colors" onClick={() => setShowPass(true)}>Contraseña</button>
           <button className="text-white/40 hover:text-white/65 transition-colors" onClick={() => logout()}>Salir</button>
@@ -489,7 +489,7 @@ function GroupApp({ groupId }) {
     {!hydrated ? (<div className="card p-6 max-w-sm mx-auto text-center"><div className="text-sm text-white/40 animate-pulse">Conectando con el servidor...</div></div>) : (<>
       {loadError && <div className="card p-4 mb-3 border border-red-500/30 bg-red-900/20 text-sm text-red-300">⚠️ {loadError}. Recarga la página para reintentar.</div>}
       {showBanner && <WelcomeBanner user={user} db={db} races={races} mode={mode} onDismiss={() => setShowBanner(false)} />}
-      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]} mode={mode} /><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={() => setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/40 mt-1 tracking-wider uppercase">{currentGroupName || "birreros club"}</div>{sidebarRace && <div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact /></div>}</aside><main className="flex-1 space-y-4 min-w-0">
+      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} mode={mode} /><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={() => setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/40 mt-1 tracking-wider uppercase">{currentGroupName || "birreros club"}</div>{sidebarRace && <div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact /></div>}</aside><main className="flex-1 space-y-4 min-w-0">
         {view === "admin" && <AdminPanel db={db} setDb={setDbUser} races={races} drivers={drivers} teams={teams} calendar={cal} currentUser={user} />}
         {view !== "admin" && mode === "f1" && (
           <>

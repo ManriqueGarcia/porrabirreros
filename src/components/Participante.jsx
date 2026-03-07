@@ -283,7 +283,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       {race && showStatusOnly && (
         <ul className="space-y-2">
           {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3">
-            <Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm" mode="f1"/>
+            <Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="f1"/>
             <div className="flex-1 min-w-0">
               <div className="font-medium">{name}</div>
               <div className="text-xs text-slate-400">{bet?(bet.submittedAt?`Enviada ${new Date(bet.submittedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`:"Enviada"):"Sin apuesta"}</div>
@@ -295,7 +295,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       {race && !showStatusOnly && !canViewFull && <p className="text-sm text-slate-300">Se verán 1 minuto después del inicio de la quali (o si el admin las publica antes).</p>}
       {race && canViewFull && (
         <ul className="space-y-2">
-          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} size="sm" mode="f1"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div></div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
+          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="f1"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div></div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
         </ul>
       )}
     </div>)}

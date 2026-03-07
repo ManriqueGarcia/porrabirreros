@@ -226,7 +226,7 @@ export function UserManagement({ db, setDb, currentUser }) {
             <div key={u.name} className="flex flex-col gap-2 border border-white/10 rounded px-3 py-2 bg-neutral-900">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <Avatar name={u.name} avatar={db.meta?.avatars?.[u.name]} size="sm" />
+                  <Avatar name={u.name} avatar={db.meta?.avatars?.[u.name]} avatarFutbol={db.meta?.avatarsFutbol?.[u.name]} size="sm" />
                   <div>
                     <div className="font-medium flex flex-wrap items-center gap-2">
                       {u.name}

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 
 const DEFAULT_AVATAR = "./assets/avatars/default.svg";
 
-const Avatar = React.memo(function Avatar({ name, avatar: customAvatar, size = "md", mode = "f1" }) {
-  const primary = customAvatar || DEFAULT_AVATAR;
+const Avatar = React.memo(function Avatar({ name, avatar: customAvatar, avatarFutbol, size = "md", mode = "f1" }) {
+  const primary = (mode === "futbol" ? (avatarFutbol || customAvatar) : customAvatar) || DEFAULT_AVATAR;
   const [src, setSrc] = useState(primary);
   const triedFallback = useRef(false);
 
