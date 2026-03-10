@@ -9,9 +9,10 @@ export const CONFIG = {
   futbolDeadlineHour: "21:00",
 };
 
-// echo -n "TuPassword" | sha256sum
+// echo -n "TuPassword" | sha256sum — CAMBIAR en config.local.js
 export const DEFAULT_PASSWORD_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
-export const RECOVERY_CODE_HASH = DEFAULT_PASSWORD_HASH;
+// RECOVERY_CODE_HASH DEBE ser distinto a DEFAULT_PASSWORD_HASH en config.local.js
+export const RECOVERY_CODE_HASH = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 export const ADMIN_SECRET_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 
 export const QUESTION_AUTHORS_ORDER = CONFIG.questionAuthorsOrder;

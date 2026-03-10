@@ -13,24 +13,25 @@ const TABLE = process.env.TABLE_NAME || "PorraBirreros";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const API_SECRET = process.env.API_SECRET || "";
 
-const AUTH_RATE_WINDOW_MS = 60_000;
+const RATE_WINDOW_MS = 60_000;
 const AUTH_RATE_MAX = 10;
-const _authBuckets = new Map();
+const WRITE_RATE_MAX = 30;
+const _rateBuckets = new Map();
 
-function checkAuthRateLimit(key) {
+function checkRateLimit(key, max = AUTH_RATE_MAX) {
   const now = Date.now();
-  let bucket = _authBuckets.get(key);
-  if (!bucket || now - bucket.start > AUTH_RATE_WINDOW_MS) {
+  let bucket = _rateBuckets.get(key);
+  if (!bucket || now - bucket.start > RATE_WINDOW_MS) {
     bucket = { start: now, count: 0 };
-    _authBuckets.set(key, bucket);
+    _rateBuckets.set(key, bucket);
   }
   bucket.count++;
-  if (_authBuckets.size > 1000) {
-    for (const [k, v] of _authBuckets) {
-      if (now - v.start > AUTH_RATE_WINDOW_MS) _authBuckets.delete(k);
+  if (_rateBuckets.size > 2000) {
+    for (const [k, v] of _rateBuckets) {
+      if (now - v.start > RATE_WINDOW_MS) _rateBuckets.delete(k);
     }
   }
-  return bucket.count <= AUTH_RATE_MAX;
+  return bucket.count <= max;
 }
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -62,6 +63,28 @@ function isValidUserName(name) {
   if (!name || typeof name !== "string") return false;
   if (name.length > 50) return false;
   return !/[|#]/.test(name);
+}
+
+function validateF1Bet(bet) {
+  if (typeof bet.pole !== "undefined" && typeof bet.pole !== "string") return "pole debe ser string";
+  if (bet.pole && bet.pole.length > 100) return "pole demasiado largo";
+  if (bet.podium && (!Array.isArray(bet.podium) || bet.podium.length > 5)) return "podium inválido";
+  if (bet.podium && bet.podium.some(d => typeof d !== "string" || d.length > 100)) return "valor de podium inválido";
+  if (bet.q && (!Array.isArray(bet.q) || bet.q.length > 10)) return "preguntas inválidas";
+  if (bet.q && bet.q.some(a => typeof a !== "string" || a.length > 500)) return "respuesta demasiado larga";
+  return null;
+}
+
+function validateFutbolBet(bet) {
+  if (!Array.isArray(bet.matches)) return "matches debe ser un array";
+  if (bet.matches.length > 20) return "demasiados partidos";
+  for (const m of bet.matches) {
+    if (!m || typeof m !== "object") return "partido inválido";
+    const h = Number(m.home), a = Number(m.away);
+    if (!Number.isInteger(h) || h < 0 || h > 99) return "marcador fuera de rango (0-99)";
+    if (!Number.isInteger(a) || a < 0 || a > 99) return "marcador fuera de rango (0-99)";
+  }
+  return null;
 }
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -405,6 +428,8 @@ async function handleSaveBetF1(raceKey, reqUser, body) {
   if (!isValidId(raceKey)) return badReq("raceKey inválido");
   const bet = body.bet || body;
   if (!bet.pole && (!bet.podium || !Array.isArray(bet.podium))) return badReq("Bet data incompleta");
+  const f1Err = validateF1Bet(bet);
+  if (f1Err) return badReq(f1Err);
 
   const dl = await resolveF1Deadline("F1#", raceKey, body.deadline,
     (_, rk, sk) => getItem(`F1#${rk}`, sk),
@@ -429,6 +454,8 @@ async function handleSaveBetFutbol(jornadaId, reqUser, body) {
   if (!jornadaId || !reqUser) return badReq("Faltan jornadaId o user");
   if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
   const bet = body.bet || body;
+  const futErr = validateFutbolBet(bet);
+  if (futErr) return badReq(futErr);
 
   const dl = await resolveFutbolDeadline("FUT#", jornadaId,
     (_, jId, sk) => getItem(`FUT#${jId}`, sk));
@@ -466,6 +493,7 @@ async function handleSaveResultFutbol(jornadaId, reqUser, body) {
 }
 
 async function handleUpdateUser(targetUser, reqUser, body) {
+  if (!isValidUserName(targetUser)) return badReq("Nombre de usuario no válido");
   if (reqUser !== targetUser && !(await isAdmin(reqUser))) {
     return forbidden("Solo puedes modificar tu propio perfil");
   }
@@ -591,6 +619,7 @@ async function handleAddUser(reqUser, body) {
 }
 
 async function handleDeleteUser(targetUser, reqUser) {
+  if (!isValidUserName(targetUser)) return badReq("Nombre de usuario no válido");
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
   if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
   await deleteItem(`USER#${targetUser}`, "PROFILE");
@@ -651,6 +680,7 @@ async function handleCreateGroup(body) {
 }
 
 async function handleGetInvite(code) {
+  if (!code || code.length > 50 || !/^[a-zA-Z0-9_-]+$/.test(code)) return badReq("Formato de código inválido");
   const item = await getItem(`INVITE#${code}`, "META");
   if (!item) return notFound("Código de invitación no válido");
   return res(200, { groupId: item.groupId, groupName: item.groupName });
@@ -668,15 +698,23 @@ async function handleJoinGroup(groupId, body) {
   if (groupMeta.inviteCode !== inviteCode) return forbidden("Código de invitación incorrecto");
 
   const gpk = `G#${groupId}`;
-  const existing = await getItem(gpk, `USER#${name.trim()}|PROFILE`);
-  if (existing) return badReq("Ese nombre de usuario ya existe en el grupo");
-
+  const trimmedName = name.trim();
   const now = new Date().toISOString();
-  await putItem(gpk, `USER#${name.trim()}|PROFILE`, {
-    name: name.trim(), passwordHash, mustChange: false,
-    isAdmin: false, blocked: false, createdAt: now,
-    porras: { f1: (groupMeta.sports || []).includes("f1"), futbol: (groupMeta.sports || []).includes("futbol") },
-  });
+  try {
+    await client.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        pk: gpk, sk: `USER#${trimmedName}|PROFILE`,
+        name: trimmedName, passwordHash, mustChange: false,
+        isAdmin: false, blocked: false, createdAt: now,
+        porras: { f1: (groupMeta.sports || []).includes("f1"), futbol: (groupMeta.sports || []).includes("futbol") },
+      },
+      ConditionExpression: "attribute_not_exists(pk)",
+    }));
+  } catch (err) {
+    if (err.name === "ConditionalCheckFailedException") return badReq("Ese nombre de usuario ya existe en el grupo");
+    throw err;
+  }
   await writeUIDX(name.trim(), groupId, groupMeta.name);
 
   try {
@@ -867,6 +905,13 @@ export const handler = async (event) => {
 
   if (method === "OPTIONS") return { statusCode: 204, headers: headers(), body: "" };
 
+  if (ALLOWED_ORIGIN !== "*") {
+    const reqOrigin = hdrs["origin"] || "";
+    if (reqOrigin && reqOrigin !== ALLOWED_ORIGIN) {
+      return res(403, { error: "Origin no permitido" });
+    }
+  }
+
   if (API_SECRET && hdrs["x-porra-secret"] !== API_SECRET) {
     return forbidden("API secret invalido");
   }
@@ -888,9 +933,17 @@ export const handler = async (event) => {
     try { body = JSON.parse(event.body); } catch { return badReq("JSON invalido"); }
   }
 
+  const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
+  if (method === "PUT" || method === "DELETE") {
+    if (!checkRateLimit(`write:${clientIp}`, WRITE_RATE_MAX)) {
+      return res(429, { error: "Demasiadas peticiones. Espera un momento." });
+    }
+  }
+
   try {
     // GET /state
     if (method === "GET" && path === "/state") {
+      if (!rawUser) return forbidden("Autenticación requerida");
       const state = await getFullState();
       return res(200, sanitizeState(state));
     }
@@ -911,16 +964,14 @@ export const handler = async (event) => {
 
     // POST /auth/login
     if (method === "POST" && segments[0] === "auth" && segments[1] === "login") {
-      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
-      if (!checkAuthRateLimit(`login:${clientIp}`)) {
+      if (!checkRateLimit(`login:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
       return handleAuthLogin(body);
     }
     // POST /auth/verify — server-side password verification
     if (method === "POST" && segments[0] === "auth" && segments[1] === "verify") {
-      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
-      if (!checkAuthRateLimit(`verify:${clientIp}`)) {
+      if (!checkRateLimit(`verify:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
       const { username, passwordHash, groupId } = body;
@@ -995,8 +1046,7 @@ export const handler = async (event) => {
     // ─── Group routes ───
     // POST /groups
     if (method === "POST" && segments[0] === "groups" && !segments[1]) {
-      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
-      if (!checkAuthRateLimit(`create:${clientIp}`)) {
+      if (!checkRateLimit(`create:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
       return handleCreateGroup(body);
@@ -1008,8 +1058,7 @@ export const handler = async (event) => {
     // POST /groups/{groupId}/join
     if (method === "POST" && segments[0] === "groups" && segments[1] && segments[2] === "join") {
       if (!isValidId(segments[1])) return badReq("groupId inválido");
-      const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
-      if (!checkAuthRateLimit(`join:${clientIp}`)) {
+      if (!checkRateLimit(`join:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
       return handleJoinGroup(segments[1], body);
@@ -1021,6 +1070,7 @@ export const handler = async (event) => {
 
     // GET /g/{groupId}/state
     if (method === "GET" && segments[0] === "g" && segments[1] && segments[2] === "state") {
+      if (!rawUser) return forbidden("Autenticación requerida");
       const state = await getGroupState(segments[1]);
       return res(200, sanitizeState(state));
     }
@@ -1031,6 +1081,8 @@ export const handler = async (event) => {
       if (!reqUser) return forbidden("Falta x-porra-user o usuario no encontrado");
       const rk = segments[4];
       const bet = body.bet || body;
+      const f1Err = validateF1Bet(bet);
+      if (f1Err) return badReq(f1Err);
 
       const dl = await resolveF1Deadline(gid, rk, body.deadline,
         (g, r, sk) => gGetItem(g, `F1#${r}`, sk),
@@ -1052,6 +1104,8 @@ export const handler = async (event) => {
       if (!reqUser) return forbidden("Falta x-porra-user");
       const jId = segments[4];
       const bet = body.bet || body;
+      const futErr = validateFutbolBet(bet);
+      if (futErr) return badReq(futErr);
 
       const dl = await resolveFutbolDeadline(gid, jId,
         (g, j, sk) => gGetItem(g, `FUT#${j}`, sk));
@@ -1071,6 +1125,7 @@ export const handler = async (event) => {
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!reqUser) return forbidden("Falta x-porra-user");
       const targetUser = decodeURIComponent(segments[3]);
+      if (!isValidUserName(targetUser)) return badReq("Nombre de usuario no válido");
       if (reqUser !== targetUser && !(await isAdminInGroup(gid, reqUser))) return forbidden("Solo puedes modificar tu propio perfil");
       const existing = await gGetItem(gid, `USER#${targetUser}`, "PROFILE");
       if (!existing) return notFound("Usuario no encontrado");
@@ -1140,6 +1195,7 @@ export const handler = async (event) => {
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
       const targetUser = decodeURIComponent(segments[3]);
+      if (!isValidUserName(targetUser)) return badReq("Nombre de usuario no válido");
       if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
       await gDeleteItem(gid, `USER#${targetUser}`, "PROFILE");
       await deleteUIDX(targetUser, gid);
@@ -1221,6 +1277,8 @@ export const handler = async (event) => {
       const { groupId: targetGroupId, groupName, inviteCode: customInvite } = body;
       if (!targetGroupId) return badReq("Falta groupId");
       if (!isValidId(targetGroupId)) return badReq("groupId inválido");
+      const existingGroup = await getItem("GROUPS", `G#${targetGroupId}`);
+      if (existingGroup) return badReq("El grupo destino ya existe. Elige otro groupId.");
       const state = await getFullState();
       if (!state.meta?.seeded) return badReq("No hay datos legacy para migrar");
       const inviteCode = customInvite || generateCode(8);
