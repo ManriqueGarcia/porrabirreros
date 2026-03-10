@@ -63,8 +63,11 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   useEffect(()=>{
     if(races?.length){
       const valid=races.some(r=>r.key===selected);
-      const next=!selected||!valid?races[0].key:selected;
-      if(next!==selected) setSelected(next);
+      if(!selected||!valid){
+        const nowMs=Date.now();
+        const upcoming=races.find(r=>r.cutoff && r.cutoff.getTime()>nowMs);
+        setSelected(upcoming?.key || races[races.length-1].key);
+      }
     }
   },[races,selected]);
   useEffect(()=>{ if(selected) sessionStorage.setItem("porra_selected_race",selected); },[selected]);
