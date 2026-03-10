@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
-import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser } from "../api.js";
+import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired } from "../api.js";
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
@@ -90,7 +90,7 @@ function GlobalLogin() {
       setAuthUser(data.username);
       resetLoginAttempts();
       if (data.groups?.length === 1) {
-        createSession(data.username, data.groups);
+        createSession(data.username, data.groups, data.sessionToken);
         sessionStorage.setItem("porra_group_id", data.groups[0].groupId);
         window.location.hash = `#/g/${data.groups[0].groupId}`;
       } else {
@@ -105,7 +105,8 @@ function GlobalLogin() {
   };
 
   const selectGroup = (g) => {
-    createSession(authUser, groups);
+    const existingSession = getSession();
+    createSession(authUser, groups, existingSession?.serverToken);
     sessionStorage.setItem("porra_group_id", g.groupId);
     window.location.hash = `#/g/${g.groupId}`;
   };
@@ -202,7 +203,12 @@ export function App() {
 }
 
 function GroupApp({ groupId }) {
-  useEffect(() => { setActiveGroupId(groupId); return () => setActiveGroupId(null); }, [groupId]);
+  useEffect(() => {
+    setActiveGroupId(groupId);
+    const s = getSession();
+    if (s?.serverToken) setSessionToken(s.serverToken);
+    return () => setActiveGroupId(null);
+  }, [groupId]);
 
   const [lang, setLang] = useState(() => sessionStorage.getItem("porra_lang") || "es");
   useEffect(() => { sessionStorage.setItem("porra_lang", lang); }, [lang]);
@@ -217,12 +223,14 @@ function GroupApp({ groupId }) {
   const [forcePwdChange, setForcePwdChange] = useState(false);
   const logout = useCallback((reason) => {
     clearSession();
+    setSessionToken(null);
     setUser("");
     setView("participante");
     setShowPass(false);
     if (reason) toast(reason);
     window.location.hash = "#/";
   }, []);
+  useEffect(() => { setOnSessionExpired(() => logout("Sesión expirada. Vuelve a iniciar sesión.")); return () => setOnSessionExpired(null); }, [logout]);
   const skipRemoteSaveRef = useRef(false);
   const refreshRemoteState = useCallback(async () => {
     try {

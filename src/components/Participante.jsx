@@ -103,10 +103,10 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
     const nextBet={...b,submittedAt:timestamp,late};
     setSavingF1(true); savingF1Ref.current = true;
     try {
-      await saveBetF1(rk, user, nextBet);
+      await saveBetF1(rk, user, nextBet, race?.cutoff?.toISOString());
     } catch(err) {
       console.error("Error guardando apuesta F1:", err);
-      toast.error("Error al guardar la apuesta. Inténtalo de nuevo.");
+      toast.error(err.message === "Sesión expirada" ? "Sesión expirada. Recarga la página." : "Error al guardar la apuesta. Inténtalo de nuevo.");
       setSavingF1(false); savingF1Ref.current = false;
       return;
     }

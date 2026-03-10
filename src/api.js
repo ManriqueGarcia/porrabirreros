@@ -9,10 +9,20 @@ let _groupId = null;
 export function setActiveGroupId(gid) { _groupId = gid || null; }
 export function getActiveGroupId() { return _groupId; }
 
+let _sessionToken = null;
+export function setSessionToken(token) { _sessionToken = token || null; }
+export function getSessionToken() { return _sessionToken; }
+
 function groupPrefix() { return _groupId ? `/g/${_groupId}` : ""; }
 
+function authHeaders() {
+  const h = { ...API_HEADERS };
+  if (_sessionToken) h["Authorization"] = `Bearer ${_sessionToken}`;
+  return h;
+}
+
 function userHeaders(user) {
-  return { ...API_HEADERS, "x-porra-user": user || "" };
+  return { ...authHeaders(), "x-porra-user": user || "" };
 }
 
 async function apiCall(method, path, user, body) {
@@ -24,6 +34,7 @@ async function apiCall(method, path, user, body) {
   if (body !== undefined) opts.body = JSON.stringify(body);
   const fullPath = `${API_BASE_URL}${groupPrefix()}${path}`;
   const res = await fetch(fullPath, opts);
+  if (res.status === 401) { onSessionExpired(); throw new Error("Sesión expirada"); }
   if (!res.ok) {
     const err = await res.text().catch(() => "");
     throw new Error(`API ${method} ${path}: ${res.status} ${err}`);
@@ -36,18 +47,24 @@ async function apiCall(method, path, user, body) {
 export async function fetchRemoteState() {
   if (!API_BASE_URL) return null;
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
-  const res = await fetch(url, { headers: { Accept: "application/json", ...API_HEADERS } });
+  const res = await fetch(url, { headers: { Accept: "application/json", ...authHeaders() } });
   if (res.status === 404) return null;
+  if (res.status === 401) { onSessionExpired(); return null; }
   if (!res.ok) throw new Error("Fetch remoto fallido");
   return res.json();
 }
 
+let _onSessionExpired = null;
+export function setOnSessionExpired(fn) { _onSessionExpired = fn; }
+function onSessionExpired() { if (_onSessionExpired) _onSessionExpired(); }
+
 export async function saveRemoteState(payload, user) {
   if (!API_BASE_URL) return;
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
-  const hdrs = { "Content-Type": "application/json", ...API_HEADERS };
+  const hdrs = { "Content-Type": "application/json", ...authHeaders() };
   if (user) hdrs["x-porra-user"] = user;
   const r = await fetch(url, { method: "PUT", headers: hdrs, body: JSON.stringify(payload) });
+  if (r.status === 401) { onSessionExpired(); return; }
   if (!r.ok) throw new Error(`Save failed: ${r.status}`);
 }
 
@@ -60,8 +77,8 @@ export const saveRemoteDebounced = debounce((db) => {
 
 // ─── F1 Bets ───
 
-export async function saveBetF1(raceKey, user, bet) {
-  return apiCall("PUT", `/bets/f1/${raceKey}`, user, { bet });
+export async function saveBetF1(raceKey, user, bet, deadline) {
+  return apiCall("PUT", `/bets/f1/${raceKey}`, user, { bet, deadline });
 }
 
 // ─── Futbol Bets ───
@@ -131,7 +148,7 @@ export async function loadHistorical(year) {
 export async function verifyPassword(username, passwordHash, groupId) {
   const resp = await fetch(`${API_BASE_URL}/auth/verify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...API_HEADERS },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ username, passwordHash, groupId: groupId || getActiveGroupId() }),
   });
   const data = await resp.json().catch(() => ({}));
@@ -146,12 +163,13 @@ export async function authLogin(username, passwordHash) {
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || "Error de autenticación");
+  if (data.sessionToken) setSessionToken(data.sessionToken);
   return data;
 }
 
 export async function fetchUserGroups(username, reqUser) {
   const resp = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/groups`, {
-    headers: { Accept: "application/json", ...API_HEADERS, "x-porra-user": reqUser || username || "" },
+    headers: { Accept: "application/json", ...authHeaders(), "x-porra-user": reqUser || username || "" },
   });
   if (!resp.ok) return [];
   const data = await resp.json();
@@ -160,7 +178,7 @@ export async function fetchUserGroups(username, reqUser) {
 
 export async function fetchGroupsList(reqUser) {
   const resp = await fetch(`${API_BASE_URL}/groups/list`, {
-    headers: { Accept: "application/json", ...API_HEADERS, "x-porra-user": reqUser || "" },
+    headers: { Accept: "application/json", ...authHeaders(), "x-porra-user": reqUser || "" },
   });
   if (!resp.ok) return [];
   const data = await resp.json();

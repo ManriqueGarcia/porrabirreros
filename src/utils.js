@@ -9,9 +9,9 @@ export function generateSessionToken() {
   return crypto.getRandomValues(new Uint8Array(16)).reduce((s, b) => s + b.toString(16).padStart(2, "0"), "");
 }
 
-export function createSession(username, groups) {
+export function createSession(username, groups, serverToken) {
   const token = generateSessionToken();
-  const session = { user: username, token, created: Date.now(), groups: groups || [] };
+  const session = { user: username, token, created: Date.now(), groups: groups || [], serverToken: serverToken || null };
   sessionStorage.setItem("porra_session", JSON.stringify(session));
   sessionStorage.setItem("porra_last_active", String(Date.now()));
   return session;

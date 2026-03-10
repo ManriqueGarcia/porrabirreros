@@ -64,11 +64,42 @@ function isValidUserName(name) {
   return !/[|#]/.test(name);
 }
 
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+function generateSessionToken() {
+  const arr = new Uint8Array(32);
+  globalThis.crypto?.getRandomValues?.(arr) || arr.forEach((_, i) => { arr[i] = Math.floor(Math.random() * 256); });
+  return Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function createServerSession(username) {
+  const token = generateSessionToken();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+  await putItem(`SESSION#${token}`, "META", { username, createdAt: new Date().toISOString(), expiresAt });
+  return token;
+}
+
+async function validateSession(token) {
+  if (!token || token.length < 16) return null;
+  const session = await getItem(`SESSION#${token}`, "META");
+  if (!session) return null;
+  if (new Date(session.expiresAt).getTime() < Date.now()) {
+    deleteItem(`SESSION#${token}`, "META").catch(() => {});
+    return null;
+  }
+  return session.username;
+}
+
+function extractBearerToken(hdrs) {
+  const auth = hdrs["authorization"] || "";
+  return auth.startsWith("Bearer ") ? auth.substring(7).trim() : null;
+}
+
 function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-user,x-porra-group",
+    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-user,x-porra-group,authorization,accept",
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
     "Cache-Control": "no-store",
     ...extra,
@@ -349,23 +380,49 @@ async function writeFullState(state) {
 
 // ─── Route handlers ───
 
+async function resolveF1Deadline(pkPrefix, raceKey, clientDeadline, getItemFn, putItemFn) {
+  const windowData = await getItemFn(pkPrefix, raceKey, "WINDOW");
+  if (windowData?.forceClosed) return { blocked: true };
+  if (windowData?.deadline) return { deadline: new Date(windowData.deadline) };
+  const deadlineItem = await getItemFn(pkPrefix, raceKey, "DEADLINE");
+  if (deadlineItem?.deadline) return { deadline: new Date(deadlineItem.deadline) };
+  if (clientDeadline) {
+    await putItemFn(pkPrefix, raceKey, "DEADLINE", { deadline: clientDeadline });
+    return { deadline: new Date(clientDeadline) };
+  }
+  return { deadline: null };
+}
+
+async function resolveFutbolDeadline(pkPrefix, jornadaId, getItemFn) {
+  const windowData = await getItemFn(pkPrefix, jornadaId, "WINDOW");
+  if (windowData?.forceClosed) return { blocked: true };
+  const jornadaConfig = await getItemFn(pkPrefix, jornadaId, "CONFIG");
+  return { deadline: jornadaConfig?.deadline ? new Date(jornadaConfig.deadline) : null };
+}
+
 async function handleSaveBetF1(raceKey, reqUser, body) {
   if (!raceKey || !reqUser) return badReq("Faltan raceKey o user");
   if (!isValidId(raceKey)) return badReq("raceKey inválido");
   const bet = body.bet || body;
   if (!bet.pole && (!bet.podium || !Array.isArray(bet.podium))) return badReq("Bet data incompleta");
 
-  const ts = new Date().toISOString();
+  const dl = await resolveF1Deadline("F1#", raceKey, body.deadline,
+    (_, rk, sk) => getItem(`F1#${rk}`, sk),
+    (_, rk, sk, data) => putItem(`F1#${rk}`, sk, data));
+  if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+
+  const serverNow = new Date();
+  const late = dl.deadline ? serverNow >= dl.deadline : false;
+  const ts = serverNow.toISOString();
   const betData = {
     pole: bet.pole || "", podium: bet.podium || ["", "", ""],
-    q: bet.q || ["", "", ""], submittedAt: ts, late: !!bet.late,
+    q: bet.q || ["", "", ""], submittedAt: ts, late,
   };
 
   await putItem(`F1#${raceKey}`, `BET#${reqUser}`, betData);
+  await appendToHistory(`F1#${raceKey}`, `HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late });
 
-  await appendToHistory(`F1#${raceKey}`, `HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
-
-  return res(200, { ok: true, submittedAt: ts });
+  return res(200, { ok: true, submittedAt: ts, late });
 }
 
 async function handleSaveBetFutbol(jornadaId, reqUser, body) {
@@ -373,16 +430,19 @@ async function handleSaveBetFutbol(jornadaId, reqUser, body) {
   if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
   const bet = body.bet || body;
 
-  const ts = new Date().toISOString();
-  const betData = {
-    matches: bet.matches || [], submittedAt: ts, late: !!bet.late,
-  };
+  const dl = await resolveFutbolDeadline("FUT#", jornadaId,
+    (_, jId, sk) => getItem(`FUT#${jId}`, sk));
+  if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+
+  const serverNow = new Date();
+  const late = dl.deadline ? serverNow >= dl.deadline : false;
+  const ts = serverNow.toISOString();
+  const betData = { matches: bet.matches || [], submittedAt: ts, late };
 
   await putItem(`FUT#${jornadaId}`, `BET#${reqUser}`, betData);
+  await appendToHistory(`FUT#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
 
-  await appendToHistory(`FUT#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late: betData.late });
-
-  return res(200, { ok: true, submittedAt: ts });
+  return res(200, { ok: true, submittedAt: ts, late });
 }
 
 async function handleSaveResultF1(raceKey, reqUser, body) {
@@ -792,7 +852,8 @@ async function handleAuthLogin(body) {
     }
   }
   if (!validGroups.length) return res(401, { error: "Credenciales incorrectas" });
-  return res(200, { username: canonicalName, groups: validGroups });
+  const sessionToken = await createServerSession(canonicalName);
+  return res(200, { username: canonicalName, groups: validGroups, sessionToken });
 }
 
 // ─── Main handler ───
@@ -810,7 +871,15 @@ export const handler = async (event) => {
     return forbidden("API secret invalido");
   }
 
-  const rawUser = hdrs["x-porra-user"] || "";
+  const bearerToken = extractBearerToken(hdrs);
+  let rawUser;
+  if (bearerToken) {
+    const sessionUser = await validateSession(bearerToken);
+    if (!sessionUser) return res(401, { error: "Sesión expirada. Vuelve a iniciar sesión." });
+    rawUser = sessionUser;
+  } else {
+    rawUser = hdrs["x-porra-user"] || "";
+  }
   const path = rawPath.replace(/\/+$/, "") || "/";
   const segments = path.split("/").filter(Boolean);
 
@@ -960,24 +1029,41 @@ export const handler = async (event) => {
       const gid = segments[1];
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!reqUser) return forbidden("Falta x-porra-user o usuario no encontrado");
-      const rk = segments[4], ts = new Date().toISOString();
+      const rk = segments[4];
       const bet = body.bet || body;
-      const betData = { pole: bet.pole || "", podium: bet.podium || ["","",""], q: bet.q || ["","",""], submittedAt: ts, late: !!bet.late };
+
+      const dl = await resolveF1Deadline(gid, rk, body.deadline,
+        (g, r, sk) => gGetItem(g, `F1#${r}`, sk),
+        (g, r, sk, data) => gPutItem(g, `F1#${r}`, sk, data));
+      if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+
+      const serverNow = new Date();
+      const late = dl.deadline ? serverNow >= dl.deadline : false;
+      const ts = serverNow.toISOString();
+      const betData = { pole: bet.pole || "", podium: bet.podium || ["","",""], q: bet.q || ["","",""], submittedAt: ts, late };
       await gPutItem(gid, `F1#${rk}`, `BET#${reqUser}`, betData);
-      await appendToHistory(`G#${gid}`, `F1#${rk}|HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
-      return res(200, { ok: true, submittedAt: ts });
+      await appendToHistory(`G#${gid}`, `F1#${rk}|HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late });
+      return res(200, { ok: true, submittedAt: ts, late });
     }
     // PUT /g/{groupId}/bets/futbol/{jId}
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "futbol" && segments[4]) {
       const gid = segments[1];
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!reqUser) return forbidden("Falta x-porra-user");
-      const jId = segments[4], ts = new Date().toISOString();
+      const jId = segments[4];
       const bet = body.bet || body;
-      const betData = { matches: bet.matches || [], submittedAt: ts, late: !!bet.late };
+
+      const dl = await resolveFutbolDeadline(gid, jId,
+        (g, j, sk) => gGetItem(g, `FUT#${j}`, sk));
+      if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+
+      const serverNow = new Date();
+      const late = dl.deadline ? serverNow >= dl.deadline : false;
+      const ts = serverNow.toISOString();
+      const betData = { matches: bet.matches || [], submittedAt: ts, late };
       await gPutItem(gid, `FUT#${jId}`, `BET#${reqUser}`, betData);
-      await appendToHistory(`G#${gid}`, `FUT#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late: betData.late });
-      return res(200, { ok: true, submittedAt: ts });
+      await appendToHistory(`G#${gid}`, `FUT#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
+      return res(200, { ok: true, submittedAt: ts, late });
     }
     // PUT /g/{groupId}/users/{name}
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "users" && segments[3]) {
