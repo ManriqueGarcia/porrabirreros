@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
-import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired } from "../api.js";
+import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired, resetStateETag } from "../api.js";
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
@@ -205,6 +205,7 @@ export function App() {
 function GroupApp({ groupId }) {
   useEffect(() => {
     setActiveGroupId(groupId);
+    resetStateETag();
     const s = getSession();
     if (s?.serverToken) setSessionToken(s.serverToken);
     return () => setActiveGroupId(null);
@@ -257,11 +258,22 @@ function GroupApp({ groupId }) {
   }, []);
   useEffect(() => {
     if (!hydrated) return;
-    const REFRESH_INTERVAL = 60_000;
-    const id = setInterval(refreshRemoteState, REFRESH_INTERVAL);
-    const onVisibility = () => { if (document.visibilityState === "visible") refreshRemoteState(); };
+    const ACTIVE_INTERVAL = 60_000;
+    const BACKGROUND_INTERVAL = 300_000;
+    let timerId;
+    const schedule = () => {
+      const interval = document.visibilityState === "visible" ? ACTIVE_INTERVAL : BACKGROUND_INTERVAL;
+      timerId = setTimeout(() => { refreshRemoteState().finally(schedule); }, interval);
+    };
+    schedule();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timerId);
+        refreshRemoteState().finally(schedule);
+      }
+    };
     document.addEventListener("visibilitychange", onVisibility);
-    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisibility); };
+    return () => { clearTimeout(timerId); document.removeEventListener("visibilitychange", onVisibility); };
   }, [hydrated, refreshRemoteState]);
   useEffect(() => {
     if (!hydrated) return;

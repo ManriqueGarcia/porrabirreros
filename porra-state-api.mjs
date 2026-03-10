@@ -8,6 +8,7 @@ import {
   DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand,
   QueryCommand, ScanCommand, BatchWriteCommand, UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { createHash } from "crypto";
 
 const TABLE = process.env.TABLE_NAME || "PorraBirreros";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
@@ -148,8 +149,9 @@ function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "content-type,x-porra-group,authorization,accept",
+    "Access-Control-Allow-Headers": "content-type,x-porra-group,authorization,accept,if-none-match",
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
+    "Access-Control-Expose-Headers": "ETag",
     "Cache-Control": "no-store",
     ...extra,
   };
@@ -1111,7 +1113,13 @@ export const handler = async (event) => {
       const memberName = await resolveUserInGroup(gid, rawUser);
       if (!memberName) return forbidden("No perteneces a este grupo");
       const state = await getGroupState(gid);
-      return res(200, sanitizeState(state));
+      const body = JSON.stringify(sanitizeState(state));
+      const etag = `"${createHash("md5").update(body).digest("hex")}"`;
+      const inm = hdrs["if-none-match"];
+      if (inm && inm === etag) {
+        return { statusCode: 304, headers: headers({ ETag: etag }), body: "" };
+      }
+      return { statusCode: 200, headers: headers({ ETag: etag }), body };
     }
     // PUT /g/{groupId}/bets/f1/{raceKey}
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "f1" && segments[4]) {

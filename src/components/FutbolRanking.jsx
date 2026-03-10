@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { exportCSV, exportPDF } from "../utils.js";
 import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js";
 import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
@@ -108,7 +108,7 @@ export function FutbolRanking({db}){
   );
 }
 
-export function FutbolEvolutionChart({db}){
+export const FutbolEvolutionChart = memo(function FutbolEvolutionChart({db}){
   const futbol=db.futbol||defaultFutbolState();
   const participants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
@@ -161,4 +161,4 @@ export function FutbolEvolutionChart({db}){
       </div>
     </div>
   );
-}
+});

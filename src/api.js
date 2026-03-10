@@ -38,15 +38,24 @@ async function apiCall(method, path, user, body) {
 
 // ─── State ───
 
+let _stateETag = null;
+
 export async function fetchRemoteState() {
   if (!API_BASE_URL) return null;
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
-  const res = await fetch(url, { headers: { Accept: "application/json", ...authHeaders() } });
+  const hdrs = { Accept: "application/json", ...authHeaders() };
+  if (_stateETag) hdrs["If-None-Match"] = _stateETag;
+  const res = await fetch(url, { headers: hdrs });
+  if (res.status === 304) return null;
   if (res.status === 404) return null;
   if (res.status === 401) { onSessionExpired(); return null; }
   if (!res.ok) throw new Error("Fetch remoto fallido");
+  const etag = res.headers.get("ETag");
+  if (etag) _stateETag = etag;
   return res.json();
 }
+
+export function resetStateETag() { _stateETag = null; }
 
 let _onSessionExpired = null;
 export function setOnSessionExpired(fn) { _onSessionExpired = fn; }

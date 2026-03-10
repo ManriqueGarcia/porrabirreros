@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, memo } from "react";
 import { buildStats, scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
@@ -276,7 +276,7 @@ function Stats({db,races}){
   );
 }
 
-function PointsTrendChart({trendData}){
+const PointsTrendChart = memo(function PointsTrendChart({trendData}){
   const participants=trendData.participants;
   const races=trendData.races;
   const sorted=[...participants].sort((a,b)=>a.name.localeCompare(b.name));
@@ -323,6 +323,6 @@ function PointsTrendChart({trendData}){
       </div>
     </div>
   );
-}
+});
 
 export { Stats };
