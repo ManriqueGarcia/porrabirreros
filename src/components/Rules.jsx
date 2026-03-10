@@ -45,11 +45,11 @@ function F1Rules(){
 function FutbolRules(){
   const scoring=[
     {icon:"🏟️",text:"4 partidos por jornada: Madrid, Barça, Real Sociedad y Sporting. Si se enfrentan entre ellos, se meten partidos de reserva hasta llegar a 4."},
-    {icon:"⏰",text:"Límite para apostar: viernes 15:00 (hora España). Se puede apostar fuera de plazo, pero conlleva penalización."},
+    {icon:"⏰",text:"Límite para apostar: viernes 21:00 (hora España). Se puede apostar fuera de plazo, pero conlleva penalización."},
     {icon:"🎯",text:"Resultado exacto: 3 puntos. Acertar el signo (1X2): 1 punto. Fallo total: 0 puntos. Máximo por jornada: 12 puntos."},
     {icon:"⚠️",text:"Fuera de plazo: -2 puntos. No apostar: -3 puntos. Con 3 jornadas sin apostar → eliminado."},
     {icon:"💥",text:"Apuesta catastrófica (0 puntos en todo, dentro de plazo): -1 punto extra."},
-    {icon:"🍺",text:"El último en la clasificación general invita a las birras. ¡No seas el farolillo rojo!"},
+    {icon:"🍺",text:"El primero en la clasificación general recibe birras gratis: los demás le invitan. ¡A por la cima!"},
   ];
   const tiebreakers=[
     {icon:"1️⃣",text:"Más puntos totales."},

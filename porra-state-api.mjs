@@ -148,7 +148,7 @@ function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-group,authorization,accept",
+    "Access-Control-Allow-Headers": "content-type,x-porra-group,authorization,accept",
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
     "Cache-Control": "no-store",
     ...extra,

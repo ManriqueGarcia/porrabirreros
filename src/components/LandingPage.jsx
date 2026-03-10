@@ -33,7 +33,7 @@ export default function LandingPage({ onCreateGroup, onJoinGroup }) {
   const steps = [
     { num: "1", title: "Crea un grupo", desc: "Registra tu porra y configura tu liga de amigos." },
     { num: "2", title: "Invita a tus amigos", desc: "Comparte el enlace y que se unan al grupo." },
-    { num: "3", title: "Apuesta y compite", desc: "Haz tus predicciones. El último paga las birras." },
+    { num: "3", title: "Apuesta y compite", desc: "Haz tus predicciones. Al que gane, le invitan a birras." },
   ];
 
   return (
@@ -57,7 +57,7 @@ export default function LandingPage({ onCreateGroup, onJoinGroup }) {
             <span className="ml-2" aria-hidden="true">🍺</span>
           </h1>
           <p className="text-lg sm:text-xl text-white/70 max-w-xl mx-auto mb-10 sm:mb-12">
-            Apuesta con tus amigos. El último paga las birras.
+            Apuesta con tus amigos. Al que gane, le invitan a birras.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <button

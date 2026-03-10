@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { exportCSV, exportPDF } from "../utils.js";
-import { PILOT_COLORS, FALLBACK_COLORS } from "../config.js";
+import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js";
 import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
@@ -41,12 +41,13 @@ export function FutbolRanking({db}){
               const penTotal=(r.missed||0)+(r.late||0);
               const hasResults=completedJornadas.length>0;
               const allTied=rows.length>1&&rows.every(x=>x.points===rows[0].points);
-              const isLast=hasResults&&idx===rows.length-1&&rows.length>1&&!allTied;
+              const isFirst=hasResults&&idx===0&&rows.length>1&&!allTied;
+              const canReceiveBeer=!BEER_EXCLUDED_USERS.has(r.name);
               const isExpanded=expandedRow===r.name;
               const detail=isExpanded && scope!=="all" && res ? scoreFutbolJornada(db,scope,r.name) : null;
               const showPodium=hasResults&&!allTied;
               const medal=showPodium?(idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":null):null;
-              const posClass=showPodium&&idx===0?"border-l-[3px] border-l-yellow-400/70 bg-gradient-to-r from-yellow-400/[.06] to-transparent":showPodium&&idx===1?"border-l-[3px] border-l-slate-300/40 bg-gradient-to-r from-slate-300/[.03] to-transparent":showPodium&&idx===2?"border-l-[3px] border-l-amber-600/40 bg-gradient-to-r from-amber-600/[.03] to-transparent":isLast?"border-l-[3px] border-l-amber-500/30 bg-gradient-to-r from-amber-900/[.04] to-transparent":"border-l-[3px] border-l-transparent";
+              const posClass=showPodium&&idx===0?"border-l-[3px] border-l-yellow-400/70 bg-gradient-to-r from-yellow-400/[.06] to-transparent":showPodium&&idx===1?"border-l-[3px] border-l-slate-300/40 bg-gradient-to-r from-slate-300/[.03] to-transparent":showPodium&&idx===2?"border-l-[3px] border-l-amber-600/40 bg-gradient-to-r from-amber-600/[.03] to-transparent":"border-l-[3px] border-l-transparent";
               return (
                 <div key={r.name} className={`rounded-xl p-3 md:p-4 bg-white/[.02] border border-white/[.06] hover:border-emerald-500/15 transition-all cursor-pointer ${posClass}`} onClick={()=>scope!=="all"&&setExpandedRow(isExpanded?null:r.name)}>
                   <div className="flex items-center gap-3">
@@ -58,8 +59,8 @@ export function FutbolRanking({db}){
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-bold ${idx===0?"text-white":"text-white/80"}`}>{r.name}</span>
                         {r.missed>=3 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20">eliminado</span>}
-                        {isLast && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 birras</span>}
-                        {hasResults&&allTied&&idx===0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 todos pagamos</span>}
+                        {isFirst&&canReceiveBeer && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/15">🍺 le invitan</span>}
+                        {hasResults&&allTied&&idx===0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 todos invitamos</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-white/35">
                         {scope==="all" && <span>Vict: <b className="text-white/50">{r.wins}</b></span>}

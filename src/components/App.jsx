@@ -513,7 +513,7 @@ function GroupApp({ groupId }) {
         )}
       </main></div>
     </>)}
-    <footer className="text-[12px] text-amber-200 pt-8 pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · Quien pierde, pone las birras <span className="beer-icon">🍻</span> {mode === "f1" ? "A todo gas" : "Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
+    <footer className="text-[12px] text-amber-200 pt-8 pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · Quien gana, se lleva las birras <span className="beer-icon">🍻</span> {mode === "f1" ? "A todo gas" : "Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
     <ChangePasswordModal open={showPass} onClose={() => setShowPass(false)} db={db} setDb={setDbUser} user={user} />
     <ChangePasswordModal open={forcePwdChange} onClose={() => setForcePwdChange(false)} db={db} setDb={setDbUser} user={user} forceChange />
     <ChangeAvatarModal open={showAvatar} onClose={() => setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />

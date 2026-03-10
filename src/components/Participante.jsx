@@ -144,7 +144,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
     )}
     <div className="card card-racing p-4 md:p-5 min-w-0">
       <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">🏁 Tu apuesta <span className="text-xs opacity-40">· por las birras</span></h2>
+          <h2 className="section-title">🏁 Tu apuesta <span className="text-xs opacity-40">· que te inviten a birras</span></h2>
         {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
       </div>
       <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>

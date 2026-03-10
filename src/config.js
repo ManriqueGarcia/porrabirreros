@@ -23,6 +23,8 @@ export const CURRENT_SEASON_YEAR = 2026;
 export const FUTBOL_BASE_TEAMS = CONFIG.futbolTeams;
 export const FUTBOL_DEFAULT_DEADLINE_HOUR = CONFIG.futbolDeadlineHour;
 
+export const BEER_EXCLUDED_USERS = new Set(["Marc"]);
+
 export const DRIVER_TEAMS = {
   "Lando Norris": "McLaren", "Oscar Piastri": "McLaren",
   "Lewis Hamilton": "Ferrari", "Charles Leclerc": "Ferrari",

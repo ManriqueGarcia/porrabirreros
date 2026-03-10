@@ -118,7 +118,7 @@ export function FutbolParticipante({user,db,setDb}){
     <div className={`grid gap-4 ${layoutCols}`}>
       <div className="card card-racing p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">⚽ Tu apuesta <span className="text-xs opacity-40">· por las birras</span></h2>
+          <h2 className="section-title">⚽ Tu apuesta <span className="text-xs opacity-40">· que te inviten a birras</span></h2>
           {jornada && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/8 border border-emerald-500/15 text-emerald-300/70 hover:bg-emerald-500/15 hover:text-emerald-200 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
         </div>
         <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>

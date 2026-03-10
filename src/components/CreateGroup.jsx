@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "../toast.jsx";
-import { API_BASE_URL, API_HEADERS } from "../api.js";
+import { API_BASE_URL, getSessionToken } from "../api.js";
 
 async function hashPassword(password) {
   const hash = Array.from(
@@ -61,7 +61,7 @@ export function CreateGroup({ onCreated, onBack }) {
         `${API_BASE_URL}/groups`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...API_HEADERS },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: name.trim(),
             adminUser: adminUser.trim(),

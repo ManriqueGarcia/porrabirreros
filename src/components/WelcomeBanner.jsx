@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { CONFIG } from "../config.js";
+import { CONFIG, BEER_EXCLUDED_USERS } from "../config.js";
 import { scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { defaultFutbolState, listFutbolJornadas, computeFutbolStandings } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
@@ -68,36 +68,37 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const gap=leader?leader.points-myPts:0;
   const gapToLast=last&&myIdx!==total-1?myPts-last.points:0;
   const evento=isFut?"jornada":"GP";
-  const beerGuy=hasResults?last.name:CONFIG.participants[0];
+  const beerWinner=hasResults?leader.name:null;
+  const isExcluded=BEER_EXCLUDED_USERS.has(user);
   let emoji,title,msg;
   if(!hasResults){
     emoji=isFut?"⚽🍺":"🏎️🍺";
     title="¡Empieza la temporada!";
-    msg=`Todavía no hay resultados. De momento las birras las paga ${beerGuy}, como siempre. ¡A ver si esta vez se libra!`;
+    msg=`Todavía no hay resultados. ¡A ver quién queda primero y se lleva las birras gratis!`;
   }else if(pos===1){
     emoji=isFut?"⚽🏆":"🏆🍺";
-    title="¡Vas líder, crack!";
-    msg=total>2?`Llevas ${myPts} pts y ${standings[1]?standings[1].name:"nadie"} te persigue a ${standings[1]?myPts-standings[1].points:0} pts. ¡Las birras las paga ${beerGuy}!`:`Estás primero con ${myPts} pts. ¡Sigue así!`;
+    title=isExcluded?"¡Vas líder, crack!":"¡Vas líder, te invitan a birras!";
+    msg=total>2?`Llevas ${myPts} pts y ${standings[1]?standings[1].name:"nadie"} te persigue a ${standings[1]?myPts-standings[1].points:0} pts.${isExcluded?"":" ¡Los demás te invitan a birras!"}`:`Estás primero con ${myPts} pts. ¡Sigue así!`;
   }else if(pos===2){
     emoji=isFut?"⚽😤":"🥈😤";
     title="¡Casi, casi!";
-    msg=`Estás a solo ${gap} pts de ${leader.name}. Una buena ${evento} y te llevas las birras gratis. ¡${beerGuy} va último y se la juega!`;
+    msg=`Estás a solo ${gap} pts de ${beerWinner}. Una buena ${evento} y te llevas las birras gratis.`;
   }else if(pos===3){
     emoji=isFut?"⚽🍻":"🥉🍻";
     title="En el podio, pero no te relajes";
-    msg=`A ${gap} pts del líder ${leader.name}. Ojo que solo ${gapToLast} pts te separan de pagar la ronda de ${beerGuy}.`;
+    msg=`A ${gap} pts del líder ${beerWinner}. ¡Sube y que te inviten a las birras!`;
   }else if(pos===total){
     emoji=isFut?"⚽💸":"💸🍺";
-    title="¡Houston, tenemos un problema!";
-    msg=`Vas último con ${myPts} pts. ${leader.name} lidera con ${leader.points} pts. Más te vale espabilar o te toca pagar TODAS las birras, ¡${user}!`;
+    title="¡Vas último!";
+    msg=`Vas último con ${myPts} pts. ${beerWinner} lidera con ${leader.points} pts y se lleva las birras. ¡Espabila, ${user}!`;
   }else if(pos===total-1){
     emoji=isFut?"⚽😰":"😰🍺";
-    title="¡Ojo, que huele a ronda!";
-    msg=`Penúltimo a ${gapToLast} pts de ${beerGuy} que va último. Una mala ${evento} y te toca sacar la cartera...`;
+    title="¡Ojo, penúltimo!";
+    msg=`Penúltimo con ${myPts} pts. ${beerWinner} va primero y se lleva las birras. ¡Sube posiciones!`;
   }else{
     emoji=isFut?"⚽😏":"😏🍺";
     title="Ahí andas, buscando hueco";
-    msg=`Posición ${pos}/${total} con ${myPts} pts. A ${gap} pts de ${leader.name}. No eres primero ni último... por ahora.`;
+    msg=`Posición ${pos}/${total} con ${myPts} pts. A ${gap} pts de ${beerWinner} que se lleva las birras.`;
   }
   const otherStandings=standings.filter(s=>s.name!==user).slice(0,5);
 
@@ -119,11 +120,10 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
             const isMe=s.name===user;
             const isFirst=hasResults&&i===0;
             const isLast=hasResults&&i===total-1&&total>1;
-            const isDefaultBeerGuy=!hasResults&&s.name===CONFIG.participants[0];
-            return <div key={s.name} className={`text-xs px-2 py-1 rounded-lg border ${isMe?"bg-amber-500/15 border-amber-500/30 text-amber-300 font-bold":isFirst?"bg-emerald-500/10 border-emerald-500/20 text-emerald-300":isLast?"bg-red-500/10 border-red-500/20 text-red-300":isDefaultBeerGuy?"bg-red-500/10 border-red-500/20 text-red-300":"bg-white/[.03] border-white/8 text-white/50"}`}>
+            const canReceiveBeer=!BEER_EXCLUDED_USERS.has(s.name);
+            return <div key={s.name} className={`text-xs px-2 py-1 rounded-lg border ${isMe?"bg-amber-500/15 border-amber-500/30 text-amber-300 font-bold":isFirst?"bg-emerald-500/10 border-emerald-500/20 text-emerald-300":isLast?"bg-white/[.03] border-white/8 text-white/50":"bg-white/[.03] border-white/8 text-white/50"}`}>
               {hasResults&&<span className="font-semibold">{i+1}.</span>} {s.name} {hasResults&&<span className="text-[10px] opacity-60">{s.points}pts</span>}
-              {isLast&&total>1&&<span className="ml-1">🍺</span>}
-              {isDefaultBeerGuy&&<span className="ml-1">🍺</span>}
+              {isFirst&&canReceiveBeer&&<span className="ml-1">🍺</span>}
               {isFirst&&<span className="ml-1">👑</span>}
             </div>;
           })}

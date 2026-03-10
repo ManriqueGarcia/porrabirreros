@@ -30,21 +30,46 @@ const FUTBOL_JORNADA_ID = `jornada${TEST_PREFIX}`;
 
 let groupId = "";
 let inviteCode = "";
+const tokens = {};
+let activeToken = "";
 
-function apiHeaders(user) {
+function apiHeaders() {
   const h = { "Content-Type": "application/json", Accept: "application/json" };
   if (API_SECRET) h["x-porra-secret"] = API_SECRET;
-  if (user) h["x-porra-user"] = user;
+  if (activeToken) h["Authorization"] = `Bearer ${activeToken}`;
   return h;
 }
 
 async function api(method, path, user, body) {
-  const opts = { method, headers: apiHeaders(user) };
+  if (user && tokens[user]) activeToken = tokens[user];
+  const opts = { method, headers: apiHeaders() };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const resp = await fetch(`${API_BASE}${path}`, opts);
   const text = await resp.text();
   let data;
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  return { status: resp.status, data };
+}
+
+function apiNoAuth(method, path, body) {
+  const saved = activeToken;
+  activeToken = "";
+  const result = api(method, path, null, body);
+  activeToken = saved;
+  return result;
+}
+
+async function login(username, passwordHash) {
+  const resp = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, passwordHash }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (data.sessionToken) {
+    tokens[username] = data.sessionToken;
+    activeToken = data.sessionToken;
+  }
   return { status: resp.status, data };
 }
 
@@ -112,13 +137,19 @@ describe("API — Grupos y Autenticación", () => {
     expect(status).toBe(400);
   });
 
-  it.skipIf(skip)("POST /auth/login — login correcto", async () => {
+  it.skipIf(skip)("POST /auth/login — login admin correcto", async () => {
     if (!groupId) return;
-    const { status, data } = await api("POST", "/auth/login", null, {
-      username: TEST_ADMIN_USER, passwordHash: TEST_PASSWORD_HASH,
-    });
+    const { status, data } = await login(TEST_ADMIN_USER, TEST_PASSWORD_HASH);
     expect(status).toBe(200);
     expect(data.groups.length).toBeGreaterThan(0);
+    expect(data.sessionToken).toBeTruthy();
+  });
+
+  it.skipIf(skip)("POST /auth/login — login regular user", async () => {
+    if (!groupId) return;
+    const { status, data } = await login(TEST_REGULAR_USER, TEST_PASSWORD_HASH);
+    expect(status).toBe(200);
+    expect(data.sessionToken).toBeTruthy();
   });
 
   it.skipIf(skip)("POST /auth/login — contraseña incorrecta → 401", async () => {
@@ -274,12 +305,12 @@ describe("API — Apuestas F1", () => {
     expect(history.length).toBeGreaterThanOrEqual(1);
   });
 
-  it.skipIf(skip)("usuario sin header → 403", async () => {
+  it.skipIf(skip)("usuario sin header → 401", async () => {
     if (!groupId) return;
-    const { status } = await api("PUT", `/g/${groupId}/bets/f1/${F1_RACE_1}`, "", {
+    const { status } = await apiNoAuth("PUT", `/g/${groupId}/bets/f1/${F1_RACE_1}`, {
       bet: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [] },
     });
-    expect(status).toBe(403);
+    expect([401, 403]).toContain(status);
   });
 
   it.skipIf(skip)("usuario normal no puede guardar resultado → 403", async () => {

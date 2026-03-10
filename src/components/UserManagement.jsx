@@ -4,7 +4,7 @@ import { DEFAULT_PASSWORD_HASH } from "../config.js";
 import { toast } from "../toast.jsx";
 import { Avatar } from "./Avatar.jsx";
 import { getAdminRoles, hasAnyAdminRole } from "../admin-roles.js";
-import { updateUser, fetchUserGroups, fetchGroupsList, getActiveGroupId, API_BASE_URL, API_HEADERS } from "../api.js";
+import { updateUser, fetchUserGroups, fetchGroupsList, getActiveGroupId, API_BASE_URL, getSessionToken } from "../api.js";
 
 export function UserManagement({ db, setDb, currentUser }) {
   const [newUserName, setNewUserName] = useState("");
@@ -162,7 +162,7 @@ export function UserManagement({ db, setDb, currentUser }) {
     try {
       const resp = await fetch(`${API_BASE_URL}/g/${targetGroupId}/users`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...API_HEADERS, "x-porra-user": currentUser },
+        headers: { "Content-Type": "application/json", ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}) },
         body: JSON.stringify({ name: userName, passwordHash: DEFAULT_PASSWORD_HASH, mustChange: true, porras: db.users?.[userName]?.porras || { f1: true, futbol: true } }),
       });
       if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error"); }
@@ -178,7 +178,7 @@ export function UserManagement({ db, setDb, currentUser }) {
     try {
       const resp = await fetch(`${API_BASE_URL}/g/${targetGroupId}/users/${encodeURIComponent(userName)}`, {
         method: "DELETE",
-        headers: { ...API_HEADERS, "x-porra-user": currentUser },
+        headers: { ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}) },
       });
       if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error"); }
       toast.success(`${userName} quitado del grupo`);

@@ -418,7 +418,6 @@ export async function processFutbolQuery(question){
   if(!aiUrl) return "ManriBot no está configurado. Falta PORRA_AI_URL.";
   try{
     const hdrs={"Content-Type":"application/json"};
-    if(window.PORRA_API_SECRET) hdrs["x-porra-secret"]=window.PORRA_API_SECRET;
     const res=await fetch(aiUrl,{method:"POST",headers:hdrs,body:JSON.stringify({question,mode:"futbol"}),signal:AbortSignal.timeout(35000)});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data=await res.json();

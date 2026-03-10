@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "../toast.jsx";
-import { API_BASE_URL, API_HEADERS } from "../api.js";
+import { API_BASE_URL, getSessionToken } from "../api.js";
 
 async function hashPassword(password) {
   const hash = Array.from(
@@ -31,7 +31,7 @@ export function JoinGroup({ inviteCode: inviteCodeProp, onJoined, onBack }) {
       try {
         const res = await fetch(
           `${API_BASE_URL}/invite/${encodeURIComponent(inviteCodeProp.trim())}`,
-          { headers: { ...API_HEADERS } }
+          { headers: {} }
         );
         if (cancelled) return;
         if (!res.ok) {
@@ -60,7 +60,7 @@ export function JoinGroup({ inviteCode: inviteCodeProp, onJoined, onBack }) {
     try {
       const res = await fetch(
         `${API_BASE_URL}/invite/${encodeURIComponent(c)}`,
-        { headers: { ...API_HEADERS } }
+        { headers: {} }
       );
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -105,7 +105,7 @@ export function JoinGroup({ inviteCode: inviteCodeProp, onJoined, onBack }) {
         `${API_BASE_URL}/groups/${validated.groupId}/join`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...API_HEADERS },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: userName.trim(),
             passwordHash,

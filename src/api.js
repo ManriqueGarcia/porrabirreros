@@ -2,8 +2,6 @@ import { CACHE_BUST } from "./config.js";
 import { debounce } from "./utils.js";
 
 export const API_BASE_URL = (window.PORRA_API_BASE || "").replace(/\/$/, "");
-export const API_SECRET = window.PORRA_API_SECRET || "";
-export const API_HEADERS = API_SECRET ? { "x-porra-secret": API_SECRET } : {};
 
 let _groupId = null;
 export function setActiveGroupId(gid) { _groupId = gid || null; }
@@ -16,20 +14,16 @@ export function getSessionToken() { return _sessionToken; }
 function groupPrefix() { return _groupId ? `/g/${_groupId}` : ""; }
 
 function authHeaders() {
-  const h = { ...API_HEADERS };
+  const h = {};
   if (_sessionToken) h["Authorization"] = `Bearer ${_sessionToken}`;
   return h;
-}
-
-function userHeaders(user) {
-  return { ...authHeaders(), "x-porra-user": user || "" };
 }
 
 async function apiCall(method, path, user, body) {
   if (!API_BASE_URL) return null;
   const opts = {
     method,
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...userHeaders(user) },
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...authHeaders() },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const fullPath = `${API_BASE_URL}${groupPrefix()}${path}`;
@@ -62,7 +56,6 @@ export async function saveRemoteState(payload, user) {
   if (!API_BASE_URL) return;
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
   const hdrs = { "Content-Type": "application/json", ...authHeaders() };
-  if (user) hdrs["x-porra-user"] = user;
   const r = await fetch(url, { method: "PUT", headers: hdrs, body: JSON.stringify(payload) });
   if (r.status === 401) { onSessionExpired(); return; }
   if (!r.ok) throw new Error(`Save failed: ${r.status}`);
@@ -158,7 +151,7 @@ export async function verifyPassword(username, passwordHash, groupId) {
 export async function authLogin(username, passwordHash) {
   const resp = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...API_HEADERS },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, passwordHash }),
   });
   const data = await resp.json().catch(() => ({}));
@@ -169,7 +162,7 @@ export async function authLogin(username, passwordHash) {
 
 export async function fetchUserGroups(username, reqUser) {
   const resp = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/groups`, {
-    headers: { Accept: "application/json", ...authHeaders(), "x-porra-user": reqUser || username || "" },
+    headers: { Accept: "application/json", ...authHeaders() },
   });
   if (!resp.ok) return [];
   const data = await resp.json();
@@ -178,7 +171,7 @@ export async function fetchUserGroups(username, reqUser) {
 
 export async function fetchGroupsList(reqUser) {
   const resp = await fetch(`${API_BASE_URL}/groups/list`, {
-    headers: { Accept: "application/json", ...authHeaders(), "x-porra-user": reqUser || "" },
+    headers: { Accept: "application/json", ...authHeaders() },
   });
   if (!resp.ok) return [];
   const data = await resp.json();

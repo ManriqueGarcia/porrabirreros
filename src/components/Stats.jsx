@@ -1,24 +1,24 @@
 import { useMemo, useState, useEffect } from "react";
 import { buildStats, scoreForRace, computeGlobalStandings } from "../scoring.js";
-import { PILOT_COLORS, FALLBACK_COLORS } from "../config.js";
+import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
 function Stats({db,races}){
   const f1Participants=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
   const stats=useMemo(()=>buildStats(db,races,f1Participants),[db,races,f1Participants]);
   const beerHistory=useMemo(()=>{
-    const participants=f1Participants;
-    if(participants.length<2) return [];
+    const eligible=f1Participants.filter(n=>!BEER_EXCLUDED_USERS.has(n));
+    if(eligible.length<2) return [];
     return (races||[]).filter(r=>db.results?.[r.key]).map(race=>{
-      const scores=participants.map(name=>({name,...scoreForRace(db,race.key,name)}));
-      scores.sort((a,b)=>a.points-b.points||b.pen-a.pen);
+      const scores=eligible.map(name=>({name,...scoreForRace(db,race.key,name)}));
+      scores.sort((a,b)=>b.points-a.points||a.pen-b.pen);
       const allTied=scores.every(s=>s.points===scores[0].points);
-      return {race:race.grand_prix,round:race.round,payer:allTied?"Todos":scores[0].name,points:scores[0].points,allTied};
+      return {race:race.grand_prix,round:race.round,winner:allTied?"Empate":scores[0].name,points:scores[0].points,allTied};
     });
   },[db,races]);
   const beerCount=useMemo(()=>{
     const counts={};
-    beerHistory.forEach(h=>{if(!h.allTied) counts[h.payer]=(counts[h.payer]||0)+1;});
+    beerHistory.forEach(h=>{if(!h.allTied) counts[h.winner]=(counts[h.winner]||0)+1;});
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   },[beerHistory]);
   const trendData=useMemo(()=>{
@@ -115,7 +115,7 @@ function Stats({db,races}){
   return (
     <div className="space-y-4">
       <div className="card card-racing p-4 md:p-5 space-y-3">
-        <h2 className="section-title">📊 Estadísticas <span className="text-xs opacity-40">· el que pierda, invita</span></h2>
+        <h2 className="section-title">📊 Estadísticas <span className="text-xs opacity-40">· al que gane, le invitan</span></h2>
         <p className="text-[11px] text-white/30">Solo carreras con resultados publicados.</p>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl p-3 bg-white/[.02] border border-white/[.06]">
@@ -159,21 +159,21 @@ function Stats({db,races}){
       </div>
       <div className="card card-racing p-4 md:p-5 space-y-3">
         <h2 className="section-title">🍺 Histórico de birras</h2>
-        <p className="text-[11px] text-white/30">Quién quedó último en cada GP (el que paga las birras).</p>
+        <p className="text-[11px] text-white/30">Quién quedó primero en cada GP (los demás le invitan a birras).</p>
         {beerHistory.length?(
           <>
             <div className="overflow-x-auto rounded-xl border border-white/5">
               <table className="text-sm w-full">
-                <thead><tr><th className="text-left">GP</th><th className="text-left">Paga</th><th className="text-right">Pts</th></tr></thead>
+                <thead><tr><th className="text-left">GP</th><th className="text-left">Le invitan</th><th className="text-right">Pts</th></tr></thead>
                 <tbody>
-                  {beerHistory.map((h,i)=><tr key={i} className="border-t border-white/5"><td>{h.race}</td><td>{h.payer}</td><td className="text-right">{h.points}</td></tr>)}
+                  {beerHistory.map((h,i)=><tr key={i} className="border-t border-white/5"><td>{h.race}</td><td>{h.winner}</td><td className="text-right">{h.points}</td></tr>)}
                 </tbody>
               </table>
             </div>
             {beerCount.length>0&&(
               <div className="rounded-xl p-3 bg-white/[.02] border border-white/[.06]">
-                <h3 className="font-semibold mb-1">Quién ha pagado más birras</h3>
-                <ul className="space-y-1 text-sm mt-1">{beerCount.map(([name,count],idx)=><li key={name} className="flex items-center justify-between border border-white/10 rounded px-2 py-1 bg-neutral-900"><span>{idx+1}. {name}</span><span className="text-xs text-amber-300">{count} {count===1?"vez":"veces"}</span></li>)}</ul>
+                <h3 className="font-semibold mb-1">A quién le han invitado más birras</h3>
+                <ul className="space-y-1 text-sm mt-1">{beerCount.map(([name,count],idx)=><li key={name} className="flex items-center justify-between border border-white/10 rounded px-2 py-1 bg-neutral-900"><span>{idx+1}. {name}</span><span className="text-xs text-emerald-300">{count} {count===1?"vez":"veces"}</span></li>)}</ul>
               </div>
             )}
           </>
