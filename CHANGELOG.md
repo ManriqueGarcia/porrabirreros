@@ -4,6 +4,21 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-10] — Hardening: auth, CORS, validación, rate limiting, race conditions
+
+### Vulnerabilidades corregidas
+- **ALTA — Lectura del estado sin autenticación**: `GET /state` y `GET /g/{gid}/state` ahora requieren autenticación (session token o `x-porra-user`). Antes cualquiera podía leer todas las apuestas, usuarios y resultados.
+- **ALTA — CORS permisivo**: cuando `ALLOWED_ORIGIN` está configurado (producción), el servidor ahora rechaza requests con origin distinto al permitido (403).
+- **ALTA — Recovery code = password por defecto**: `RECOVERY_CODE_HASH` ahora tiene un valor distinto a `DEFAULT_PASSWORD_HASH` en el template, evitando que quien conozca la contraseña por defecto pueda usar el flujo de recuperación.
+- **MEDIA — Sin validación de payload en apuestas**: ahora el servidor valida F1 (pole string max 100, podium max 5 drivers, preguntas max 10 × 500 chars) y fútbol (max 20 partidos, scores 0-99 enteros). Payloads malformados se rechazan con 400.
+- **MEDIA — Race condition en join**: `handleJoinGroup` ahora usa conditional write (`attribute_not_exists`) para prevenir joins duplicados concurrentes.
+- **MEDIA — migrate-to-group sobreescribía grupos**: ahora verifica que el grupo destino no exista antes de migrar.
+- **MEDIA — Sin rate limiting en escrituras**: todos los endpoints `PUT`/`DELETE` ahora tienen rate limit de 30 req/min/IP.
+- **MEDIA — targetUser sin validar**: rutas de usuario (`PUT /users/{name}`, `DELETE /users/{name}`) ahora validan el nombre con `isValidUserName`, evitando inyección en claves DynamoDB.
+- **BAJA — Invite code sin validar**: ahora se valida formato alfanumérico y longitud máxima de 50 caracteres.
+
+---
+
 ## [2026-03-10] — Seguridad: validación server-side de deadlines + auth con token
 
 ### Vulnerabilidades corregidas
