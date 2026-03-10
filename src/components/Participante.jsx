@@ -105,46 +105,62 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
         {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
       </div>
       <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
-      {race && (
-        <div className="mb-4 p-3 rounded-xl bg-white/[.025] border border-white/[.06] relative overflow-hidden"><div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
-          <h3 className="text-sm font-bold text-white/85 mb-2 flex items-center gap-2">🕐 Horarios del GP</h3>
-          <div className="grid gap-2 text-sm">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="text-slate-400">Quali:</span>
-              <span className="text-slate-300">{race.labels?.qLocal||"—"} (local)</span>
-              <span className="text-emerald-300 font-semibold">→ {race.labels?.qMadrid||"—"} España</span>
+      {race && (<>
+        <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/10 via-sky-900/5 to-transparent border border-sky-500/20 p-4 text-center group hover:border-sky-400/35 transition-all">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400/60 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-sky-400/[.03] to-transparent pointer-events-none"></div>
+            <div className="relative">
+              <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">🏁</div>
+              <div className="text-[10px] uppercase tracking-[.15em] text-sky-300/60 font-bold mb-2">Clasificación</div>
+              <div className="text-base font-black text-sky-200 leading-tight">{race.labels?.qMadrid||"—"}</div>
+              <div className="text-[10px] text-sky-300/40 mt-1 font-medium">🇪🇸 hora España</div>
+              {race.labels?.qLocal && race.timeZone!==MADRID_TZ && <div className="text-[10px] text-white/25 mt-1">{race.labels.qLocal} (local)</div>}
             </div>
-            {race.labels?.raceLocal && (
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-slate-400">Carrera:</span>
-                <span className="text-slate-300">{race.labels.raceLocal} (local)</span>
-                <span className="text-emerald-300 font-semibold">→ {race.labels.raceMadrid} España</span>
-              </div>
-            )}
-            {authorDeadline && (
-              <div className="flex flex-wrap items-baseline gap-2 text-slate-300">
-                <span className="text-slate-400">Preguntas{owner?<> (<span className="text-amber-200 font-semibold">{owner}</span>)</>:""} — cierre:</span>
-                <span className="text-amber-200 font-medium">{formatDateTime(authorDeadline,MADRID_TZ)} España</span>
-                {db.questionsStatus?.[race.key]?.published
-                  ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Publicadas</span>
-                  : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">Pendientes</span>}
-              </div>
-            )}
-            <div className="mt-2 pt-2 border-t border-slate-600/50">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-slate-400">Cierre apuestas:</span>
-                <span className="text-amber-300 font-bold text-base">{formatTime(race.cutoff,MADRID_TZ)}</span>
-                <span className="text-amber-100 text-xs">(España)</span>
-              </div>
-              <div className="flex flex-wrap gap-3 mt-1 text-xs">
-                <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
-                <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
-              </div>
-              <CountdownBadge target={race.cutoff}/>
+          </div>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-red-500/12 via-red-900/5 to-transparent border border-red-500/20 p-4 text-center group hover:border-red-400/35 transition-all">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-red-500/[.03] to-transparent pointer-events-none"></div>
+            <div className="relative">
+              <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">🏎️</div>
+              <div className="text-[10px] uppercase tracking-[.15em] text-red-300/60 font-bold mb-2">Carrera</div>
+              {race.labels?.raceMadrid ? (<>
+                <div className="text-base font-black text-red-200 leading-tight">{race.labels.raceMadrid}</div>
+                <div className="text-[10px] text-red-300/40 mt-1 font-medium">🇪🇸 hora España</div>
+                {race.labels?.raceLocal && race.timeZone!==MADRID_TZ && <div className="text-[10px] text-white/25 mt-1">{race.labels.raceLocal} (local)</div>}
+              </>) : <div className="text-sm text-white/25 italic">Por confirmar</div>}
+            </div>
+          </div>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-500/10 via-amber-900/5 to-transparent border border-amber-500/20 p-4 text-center group hover:border-amber-400/35 transition-all">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-amber-400/[.03] to-transparent pointer-events-none"></div>
+            <div className="relative">
+              <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">❓</div>
+              <div className="text-[10px] uppercase tracking-[.15em] text-amber-300/60 font-bold mb-2">Preguntas</div>
+              <div className="text-sm font-bold text-amber-200">{owner||"Sin asignar"}</div>
+              {db.questionsStatus?.[race.key]?.published
+                ? <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Publicadas</span>
+                : <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">Pendientes</span>}
+              {authorDeadline && <div className="text-[10px] text-white/25 mt-1.5">Cierre: {formatTime(authorDeadline,MADRID_TZ)}</div>}
             </div>
           </div>
         </div>
-      )}
+        <div className="mb-4 p-3 rounded-xl bg-white/[.025] border border-white/[.06] relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="text-sm font-bold text-white/85">⏰ Cierre apuestas:</span>
+              <span className="text-amber-300 font-bold text-lg tabular-nums">{formatTime(race.cutoff,MADRID_TZ)}</span>
+              <span className="text-amber-100 text-xs">(España)</span>
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
+              <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
+            </div>
+          </div>
+          <CountdownBadge target={race.cutoff}/>
+        </div>
+      </>)}
       {race && owner===user && !db.questionsStatus?.[race.key]?.published && (
         <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-red-500/[.06] border border-amber-400/25 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400/40 via-red-400/30 to-transparent"></div>
