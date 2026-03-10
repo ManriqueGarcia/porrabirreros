@@ -4,6 +4,20 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-10] — Seguridad: validación server-side de deadlines + auth con token
+
+### Vulnerabilidades corregidas
+- **CRITICA — Flag `late` controlado por el cliente**: el servidor aceptaba `late: true/false` directamente del body sin verificar. Un usuario podía apostar después del cierre y enviar `late: false` para evitar la penalización de -2 puntos. Ahora el servidor computa `late` comparando `new Date()` con el deadline almacenado en DynamoDB (fútbol: jornada config, F1: registro DEADLINE). También comprueba `betsWindow.forceClosed` y rechaza la apuesta si el admin ha cerrado las apuestas.
+- **CRITICA — Suplantación de usuario via `x-porra-user`**: la identidad del usuario se tomaba del header sin verificación. Cualquiera que conociera el `API_SECRET` (o si estaba vacío) podía impersonar a cualquier usuario. Ahora `POST /auth/login` genera un token de sesión (256-bit, 24h TTL) almacenado en DynamoDB. El cliente envía `Authorization: Bearer <token>` y el servidor valida el token para derivar el username. Si el token es inválido/expirado, devuelve 401. Backward-compatible: sin token, usa `x-porra-user` (para scripts/tests).
+
+### Cambios técnicos
+- Nuevas funciones server-side: `createServerSession()`, `validateSession()`, `resolveF1Deadline()`, `resolveFutbolDeadline()`
+- CORS headers actualizados para incluir `authorization`
+- Frontend: `api.js` envía `Authorization: Bearer` automáticamente, gestiona sesión expirada con logout
+- Frontend: `saveBetF1` envía `deadline` (cutoff de qualifying) para que el servidor lo almacene
+
+---
+
 ## [2026-03-10] — Mejoras UX: fútbol y F1 responsive
 
 ### Fútbol
