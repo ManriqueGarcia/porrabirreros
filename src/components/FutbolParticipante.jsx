@@ -26,7 +26,8 @@ export function FutbolParticipante({user,db,setDb}){
   const manualReveal=futbol.betsReveal?.[selected];
   const isBeforeDeadline=deadline ? now<deadline : true;
   const isFutbolLate=deadline ? now>=deadline : false;
-  const canEdit=manualWindow?.forceClosed?false:true;
+  const hasResult=jornada && !!futbol.results?.[selected];
+  const canEdit=!manualWindow?.forceClosed && !hasResult;
   const revealAt=deadline?new Date(deadline.getTime()+60*1000):null;
   const canViewFull=manualReveal?.forceShow || (!!revealAt && now>revealAt);
   const bet=jornada ? (futbol.bets?.[selected]?.[user]||{matches:[],submittedAt:null,late:false}) : null;
@@ -34,7 +35,7 @@ export function FutbolParticipante({user,db,setDb}){
   const futbolParticipants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
   const others=futbolParticipants.filter(n=>n!==user).map(name=>({name,bet:jornada?futbol.bets?.[selected]?.[name]:null}));
   const myScore=jornada && res ? scoreFutbolJornada(db,selected,user) : null;
-  const betsStatus=jornada ? (manualWindow?.forceClosed?"Cerrado por admin":(isFutbolLate?`Fuera de plazo (penalización -2 pts)`:(deadline?`Cierre: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto"))) : "—";
+  const betsStatus=jornada ? (hasResult?"Cerrado (resultados publicados)":manualWindow?.forceClosed?"Cerrado por admin":isFutbolLate?"Fuera de plazo (penalización -2 pts)":deadline?`Cierre: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto") : "—";
   const [saving,setSaving]=useState(false);
   const saveBet=async(payload)=>{
     if(!jornada||saving) return;
@@ -111,11 +112,13 @@ export function FutbolParticipante({user,db,setDb}){
               <div className="relative">
                 <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">📊</div>
                 <div className="text-[10px] uppercase tracking-[.15em] text-sky-300/60 font-bold mb-2">Estado</div>
-                {manualWindow?.forceClosed
+                {hasResult
                   ? <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20 font-semibold">🔒 Cerrado</span>
-                  : isFutbolLate
-                    ? <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">⚠️ Fuera de plazo</span>
-                    : <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Abierto</span>}
+                  : manualWindow?.forceClosed
+                    ? <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20 font-semibold">🔒 Cerrado por admin</span>
+                    : isFutbolLate
+                      ? <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">⚠️ Fuera de plazo</span>
+                      : <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Abierto</span>}
                 <div className="text-[10px] text-white/25 mt-2">{manualReveal?.forceShow?"Apuestas visibles":"Ocultas hasta cierre"}</div>
               </div>
             </div>

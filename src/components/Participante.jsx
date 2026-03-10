@@ -44,7 +44,8 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const manualReveal=race ? db.betsReveal?.[race.key] : null;
   const isBeforeCutoff=race && now<race.cutoff;
   const isLate=race && !isBeforeCutoff;
-  const canEdit=race ? (manualWindow?.forceClosed?false:true) : false;
+  const hasResult=race && !!db.results?.[race.key];
+  const canEdit=race ? (!manualWindow?.forceClosed && !hasResult) : false;
   const isAdmin=!!db.users?.[user]?.isAdmin;
   const canViewFull=race && (manualReveal?.forceShow || now>race.showBetsAt);
   const showStatusOnly=isAdmin && race && !canViewFull;
@@ -83,7 +84,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
     setSavingF1(false); savingF1Ref.current = false;
   },[race?.key,race?.cutoff,user,setDb]);
-  const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
+  const betsStatus=race ? (hasResult?"Cerrado (resultados publicados)":manualWindow?.forceClosed?"Cerrado por admin":isLate?"Fuera de plazo (penalización -2 pts)":manualWindow?.forceOpen?"Abierto por admin":"Abierto") : "—";
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
   return (<div className={`grid gap-4 ${layoutCols}`}>
