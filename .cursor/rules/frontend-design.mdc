@@ -1,0 +1,18 @@
+---
+description: Guía de diseño frontend para crear interfaces React distintivas y de calidad producción.
+globs: "src/components/**/*.{jsx,css}"
+alwaysApply: false
+---
+
+# Diseño Frontend
+
+Sigue las directrices de `.agents/skills/frontend-design/SKILL.md`.
+
+## En este proyecto
+
+- Framework: React (sin Next.js)
+- Componentes funcionales con hooks
+- Mobile-first responsive design
+- Priorizar UX: acceso rápido a apuestas, información secundaria al final en móvil
+- Colores y tipografía consistentes con el tema existente
+- Animaciones con CSS, no librerías externas

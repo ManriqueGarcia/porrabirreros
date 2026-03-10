@@ -4,6 +4,51 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-10] — Auditoría de seguridad completa + Skills de Cursor
+
+### Seguridad — 27 fixes aplicados
+
+#### CRITICAL
+- **Eliminado fallback `x-porra-user`** — Ya no se acepta impersonación via header; se requiere Bearer token
+- **Verificación de membresía en GET /g/{gid}/state** — Solo miembros del grupo pueden leer su estado
+- **`npm audit` bloquea deploy** — CI/CD falla si hay vulnerabilidades críticas en dependencias
+
+#### HIGH
+- **GET /state legacy restringido a admin-only** — Previene full table scan por usuarios normales
+- **Eliminado full table scan en `resolveUser`** — Ya no se hace Scan para case-insensitive; solo lookup directo y capitalizado
+- **`npm audit` añadido a deploy-dev.yml** — Dev también audita dependencias
+- **CloudFront ID como secreto en deploy-dev.yml** — Ya no está hardcoded
+- **Build falla si `config.local.js` no se restaura** — Evita despliegue con hashes placeholder
+
+#### MEDIUM
+- **Try/catch en `decodeURIComponent`** — URLs malformadas devuelven 400 en vez de 500
+- **Validación de resultados F1 y fútbol** — `validateF1Result` y `validateFutbolResult` aplicadas a todos los handlers de resultados
+- **Rate limit en GET /invite** — Previene enumeración de códigos de invitación
+- **`localStorage` residual → `sessionStorage`** — `index.html` ya no usa localStorage
+- **`avatares_reales/` en .gitignore** — Fotos personales protegidas
+- **URLs de API como secretos en workflows** — Con fallback a valores actuales
+
+#### LOW
+- Mensaje genérico en joinGroup (previene enumeración de usuarios)
+- Validación de admin bets con validadores existentes
+- Log seguro (solo message, no stack trace completo)
+- SVG avatars deshabilitados — solo formatos raster (JPG, PNG, GIF, WebP)
+- `clearSession` limpia todas las keys `porra_*`
+
+### Skills instaladas (Cursor)
+- **frontend-design** (anthropics) — Mejores prácticas de diseño React
+- **systematic-debugging** (obra) — Depuración sistemática
+- **test-driven-development** (obra) — TDD con Vitest
+- **webapp-testing** (anthropics) — Testing de aplicaciones web
+- **security-best-practices** (supercent-io) — Seguridad web OWASP
+- **verification-before-completion** (obra) — Verificación obligatoria
+- **git-commit** (github) — Conventional Commits
+
+### Reglas de Cursor (`.cursor/rules/`)
+7 reglas `.mdc` creadas para activar las skills en el proyecto.
+
+---
+
 ## [2026-03-10] — Hardening: auth, CORS, validación, rate limiting, race conditions
 
 ### Vulnerabilidades corregidas

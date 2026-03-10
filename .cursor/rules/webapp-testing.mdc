@@ -1,0 +1,17 @@
+---
+description: Testing de aplicaciones web con Playwright y Vitest.
+globs: "{tests,e2e}/**/*.{test.mjs,spec.mjs,test.js}"
+alwaysApply: false
+---
+
+# Testing de Aplicaciones Web
+
+Sigue las directrices de `.agents/skills/webapp-testing/SKILL.md`.
+
+## En este proyecto
+
+- **Unit tests**: Vitest (`npx vitest run`) en `tests/`
+- **E2E tests**: Playwright en `e2e/`
+- **Funcionales**: `tests/api-functional.test.mjs` para API
+- Backend Lambda testeado con mocks de DynamoDB
+- Siempre esperar `networkidle` en tests e2e antes de interactuar

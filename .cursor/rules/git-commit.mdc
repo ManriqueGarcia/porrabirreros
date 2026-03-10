@@ -1,0 +1,32 @@
+---
+description: Commits con Conventional Commits. Usar al hacer commits git.
+alwaysApply: true
+---
+
+# Git Commits — Conventional Commits
+
+Sigue las directrices de `.agents/skills/git-commit/SKILL.md`.
+
+## Formato
+
+```
+<type>[scope]: <descripción>
+```
+
+## Tipos
+
+- `feat`: nueva funcionalidad
+- `fix`: corrección de bug
+- `docs`: solo documentación
+- `refactor`: refactorización sin cambio funcional
+- `test`: añadir/actualizar tests
+- `ci`: cambios en CI/CD
+- `chore`: mantenimiento
+- `security`: fix de seguridad
+
+## Reglas de seguridad git
+
+- NUNCA `--force` push a main/dev sin petición explícita
+- NUNCA commitear secretos (config.local.js, .env)
+- NUNCA `--no-verify`
+- Si pre-commit hook falla, crear commit NUEVO (no amend)

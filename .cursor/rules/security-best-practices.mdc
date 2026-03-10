@@ -1,0 +1,30 @@
+---
+description: Aplica mejores prácticas de seguridad web (OWASP Top 10, CORS, rate limiting, validación de input, gestión de secretos). Usar en auditorías, hardening de APIs y revisión de vulnerabilidades.
+alwaysApply: true
+---
+
+# Seguridad — Mejores Prácticas
+
+Sigue las directrices de `.agents/skills/security-best-practices/SKILL.md`.
+
+## Checklist OWASP Top 10
+
+- A01: Broken Access Control — comprobar autenticación/autorización en cada endpoint
+- A02: Cryptographic Failures — HTTPS, hashing seguro, no secretos en código
+- A03: Injection — validación de input, queries parametrizadas
+- A04: Insecure Design — seguridad desde el diseño
+- A05: Security Misconfiguration — cabeceras de seguridad, cambiar defaults
+- A06: Vulnerable Components — `npm audit`, actualización regular
+- A07: Authentication Failures — auth fuerte, rate limiting en login
+- A08: Data Integrity Failures — validación de firma, protección CSRF
+- A09: Logging Failures — logging de eventos de seguridad
+- A10: SSRF — validar peticiones salientes
+
+## Reglas para este proyecto
+
+- Backend es AWS Lambda (`porra-state-api.mjs`) — aplicar rate limiting por IP, validar payloads, enforce deadlines server-side
+- Auth via session tokens en DynamoDB con TTL
+- CORS configurado con `ALLOWED_ORIGIN`
+- Nunca confiar en datos del cliente para lógica de negocio (flag `late`, deadlines)
+- Validar `isValidUserName`, `isValidId` en todas las rutas
+- No commitear `config.local.js`, `.env`, credenciales

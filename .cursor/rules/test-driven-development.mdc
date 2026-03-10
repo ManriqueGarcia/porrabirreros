@@ -1,0 +1,29 @@
+---
+description: Desarrollo guiado por tests (TDD). Usar al implementar features o bug fixes.
+globs: "{src,tests,lib}/**/*.{js,jsx,mjs,test.mjs}"
+alwaysApply: false
+---
+
+# Test-Driven Development
+
+Sigue las directrices de `.agents/skills/test-driven-development/SKILL.md`.
+
+## Regla de Hierro
+
+No escribir código de producción sin un test que falle primero.
+
+## Ciclo Red-Green-Refactor
+
+1. **RED** — Escribir test mínimo que falle
+2. **Verificar RED** — `npx vitest run` — confirmar que falla por la razón correcta
+3. **GREEN** — Código mínimo para pasar el test
+4. **Verificar GREEN** — `npx vitest run` — todo verde
+5. **REFACTOR** — Limpiar, mantener tests verdes
+6. **Repetir**
+
+## En este proyecto
+
+- Framework: **Vitest** (`npx vitest run`)
+- Tests unitarios en `tests/`
+- Tests e2e en `e2e/` con Playwright
+- Ejecutar `npm run build` para verificar que compila

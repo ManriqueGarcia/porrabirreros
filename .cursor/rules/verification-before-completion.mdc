@@ -1,0 +1,25 @@
+---
+description: Verificación obligatoria antes de declarar tareas completadas. Ejecutar tests y builds antes de afirmar que algo funciona.
+alwaysApply: true
+---
+
+# Verificación Antes de Completar
+
+Sigue las directrices de `.agents/skills/verification-before-completion/SKILL.md`.
+
+## Regla de Hierro
+
+NO declarar éxito sin evidencia de verificación fresca.
+
+## Antes de afirmar que algo funciona
+
+1. Ejecutar `npx vitest run` — verificar todos los tests pasan
+2. Ejecutar `npm run build` — verificar que compila sin errores
+3. Leer la salida completa, contar fallos
+4. Solo entonces afirmar el resultado
+
+## Prohibido
+
+- Usar "debería funcionar", "probablemente", "parece que"
+- Expresar satisfacción antes de verificar
+- Confiar en verificaciones parciales

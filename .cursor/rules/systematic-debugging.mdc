@@ -1,0 +1,21 @@
+---
+description: Metodología de depuración sistemática. Usar ante cualquier bug, fallo de test o comportamiento inesperado ANTES de proponer soluciones.
+alwaysApply: true
+---
+
+# Depuración Sistemática
+
+Sigue las directrices de `.agents/skills/systematic-debugging/SKILL.md`.
+
+## Regla de Hierro
+
+NO proponer fixes sin investigación de causa raíz primero.
+
+## Fases
+
+1. **Investigar causa raíz** — leer errores, reproducir, check cambios recientes, trazar flujo de datos
+2. **Análisis de patrones** — buscar código similar que funcione, comparar diferencias
+3. **Hipótesis y test** — formar hipótesis específica, probar con el cambio mínimo
+4. **Implementar** — crear test que falle, fix mínimo, verificar
+
+Si 3+ fixes fallan → cuestionar la arquitectura, no seguir parchando.
