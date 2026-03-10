@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
-import { nowISO, loadDB, saveDB, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
+import { nowISO, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
 import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser } from "../api.js";
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
@@ -68,7 +68,7 @@ function parseRoute(hash) {
 }
 
 function getSavedGroupId() {
-  return localStorage.getItem("porra_group_id") || "";
+  return sessionStorage.getItem("porra_group_id") || "";
 }
 
 function GlobalLogin() {
@@ -89,9 +89,9 @@ function GlobalLogin() {
       const data = await authLogin(username.trim(), pwdHash);
       setAuthUser(data.username);
       resetLoginAttempts();
-      if (data.groups.length === 1) {
+      if (data.groups?.length === 1) {
         createSession(data.username, data.groups);
-        localStorage.setItem("porra_group_id", data.groups[0].groupId);
+        sessionStorage.setItem("porra_group_id", data.groups[0].groupId);
         window.location.hash = `#/g/${data.groups[0].groupId}`;
       } else {
         setGroups(data.groups);
@@ -106,7 +106,7 @@ function GlobalLogin() {
 
   const selectGroup = (g) => {
     createSession(authUser, groups);
-    localStorage.setItem("porra_group_id", g.groupId);
+    sessionStorage.setItem("porra_group_id", g.groupId);
     window.location.hash = `#/g/${g.groupId}`;
   };
 
@@ -164,7 +164,7 @@ export function App() {
     if (session?.user && session?.groups?.length) {
       const saved = getSavedGroupId();
       const target = saved || session.groups[0].groupId;
-      if (!saved) localStorage.setItem("porra_group_id", target);
+      if (!saved) sessionStorage.setItem("porra_group_id", target);
       window.location.hash = `#/g/${target}`;
       return null;
     }
@@ -173,7 +173,7 @@ export function App() {
   if (route.page === "create") {
     return <><CreateGroup
       onCreated={(data) => {
-        localStorage.setItem("porra_group_id", data.groupId);
+        sessionStorage.setItem("porra_group_id", data.groupId);
         toast.success(`Grupo "${data.name}" creado. Código de invitación: ${data.inviteCode}`);
         window.location.hash = `#/g/${data.groupId}`;
       }}
@@ -184,7 +184,7 @@ export function App() {
     return <><JoinGroup
       inviteCode={route.inviteCode || ""}
       onJoined={(data) => {
-        localStorage.setItem("porra_group_id", data.groupId);
+        sessionStorage.setItem("porra_group_id", data.groupId);
         toast.success(`Te has unido al grupo como ${data.userName}`);
         window.location.hash = `#/g/${data.groupId}`;
       }}
@@ -203,32 +203,12 @@ export function App() {
 
 function GroupApp({ groupId }) {
   useEffect(() => { setActiveGroupId(groupId); return () => setActiveGroupId(null); }, [groupId]);
-  const dbKey = groupId ? `porra_db_${groupId}` : "porra_db";
-  const loadGroupDB = () => { try { const s = localStorage.getItem(dbKey); return s ? JSON.parse(s) : {}; } catch { return {}; } };
-  const saveGroupDB = (data) => {
-    try {
-      const safe = { ...data };
-      if (safe.users) {
-        const users = {};
-        for (const [name, u] of Object.entries(safe.users)) {
-          const { passwordHash, ...rest } = u;
-          users[name] = rest;
-        }
-        safe.users = users;
-      }
-      if (safe.meta) {
-        const { adminSecretHash, adminSecret, ...safeMeta } = safe.meta;
-        safe.meta = safeMeta;
-      }
-      localStorage.setItem(dbKey, JSON.stringify(safe));
-    } catch { /* */ }
-  };
 
-  const [lang, setLang] = useState(() => localStorage.getItem("porra_lang") || "es");
-  useEffect(() => { localStorage.setItem("porra_lang", lang); }, [lang]);
-  const [theme, setTheme] = useState(() => localStorage.getItem("porra_theme") || "dark");
-  useEffect(() => { localStorage.setItem("porra_theme", theme); document.documentElement.dataset.theme = theme; }, [theme]);
-  const [db, setDb] = useState(loadGroupDB); const [cal, setCal] = useState([]); const [drivers, setDrivers] = useState([]); const [teams, setTeams] = useState([]); const [circuits, setCircuits] = useState({}); const [selectedRaceKey, setSelectedRaceKey] = useState(() => sessionStorage.getItem("porra_selected_race") || ""); useEffect(() => { if (selectedRaceKey && !cal?.find(r => r.key === selectedRaceKey) && cal?.length) setSelectedRaceKey(cal[0].key); }, [cal, selectedRaceKey]); useEffect(() => { if (selectedRaceKey) sessionStorage.setItem("porra_selected_race", selectedRaceKey); }, [selectedRaceKey]); const [user, setUser] = useState(() => { const s = getSession(); return s?.user || sessionStorage.getItem("porra_session_user") || ""; }); const [view, setView] = useState("participante"); const [mode, setMode] = useState(() => localStorage.getItem("porra_mode") || "f1"); const [showPass, setShowPass] = useState(false); const [showAvatar, setShowAvatar] = useState(false); const [showAI, setShowAI] = useState(false); const [hydrated, setHydrated] = useState(false); const [defaultPwdHash, setDefaultPwdHash] = useState("");
+  const [lang, setLang] = useState(() => sessionStorage.getItem("porra_lang") || "es");
+  useEffect(() => { sessionStorage.setItem("porra_lang", lang); }, [lang]);
+  const [theme, setTheme] = useState(() => sessionStorage.getItem("porra_theme") || "dark");
+  useEffect(() => { sessionStorage.setItem("porra_theme", theme); document.documentElement.dataset.theme = theme; }, [theme]);
+  const [db, setDb] = useState({}); const [cal, setCal] = useState([]); const [drivers, setDrivers] = useState([]); const [teams, setTeams] = useState([]); const [circuits, setCircuits] = useState({}); const [selectedRaceKey, setSelectedRaceKey] = useState(() => sessionStorage.getItem("porra_selected_race") || ""); useEffect(() => { if (selectedRaceKey && !cal?.find(r => r.key === selectedRaceKey) && cal?.length) setSelectedRaceKey(cal[0].key); }, [cal, selectedRaceKey]); useEffect(() => { if (selectedRaceKey) sessionStorage.setItem("porra_selected_race", selectedRaceKey); }, [selectedRaceKey]); const [user, setUser] = useState(() => { const s = getSession(); return s?.user || sessionStorage.getItem("porra_session_user") || ""; }); const [view, setView] = useState("participante"); const [mode, setMode] = useState(() => sessionStorage.getItem("porra_mode") || "f1"); const [showPass, setShowPass] = useState(false); const [showAvatar, setShowAvatar] = useState(false); const [showAI, setShowAI] = useState(false); const [hydrated, setHydrated] = useState(false); const [defaultPwdHash, setDefaultPwdHash] = useState("");
   const [showBanner, setShowBanner] = useState(false);
   useEffect(() => { setSaveRemoteUser(user); }, [user]);
   const setDbUser = useCallback((updater) => { setDb(prev => typeof updater === "function" ? updater(prev) : updater); }, []);
@@ -237,8 +217,6 @@ function GroupApp({ groupId }) {
   const [forcePwdChange, setForcePwdChange] = useState(false);
   const logout = useCallback((reason) => {
     clearSession();
-    localStorage.removeItem("porra_user");
-    localStorage.removeItem("porra_group_id");
     setUser("");
     setView("participante");
     setShowPass(false);
@@ -252,7 +230,6 @@ function GroupApp({ groupId }) {
       if (remote) {
         skipRemoteSaveRef.current = true;
         setDb(remote);
-        saveGroupDB(remote);
       }
     } catch (err) { console.warn("No se pudo refrescar estado remoto", err); }
   }, []);
@@ -263,7 +240,7 @@ function GroupApp({ groupId }) {
         const remote = await fetchRemoteState();
         if (remote && !cancelled) {
           skipRemoteSaveRef.current = true;
-          setDb(remote); saveGroupDB(remote);
+          setDb(remote);
         }
       } catch (err) { console.warn("No se pudo cargar estado remoto", err); }
       finally { if (!cancelled) setHydrated(true); }
@@ -279,7 +256,6 @@ function GroupApp({ groupId }) {
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisibility); };
   }, [hydrated, refreshRemoteState]);
   useEffect(() => {
-    saveGroupDB(db);
     if (!hydrated) return;
     if (skipRemoteSaveRef.current) {
       skipRemoteSaveRef.current = false;
@@ -290,14 +266,22 @@ function GroupApp({ groupId }) {
   const [loadError, setLoadError] = useState(null);
   useEffect(() => {
     const safe = (fn, label) => fn().catch(err => { console.error(`Error cargando ${label}:`, err); setLoadError(prev => prev || `No se pudo cargar ${label}`); return null; });
-    safe(loadCalendar, "calendario").then(d => { if (d) setCal(d); });
-    safe(loadDrivers, "pilotos").then(d => { if (d) setDrivers(d); });
-    safe(loadTeams, "equipos").then(d => { if (d) setTeams(d); });
-    safe(loadCircuits, "circuitos").then(d => { if (d) setCircuits(d); });
+    Promise.all([
+      safe(loadCalendar, "calendario"),
+      safe(loadDrivers, "pilotos"),
+      safe(loadTeams, "equipos"),
+      safe(loadCircuits, "circuitos"),
+    ]).then(([d1, d2, d3, d4]) => {
+      if (d1) setCal(d1);
+      if (d2) setDrivers(d2);
+      if (d3) setTeams(d3);
+      if (d4) setCircuits(d4);
+      if (d1 && d2 && d3 && d4) setLoadError("");
+    });
     setDefaultPwdHash(DEFAULT_PASSWORD_HASH);
   }, []);
   useEffect(() => {
-    const stored = Number(localStorage.getItem("porra_last_active") || 0);
+    const stored = Number(sessionStorage.getItem("porra_last_active") || 0);
     if (user && stored && Date.now() - stored > SESSION_TIMEOUT_MS) {
       logout("Sesión caducada por inactividad (30 min). Vuelve a introducir la contraseña.");
       return;
@@ -306,34 +290,41 @@ function GroupApp({ groupId }) {
       logout();
       return;
     }
-    const mark = () => { const ts = Date.now(); localStorage.setItem("porra_last_active", String(ts)); };
+    const mark = () => { const ts = Date.now(); sessionStorage.setItem("porra_last_active", String(ts)); };
     mark();
     const onFocus = () => mark();
     window.addEventListener("click", mark);
     window.addEventListener("keydown", mark);
     window.addEventListener("focus", onFocus);
     const id = setInterval(() => {
-      const last = Number(localStorage.getItem("porra_last_active") || 0);
+      const last = Number(sessionStorage.getItem("porra_last_active") || 0);
       if (user && last && Date.now() - last > SESSION_TIMEOUT_MS) {
         logout("Sesión caducada por inactividad (30 min). Vuelve a introducir la contraseña.");
       }
     }, 60000);
     return () => { window.removeEventListener("click", mark); window.removeEventListener("keydown", mark); window.removeEventListener("focus", onFocus); clearInterval(id); };
   }, [user, logout]);
+  const migrationRef = useRef(false);
   useEffect(() => {
     if (!hydrated) return;
     const entries = Object.entries(db.users || {}).filter(([_, u]) => u?.password && !u.passwordHash);
     if (!entries.length) return;
+    if (migrationRef.current) return;
+    migrationRef.current = true;
     (async () => {
-      const users = { ...(db.users || {}) };
-      for (const [name, u] of entries) {
-        try {
-          const hash = await hashPassword(u.password);
-          users[name] = { ...u, passwordHash: hash };
-          delete users[name].password;
-        } catch (err) { console.warn("No se pudo migrar pass de", name, err); }
+      try {
+        const users = { ...(db.users || {}) };
+        for (const [name, u] of entries) {
+          try {
+            const hash = await hashPassword(u.password);
+            users[name] = { ...u, passwordHash: hash };
+            delete users[name].password;
+          } catch (err) { console.warn("No se pudo migrar pass de", name, err); }
+        }
+        setDbUser(prev => ({ ...prev, users }));
+      } finally {
+        migrationRef.current = false;
       }
-      setDbUser(prev => ({ ...prev, users }));
     })();
   }, [hydrated, db.users, setDbUser]);
   useEffect(() => {
@@ -440,7 +431,7 @@ function GroupApp({ groupId }) {
   const sidebarRace = mode === "f1" && view === "participante" && selectedRaceKey ? races?.find(r => r.key === selectedRaceKey) : null;
   const handleModeChange = (newMode) => {
     setMode(newMode);
-    localStorage.setItem("porra_mode", newMode);
+    sessionStorage.setItem("porra_mode", newMode);
     if (newMode === "f1" && !["participante", "ranking", "stats", "questions", "historico", "rules", "admin"].includes(view)) {
       setView("participante");
     } else if (newMode === "futbol" && !["participante", "ranking", "rules", "admin"].includes(view)) {
@@ -465,7 +456,7 @@ function GroupApp({ groupId }) {
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title={theme === "dark" ? "Modo claro" : "Modo oscuro"}>{theme === "dark" ? "☀️" : "🌙"}</button>
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setLang(lang === "es" ? "en" : "es")} title="Cambiar idioma">{lang === "es" ? "EN" : "ES"}</button>
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">
-            {userGroups.length > 1 && <select value={groupId} onChange={e => { localStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded-lg px-2 py-1 cursor-pointer">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
+            {userGroups.length > 1 && <select value={groupId} onChange={e => { sessionStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded-lg px-2 py-1 cursor-pointer">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
             <Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} size="sm" mode={mode} />
             <span className="text-sm font-semibold text-white/80">{user}</span>
             <button className="text-white/40 hover:text-white/70 text-xs ml-1 transition-colors" onClick={() => setShowPass(true)}>🔑</button>
@@ -474,7 +465,7 @@ function GroupApp({ groupId }) {
         </div>
         {user && <div className="flex md:hidden items-center justify-center gap-3 text-xs pt-2 mt-1 border-t border-white/8">
           <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} size="sm" mode={mode} /><span className="font-semibold text-white/70">{user}</span></div>
-          {userGroups.length > 1 && <select value={groupId} onChange={e => { localStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded px-1 py-0.5">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
+          {userGroups.length > 1 && <select value={groupId} onChange={e => { sessionStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded px-1 py-0.5">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
           <button className="text-white/35 hover:text-white/70 transition-colors" onClick={() => setShowPass(true)}>Contraseña</button>
           <button className="text-white/40 hover:text-white/65 transition-colors" onClick={() => logout()}>Salir</button>
         </div>}

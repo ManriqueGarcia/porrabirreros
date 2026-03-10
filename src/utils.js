@@ -1,28 +1,7 @@
 import { useState, useEffect } from "react";
-import { LS_KEY, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, MADRID_TZ, SESSION_TIMEOUT_MS } from "./config.js";
+import { DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, MADRID_TZ, SESSION_TIMEOUT_MS } from "./config.js";
 
 export const nowISO = () => new Date().toISOString();
-
-export function loadDB() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; }
-}
-
-function _saveDBNow(db) {
-  try {
-    const safe = { ...db };
-    delete safe.users;
-    if (safe.meta) {
-      const m = { ...safe.meta };
-      delete m.adminSecret;
-      delete m.adminSecretHash;
-      safe.meta = m;
-    }
-    localStorage.setItem(LS_KEY, JSON.stringify(safe));
-  } catch (e) { console.warn("No se pudo guardar en localStorage", e); }
-}
-
-let _saveDBTimer = null;
-export function saveDB(db) { clearTimeout(_saveDBTimer); _saveDBTimer = setTimeout(() => _saveDBNow(db), 300); }
 
 export function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
@@ -34,6 +13,7 @@ export function createSession(username, groups) {
   const token = generateSessionToken();
   const session = { user: username, token, created: Date.now(), groups: groups || [] };
   sessionStorage.setItem("porra_session", JSON.stringify(session));
+  sessionStorage.setItem("porra_last_active", String(Date.now()));
   return session;
 }
 

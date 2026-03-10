@@ -58,7 +58,7 @@ export function FutbolParticipante({user,db,setDb}){
   const futbol=db.futbol||defaultFutbolState();
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
-  useEffect(()=>{ if(!selected && jornadas.length) setSelected(jornadas[0].id); },[selected,jornadas]);
+  useEffect(()=>{ if((!selected || !jornadas.find(j=>j.id===selected)) && jornadas.length) setSelected(jornadas[0].id); },[selected,jornadas]);
   const jornada=jornadas.find(j=>j.id===selected);
   const deadline=jornada?.deadline?new Date(jornada.deadline):null;
   const manualWindow=futbol.betsWindow?.[selected];

@@ -56,7 +56,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     return next?next.key:(races||[]).length?races[races.length-1].key:"unknown";
   },[races,mode,db.futbol]);
   const dismissKey=`porra_banner_${user}_${nextRaceKey}`;
-  if(localStorage.getItem(dismissKey)==="1") return null;
+  if(sessionStorage.getItem(dismissKey)==="1") return null;
 
   const hasResults=useMemo(()=>{
     if(mode==="f1") return (races||[]).some(r=>db.results?.[r.key]);
@@ -149,7 +149,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button onClick={()=>{localStorage.setItem(dismissKey,"1");onDismiss();}} className="text-[11px] px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:bg-white/10 hover:text-white/70 transition-all">
+        <button onClick={()=>{sessionStorage.setItem(dismissKey,"1");onDismiss();}} className="text-[11px] px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:bg-white/10 hover:text-white/70 transition-all">
           No mostrar hasta el próximo {mode==="f1"?"GP":"jornada"}
         </button>
         <button onClick={onDismiss} className="text-[11px] px-3 py-1.5 rounded-lg text-white/40 hover:text-white/60 transition-colors">Cerrar</button>

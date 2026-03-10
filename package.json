@@ -8,10 +8,17 @@
     "preview": "npx serve dist",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:unit": "vitest run tests/scoring.test.mjs tests/futbol-scoring.test.mjs",
+    "test:api": "vitest run tests/api-functional.test.mjs",
+    "test:all": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npx playwright test",
+    "test:e2e:user": "npx playwright test e2e/user-flow.spec.mjs",
+    "test:e2e:admin": "npx playwright test e2e/admin-flow.spec.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/cli": "^4.0.0",
     "esbuild": "^0.25.0",
     "eslint": "^10.0.2",
@@ -21,6 +28,8 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1004.0",
+    "@aws-sdk/lib-dynamodb": "^3.1004.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }

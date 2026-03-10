@@ -49,3 +49,7 @@ backup/
 
 # Build / artefactos
 porra-ai.zip
+
+# Test artifacts
+test-results/
+playwright-report/

@@ -92,18 +92,19 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const others=f1Participants.filter(n=>n!==user).map(name=>({name,bet:race?db.bets?.[race.key]?.[name]:null}));
   const driverList=(db.meta?.drivers&&db.meta.drivers.length)?db.meta.drivers:drivers; const authorDeadline = race ? race.authorCutoff : null;
   const [savingF1, setSavingF1] = useState(false);
+  const savingF1Ref = useRef(false);
   const handleBetSubmit=useCallback(async(b)=>{
     const late=new Date()>=race?.cutoff;
     const timestamp=nowISO();
-    const rk=race?.key; if(!rk || savingF1) return;
+    const rk=race?.key; if(!rk || savingF1Ref.current) return;
     const nextBet={...b,submittedAt:timestamp,late};
-    setSavingF1(true);
+    setSavingF1(true); savingF1Ref.current = true;
     try {
       await saveBetF1(rk, user, nextBet);
     } catch(err) {
       console.error("Error guardando apuesta F1:", err);
       toast.error("Error al guardar la apuesta. Inténtalo de nuevo.");
-      setSavingF1(false);
+      setSavingF1(false); savingF1Ref.current = false;
       return;
     }
     setDb(prev=>{
@@ -120,8 +121,8 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       return {...prev, bets:nextBets, betHistory};
     });
     late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
-    setSavingF1(false);
-  },[race?.key,race?.cutoff,user,setDb,savingF1]);
+    setSavingF1(false); savingF1Ref.current = false;
+  },[race?.key,race?.cutoff,user,setDb]);
   const betsStatus=race ? (manualWindow?.forceClosed?"Cerrado por admin":(isLate?`Fuera de plazo (penalización -2 pts)`:(manualWindow?.forceOpen?"Abierto por admin":"Abierto"))) : "—";
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";

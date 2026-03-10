@@ -6,7 +6,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand,
-  QueryCommand, ScanCommand, BatchWriteCommand,
+  QueryCommand, ScanCommand, BatchWriteCommand, UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const TABLE = process.env.TABLE_NAME || "PorraBirreros";
@@ -58,6 +58,12 @@ function isValidId(id) {
   return typeof id === "string" && /^[a-zA-Z0-9_-]{1,50}$/.test(id);
 }
 
+function isValidUserName(name) {
+  if (!name || typeof name !== "string") return false;
+  if (name.length > 50) return false;
+  return !/[|#]/.test(name);
+}
+
 function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
@@ -83,7 +89,26 @@ async function getItem(pk, sk) {
 }
 
 async function putItem(pk, sk, data) {
-  await client.send(new PutCommand({ TableName: TABLE, Item: { pk, sk, ...data } }));
+  const { pk: _pk, sk: _sk, ...safeData } = data || {};
+  await client.send(new PutCommand({ TableName: TABLE, Item: { pk, sk, ...safeData } }));
+}
+
+async function appendToHistory(pk, sk, entry) {
+  try {
+    await client.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { pk, sk },
+      UpdateExpression: "SET #log = list_append(if_not_exists(#log, :empty), :entry)",
+      ExpressionAttributeNames: { "#log": "log" },
+      ExpressionAttributeValues: { ":empty": [], ":entry": [entry] },
+    }));
+  } catch (err) {
+    console.error("appendToHistory fallback to putItem", err);
+    const hist = await getItem(pk, sk);
+    const log = hist?.log || [];
+    log.push(entry);
+    await putItem(pk, sk, { log });
+  }
 }
 
 async function deleteItem(pk, sk) {
@@ -129,6 +154,7 @@ async function batchWriteWithRetry(requestItems, maxRetries = 3) {
   }
   if (unprocessed && Object.keys(unprocessed).length) {
     console.error("BatchWrite: items no procesados tras reintentos", JSON.stringify(Object.keys(unprocessed)));
+    throw new Error(`BatchWrite: ${Object.keys(unprocessed).length} tablas con items no procesados`);
   }
 }
 
@@ -325,8 +351,9 @@ async function writeFullState(state) {
 
 async function handleSaveBetF1(raceKey, reqUser, body) {
   if (!raceKey || !reqUser) return badReq("Faltan raceKey o user");
+  if (!isValidId(raceKey)) return badReq("raceKey inválido");
   const bet = body.bet || body;
-  if (!bet.pole && !bet.podium) return badReq("Bet data incompleta");
+  if (!bet.pole && (!bet.podium || !Array.isArray(bet.podium))) return badReq("Bet data incompleta");
 
   const ts = new Date().toISOString();
   const betData = {
@@ -336,17 +363,14 @@ async function handleSaveBetF1(raceKey, reqUser, body) {
 
   await putItem(`F1#${raceKey}`, `BET#${reqUser}`, betData);
 
-  // Append to history
-  const hist = await getItem(`F1#${raceKey}`, `HISTORY#${reqUser}`);
-  const log = hist?.log || [];
-  log.push({ ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
-  await putItem(`F1#${raceKey}`, `HISTORY#${reqUser}`, { log });
+  await appendToHistory(`F1#${raceKey}`, `HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
 
   return res(200, { ok: true, submittedAt: ts });
 }
 
 async function handleSaveBetFutbol(jornadaId, reqUser, body) {
   if (!jornadaId || !reqUser) return badReq("Faltan jornadaId o user");
+  if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
   const bet = body.bet || body;
 
   const ts = new Date().toISOString();
@@ -356,10 +380,7 @@ async function handleSaveBetFutbol(jornadaId, reqUser, body) {
 
   await putItem(`FUT#${jornadaId}`, `BET#${reqUser}`, betData);
 
-  const hist = await getItem(`FUT#${jornadaId}`, `HISTORY#${reqUser}`);
-  const log = hist?.log || [];
-  log.push({ ts, matches: betData.matches, late: betData.late });
-  await putItem(`FUT#${jornadaId}`, `HISTORY#${reqUser}`, { log });
+  await appendToHistory(`FUT#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late: betData.late });
 
   return res(200, { ok: true, submittedAt: ts });
 }
@@ -367,6 +388,7 @@ async function handleSaveBetFutbol(jornadaId, reqUser, body) {
 async function handleSaveResultF1(raceKey, reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede guardar resultados");
   if (!raceKey) return badReq("Falta raceKey");
+  if (!isValidId(raceKey)) return badReq("raceKey inválido");
   const result = body.result || body;
   await putItem(`F1#${raceKey}`, "RESULT", {
     pole: result.pole || "", podium: result.podium || ["", "", ""],
@@ -377,6 +399,7 @@ async function handleSaveResultF1(raceKey, reqUser, body) {
 async function handleSaveResultFutbol(jornadaId, reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede guardar resultados");
   if (!jornadaId) return badReq("Falta jornadaId");
+  if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
   const { pk, sk, ...resultData } = body.result || body;
   await putItem(`FUT#${jornadaId}`, "RESULT", resultData);
   return res(200, { ok: true });
@@ -424,6 +447,7 @@ async function handleAdminF1(raceKey, reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
   const { type, data } = body;
   if (!type) return badReq("Falta type");
+  if (!isValidId(raceKey)) return badReq("raceKey inválido");
 
   switch (type) {
     case "window":
@@ -438,6 +462,7 @@ async function handleAdminF1(raceKey, reqUser, body) {
     case "bet": {
       const { userName, bet } = data;
       if (!userName) return badReq("Falta userName");
+      if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
       await putItem(`F1#${raceKey}`, `BET#${userName}`, bet);
       break;
     }
@@ -455,6 +480,7 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
   const { type, data } = body;
   if (!type) return badReq("Falta type");
+  if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
 
   switch (type) {
     case "jornada":
@@ -473,6 +499,7 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
     case "bet": {
       const { userName, bet } = data;
       if (!userName) return badReq("Falta userName");
+      if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
       await putItem(`FUT#${jornadaId}`, `BET#${userName}`, bet);
       break;
     }
@@ -492,6 +519,7 @@ async function handleAddUser(reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
   const { name, passwordHash, isAdmin: isAdm, porras } = body;
   if (!name) return badReq("Falta nombre");
+  if (!isValidUserName(name)) return badReq("Nombre contiene caracteres no válidos");
   const existing = await getItem(`USER#${name}`, "PROFILE");
   if (existing) return badReq("El usuario ya existe");
   await putItem(`USER#${name}`, "PROFILE", {
@@ -506,6 +534,11 @@ async function handleDeleteUser(targetUser, reqUser) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
   if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
   await deleteItem(`USER#${targetUser}`, "PROFILE");
+  const allItems = await scanAll();
+  const userBets = allItems.filter(i =>
+    (i.sk === `BET#${targetUser}`) || (i.sk === `HISTORY#${targetUser}`)
+  );
+  for (const item of userBets) await deleteItem(item.pk, item.sk);
   return res(200, { ok: true });
 }
 
@@ -530,6 +563,7 @@ async function handleCreateGroup(body) {
   if (sports.some(s => !validSports.includes(s))) return badReq("Deporte no válido");
   if (name.trim().length > 100) return badReq("Nombre de grupo demasiado largo");
   if (adminUser.trim().length > 50) return badReq("Nombre de admin demasiado largo");
+  if (!isValidUserName(adminUser.trim())) return badReq("Nombre de admin contiene caracteres no válidos");
 
   const groupId = generateCode(10);
   const inviteCode = generateCode(8);
@@ -567,6 +601,7 @@ async function handleJoinGroup(groupId, body) {
   if (!name?.trim()) return badReq("Falta nombre de usuario");
   if (!passwordHash) return badReq("Falta contraseña");
   if (!inviteCode) return badReq("Falta código de invitación");
+  if (!isValidUserName(name.trim())) return badReq("Nombre de usuario contiene caracteres no válidos");
 
   const groupMeta = await getItem("GROUPS", `G#${groupId}`);
   if (!groupMeta) return notFound("Grupo no encontrado");
@@ -584,8 +619,17 @@ async function handleJoinGroup(groupId, body) {
   });
   await writeUIDX(name.trim(), groupId, groupMeta.name);
 
-  const updated = { ...groupMeta, memberCount: (groupMeta.memberCount || 1) + 1 };
-  await putItem("GROUPS", `G#${groupId}`, updated);
+  try {
+    await client.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { pk: "GROUPS", sk: `G#${groupId}` },
+      UpdateExpression: "ADD memberCount :inc",
+      ExpressionAttributeValues: { ":inc": 1 },
+    }));
+  } catch {
+    const updated = { ...groupMeta, memberCount: (groupMeta.memberCount || 1) + 1 };
+    await putItem("GROUPS", `G#${groupId}`, updated);
+  }
 
   return res(200, { ok: true, groupId, userName: name.trim() });
 }
@@ -920,10 +964,7 @@ export const handler = async (event) => {
       const bet = body.bet || body;
       const betData = { pole: bet.pole || "", podium: bet.podium || ["","",""], q: bet.q || ["","",""], submittedAt: ts, late: !!bet.late };
       await gPutItem(gid, `F1#${rk}`, `BET#${reqUser}`, betData);
-      const hist = await gGetItem(gid, `F1#${rk}`, `HISTORY#${reqUser}`);
-      const log = hist?.log || [];
-      log.push({ ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
-      await gPutItem(gid, `F1#${rk}`, `HISTORY#${reqUser}`, { log });
+      await appendToHistory(`G#${gid}`, `F1#${rk}|HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late: betData.late });
       return res(200, { ok: true, submittedAt: ts });
     }
     // PUT /g/{groupId}/bets/futbol/{jId}
@@ -935,10 +976,7 @@ export const handler = async (event) => {
       const bet = body.bet || body;
       const betData = { matches: bet.matches || [], submittedAt: ts, late: !!bet.late };
       await gPutItem(gid, `FUT#${jId}`, `BET#${reqUser}`, betData);
-      const hist = await gGetItem(gid, `FUT#${jId}`, `HISTORY#${reqUser}`);
-      const log = hist?.log || [];
-      log.push({ ts, matches: betData.matches, late: betData.late });
-      await gPutItem(gid, `FUT#${jId}`, `HISTORY#${reqUser}`, { log });
+      await appendToHistory(`G#${gid}`, `FUT#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late: betData.late });
       return res(200, { ok: true, submittedAt: ts });
     }
     // PUT /g/{groupId}/users/{name}
@@ -998,6 +1036,7 @@ export const handler = async (event) => {
       if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
       const { name, passwordHash, isAdmin: isAdm, porras } = body;
       if (!name) return badReq("Falta nombre");
+      if (!isValidUserName(name)) return badReq("Nombre contiene caracteres no válidos");
       const existing = await gGetItem(gid, `USER#${name}`, "PROFILE");
       if (existing) return badReq("El usuario ya existe");
       await gPutItem(gid, `USER#${name}`, "PROFILE", {
@@ -1018,6 +1057,12 @@ export const handler = async (event) => {
       if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
       await gDeleteItem(gid, `USER#${targetUser}`, "PROFILE");
       await deleteUIDX(targetUser, gid);
+      const groupItems = await queryByPk(`G#${gid}`);
+      const userDataItems = groupItems.filter(i =>
+        i.sk.includes(`BET#${targetUser}|`) || i.sk.includes(`|BET#${targetUser}`) ||
+        i.sk.includes(`HISTORY#${targetUser}|`) || i.sk.includes(`|HISTORY#${targetUser}`)
+      );
+      for (const item of userDataItems) await deleteItem(item.pk, item.sk);
       return res(200, { ok: true });
     }
     // PUT /g/{groupId}/admin/f1/{raceKey}
@@ -1035,6 +1080,7 @@ export const handler = async (event) => {
         case "bet": {
           const { userName, bet } = data;
           if (!userName) return badReq("Falta userName");
+          if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
           await gPutItem(gid, `F1#${raceKey}`, `BET#${userName}`, bet);
           break;
         }
@@ -1068,6 +1114,7 @@ export const handler = async (event) => {
         case "bet": {
           const { userName, bet } = data;
           if (!userName) return badReq("Falta userName");
+          if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
           await gPutItem(gid, `FUT#${jornadaId}`, `BET#${userName}`, bet);
           break;
         }

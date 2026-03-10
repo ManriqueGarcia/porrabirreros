@@ -47,7 +47,8 @@ export async function saveRemoteState(payload, user) {
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
   const hdrs = { "Content-Type": "application/json", ...API_HEADERS };
   if (user) hdrs["x-porra-user"] = user;
-  await fetch(url, { method: "PUT", headers: hdrs, body: JSON.stringify(payload) });
+  const r = await fetch(url, { method: "PUT", headers: hdrs, body: JSON.stringify(payload) });
+  if (!r.ok) throw new Error(`Save failed: ${r.status}`);
 }
 
 let _saveRemoteUser = "";

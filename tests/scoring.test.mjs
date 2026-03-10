@@ -1,114 +1,370 @@
 import { describe, it, expect } from "vitest";
-import { futbolSign, futbolMatchPoints, scoreForRace } from "../lib/scoring.mjs";
+import {
+  scoreForRace, computeGPWins, computeGlobalStandings,
+  describeBetAgainstResult, buildStats, topList,
+} from "../lib/scoring.mjs";
 
-describe("futbolSign", () => {
-  it("returns 1 for home win", () => expect(futbolSign({ home: 2, away: 1 })).toBe("1"));
-  it("returns 2 for away win", () => expect(futbolSign({ home: 0, away: 3 })).toBe("2"));
-  it("returns X for draw", () => expect(futbolSign({ home: 1, away: 1 })).toBe("X"));
-  it("returns null for null input", () => expect(futbolSign(null)).toBeNull());
-  it("returns null for missing home", () => expect(futbolSign({ away: 1 })).toBeNull());
-});
+// ─── scoreForRace ───
 
-describe("futbolMatchPoints", () => {
-  it("exact match gives 3 points", () => {
-    const r = futbolMatchPoints({ home: 2, away: 1 }, { home: 2, away: 1 });
-    expect(r.points).toBe(3);
-    expect(r.exact).toBe(true);
-    expect(r.sign).toBe(true);
+describe("scoreForRace", () => {
+  const mkDb = (bet, result, adj) => ({
+    bets: bet ? { gp1: { user1: bet } } : {},
+    results: result ? { gp1: result } : {},
+    scoreAdjustments: adj ? { gp1: { user1: adj } } : {},
   });
-  it("correct sign gives 1 point", () => {
-    const r = futbolMatchPoints({ home: 3, away: 0 }, { home: 1, away: 0 });
-    expect(r.points).toBe(1);
-    expect(r.exact).toBe(false);
-    expect(r.sign).toBe(true);
-  });
-  it("wrong prediction gives 0 points", () => {
-    const r = futbolMatchPoints({ home: 2, away: 0 }, { home: 0, away: 1 });
-    expect(r.points).toBe(0);
-  });
-  it("draw exact match", () => {
-    const r = futbolMatchPoints({ home: 0, away: 0 }, { home: 0, away: 0 });
-    expect(r.points).toBe(3);
-    expect(r.exact).toBe(true);
-  });
-  it("draw sign match (different score)", () => {
-    const r = futbolMatchPoints({ home: 1, away: 1 }, { home: 2, away: 2 });
-    expect(r.points).toBe(1);
-    expect(r.sign).toBe(true);
-  });
-  it("null prediction gives 0", () => {
-    expect(futbolMatchPoints(null, { home: 1, away: 0 }).points).toBe(0);
-  });
-  it("null result gives 0", () => {
-    expect(futbolMatchPoints({ home: 1, away: 0 }, null).points).toBe(0);
-  });
-});
 
-describe("scoreForRace (F1)", () => {
-  const db = {
-    bets: { gp1: { user1: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["Sí", "No", "3"], submittedAt: "2025-01-01" } } },
-    results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] } },
-  };
-
-  it("full house scores maximum (pole+podium+questions+bonuses)", () => {
+  it("full house = 11 pts (1 pole + 3 podium + 3 questions + 2 bonus pole+pod + 2 bonus pleno)", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["Sí", "No", "3"], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
     const s = scoreForRace(db, "gp1", "user1");
     expect(s.points).toBe(11);
     expect(s.hits).toBe(7);
     expect(s.exact).toBe(1);
     expect(s.fullHouse).toBe(true);
+    expect(s.gotPole).toBe(true);
+    expect(s.gotAllPodium).toBe(true);
+    expect(s.gotAllQuestions).toBe(true);
+    expect(s.pen).toBe(0);
     expect(s.missed).toBe(false);
+    expect(s.late).toBe(false);
   });
 
-  it("no bet gives -3 when results exist", () => {
-    const s = scoreForRace(db, "gp1", "nobody");
+  it("pole + podium correct, questions wrong → 6 pts (1+3+2 bonus)", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["X", "X", "X"], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(6);
+    expect(s.hits).toBe(4);
+    expect(s.gotPole).toBe(true);
+    expect(s.gotAllPodium).toBe(true);
+    expect(s.gotAllQuestions).toBe(false);
+    expect(s.fullHouse).toBe(false);
+  });
+
+  it("only pole correct → 1 pt", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["HAM", "SAI", "ALO"], q: ["X", "X", "X"], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(1);
+    expect(s.gotPole).toBe(true);
+    expect(s.gotAllPodium).toBe(false);
+  });
+
+  it("only podium correct (no pole) → 3 pts podium + no pole+podium bonus", () => {
+    const db = mkDb(
+      { pole: "HAM", podium: ["VER", "NOR", "LEC"], q: ["X", "X", "X"], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(3);
+    expect(s.gotPole).toBe(false);
+    expect(s.gotAllPodium).toBe(true);
+    expect(s.exact).toBe(1);
+  });
+
+  it("partial podium (2 of 3 correct) → 2 pts", () => {
+    const db = mkDb(
+      { pole: "HAM", podium: ["VER", "NOR", "SAI"], q: ["X", "X", "X"], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(2);
+    expect(s.gotAllPodium).toBe(false);
+    expect(s.exact).toBe(0);
+  });
+
+  it("questions are case-insensitive and trim-safe", () => {
+    const db = mkDb(
+      { pole: "HAM", podium: ["X", "X", "X"], q: [" sí ", " NO", "3 "], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.hits).toBe(3);
+  });
+
+  it("no bet + results exist → -3 pts, missed=true", () => {
+    const db = mkDb(null, { pole: "VER", podium: ["VER", "NOR", "LEC"] });
+    const s = scoreForRace(db, "gp1", "user1");
     expect(s.points).toBe(-3);
     expect(s.missed).toBe(true);
     expect(s.pen).toBe(1);
   });
 
-  it("no bet gives 0 when no results", () => {
-    const s = scoreForRace(db, "gp2", "nobody");
+  it("no bet + no results → 0 pts, missed=false", () => {
+    const db = mkDb(null, null);
+    const s = scoreForRace(db, "gp1", "user1");
     expect(s.points).toBe(0);
     expect(s.missed).toBe(false);
   });
 
-  it("only pole correct gives 1 point", () => {
-    const dbPole = {
-      bets: { gp1: { user1: { pole: "VER", podium: ["HAM", "SAI", "ALO"], q: ["", "", ""], submittedAt: "2025-01-01" } } },
-      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] } },
-    };
-    const s = scoreForRace(dbPole, "gp1", "user1");
-    expect(s.hits).toBe(1);
-    expect(s.gotPole).toBe(true);
-    expect(s.gotAllPodium).toBe(false);
+  it("incomplete bet (no pole, <3 podium) → -1 penalty", () => {
+    const db = mkDb(
+      { podium: ["HAM"], q: [], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.pen).toBe(1);
+    expect(s.points).toBe(-1);
   });
 
-  it("late bet applies -2 penalty", () => {
-    const dbLate = {
-      bets: { gp1: { user1: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["", "", ""], submittedAt: "2025-01-01", late: true } } },
-      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] } },
-    };
-    const s = scoreForRace(dbLate, "gp1", "user1");
+  it("late bet → -2 penalty", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01", late: true },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
     expect(s.late).toBe(true);
     expect(s.pen).toBeGreaterThan(0);
   });
 
-  it("incomplete bet (no pole, <3 podium) applies -1 penalty", () => {
-    const dbInc = {
-      bets: { gp1: { user1: { podium: ["VER"], q: [], submittedAt: "2025-01-01" } } },
-      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"] } },
-    };
-    const s = scoreForRace(dbInc, "gp1", "user1");
-    expect(s.pen).toBe(1);
+  it("late + full podium correct → points reduced by 2", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01", late: true },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] },
+    );
+    const sLate = scoreForRace(db, "gp1", "user1");
+    db.bets.gp1.user1.late = false;
+    const sOnTime = scoreForRace(db, "gp1", "user1");
+    expect(sOnTime.points - sLate.points).toBe(2);
   });
 
-  it("manual score adjustment is applied", () => {
-    const dbAdj = {
-      bets: { gp1: { user1: { pole: "", podium: ["", "", ""], q: [], submittedAt: "2025-01-01" } } },
-      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"] } },
-      scoreAdjustments: { gp1: { user1: 5 } },
-    };
-    const s = scoreForRace(dbAdj, "gp1", "user1");
+  it("manual adjustment is applied", () => {
+    const db = mkDb(
+      { pole: "X", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"] },
+      5,
+    );
+    const s = scoreForRace(db, "gp1", "user1");
     expect(s.manualAdj).toBe(5);
+    expect(s.points).toBeGreaterThanOrEqual(4);
+  });
+
+  it("all wrong → 0 pts (no penalty if bet is complete)", () => {
+    const db = mkDb(
+      { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: ["X", "X", "X"], submittedAt: "2025-01-01" },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["Sí", "No", "3"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.hits).toBe(0);
+    expect(s.pen).toBe(0);
+  });
+
+  it("delegated bet (delegated=true) scores normally", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A", "B", "C"], submittedAt: "2025-01-01", delegated: true },
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A", "B", "C"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(11);
+    expect(s.late).toBe(false);
+  });
+});
+
+// ─── computeGPWins ───
+
+describe("computeGPWins", () => {
+  it("awards win to sole leader per race", () => {
+    const db = {
+      bets: {
+        gp1: {
+          alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01" },
+          bob:   { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: [], submittedAt: "2025-01-01" },
+        },
+      },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const wins = computeGPWins(db, [{ key: "gp1" }], ["alice", "bob"]);
+    expect(wins.alice).toBe(1);
+    expect(wins.bob).toBe(0);
+  });
+
+  it("no win when tied", () => {
+    const db = {
+      bets: {
+        gp1: {
+          alice: { pole: "VER", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-01" },
+          bob:   { pole: "VER", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-01" },
+        },
+      },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const wins = computeGPWins(db, [{ key: "gp1" }], ["alice", "bob"]);
+    expect(wins.alice).toBe(0);
+    expect(wins.bob).toBe(0);
+  });
+
+  it("skips races without results", () => {
+    const db = { bets: { gp1: { alice: { pole: "VER", podium: [], q: [] } } }, results: {} };
+    const wins = computeGPWins(db, [{ key: "gp1" }], ["alice"]);
+    expect(wins.alice).toBe(0);
+  });
+});
+
+// ─── computeGlobalStandings ───
+
+describe("computeGlobalStandings", () => {
+  it("sorts by points descending", () => {
+    const db = {
+      bets: {
+        gp1: {
+          alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01" },
+          bob:   { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: [], submittedAt: "2025-01-01" },
+        },
+      },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const standings = computeGlobalStandings(db, [{ key: "gp1" }], ["alice", "bob"]);
+    expect(standings[0].name).toBe("alice");
+    expect(standings[1].name).toBe("bob");
+    expect(standings[0].points).toBeGreaterThan(standings[1].points);
+  });
+
+  it("tiebreaker: wins > exact > hits > pen > avgSubmit", () => {
+    const db = {
+      bets: {
+        gp1: {
+          alice: { pole: "VER", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-02T00:00:00Z" },
+          bob:   { pole: "VER", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-01T00:00:00Z" },
+        },
+      },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const standings = computeGlobalStandings(db, [{ key: "gp1" }], ["alice", "bob"]);
+    expect(standings[0].points).toBe(standings[1].points);
+    expect(standings[0].name).toBe("bob");
+  });
+
+  it("accumulates points across multiple races", () => {
+    const db = {
+      bets: {
+        gp1: { alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A"], submittedAt: "2025-01-01" } },
+        gp2: { alice: { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: ["X"], submittedAt: "2025-01-02" } },
+      },
+      results: {
+        gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A"] },
+        gp2: { pole: "HAM", podium: ["HAM", "SAI", "ALO"], qAnswers: ["X"] },
+      },
+    };
+    const standings = computeGlobalStandings(db, [{ key: "gp1" }, { key: "gp2" }], ["alice"]);
+    // Each race: 1 pole + 3 pod + 1 q + 2 bonus(pole+pod) + 2 bonus(pleno) = 9 * 2 = 18
+    expect(standings[0].points).toBe(18);
+  });
+});
+
+// ─── describeBetAgainstResult ───
+
+describe("describeBetAgainstResult", () => {
+  it("no bet → -3 if results exist", () => {
+    const r = describeBetAgainstResult(null, { pole: "VER", podium: ["VER", "NOR", "LEC"] });
+    expect(r.points).toBe(-3);
+    expect(r.items).toHaveLength(1);
+  });
+
+  it("no bet, no result → 0", () => {
+    const r = describeBetAgainstResult(null, null);
+    expect(r.points).toBe(0);
+  });
+
+  it("full house breakdown has bonus items", () => {
+    const bet = { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A", "B", "C"] };
+    const res = { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A", "B", "C"] };
+    const r = describeBetAgainstResult(bet, res);
+    expect(r.points).toBe(11);
+    const bonusItems = r.items.filter(i => i.label.includes("Bonus"));
+    expect(bonusItems.length).toBe(2);
+  });
+
+  it("manual adjustment appears in breakdown", () => {
+    const bet = { pole: "X", podium: ["X", "X", "X"], q: [] };
+    const res = { pole: "VER", podium: ["VER", "NOR", "LEC"] };
+    const r = describeBetAgainstResult(bet, res, 3);
+    const adjItem = r.items.find(i => i.label.includes("Ajuste manual"));
+    expect(adjItem).toBeDefined();
+    expect(adjItem.delta).toBe(3);
+  });
+
+  it("late bet shows penalty in breakdown", () => {
+    const bet = { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], late: true };
+    const res = { pole: "VER", podium: ["VER", "NOR", "LEC"] };
+    const r = describeBetAgainstResult(bet, res);
+    const lateItem = r.items.find(i => i.label.includes("fuera de plazo"));
+    expect(lateItem).toBeDefined();
+    expect(lateItem.delta).toBe(-2);
+  });
+});
+
+// ─── topList ───
+
+describe("topList", () => {
+  it("sorts by value descending", () => {
+    const result = topList({ a: 3, b: 5, c: 1 }, 3);
+    expect(result[0].name).toBe("b");
+    expect(result[0].value).toBe(5);
+  });
+
+  it("respects limit", () => {
+    const result = topList({ a: 1, b: 2, c: 3, d: 4 }, 2);
+    expect(result).toHaveLength(2);
+  });
+
+  it("handles empty/null input", () => {
+    expect(topList(null)).toEqual([]);
+    expect(topList({})).toEqual([]);
+  });
+
+  it("alphabetic tiebreaker for same value", () => {
+    const result = topList({ b: 5, a: 5 });
+    expect(result[0].name).toBe("a");
+    expect(result[1].name).toBe("b");
+  });
+});
+
+// ─── buildStats ───
+
+describe("buildStats", () => {
+  const db = {
+    bets: {
+      gp1: {
+        alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A", "B", "C"], submittedAt: "2025-01-01" },
+        bob:   { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: ["X", "X", "X"], submittedAt: "2025-01-01" },
+      },
+    },
+    results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A", "B", "C"] } },
+  };
+  const races = [{ key: "gp1", grand_prix: "GP Test" }];
+
+  it("identifies race winners", () => {
+    const stats = buildStats(db, races, ["alice", "bob"]);
+    expect(stats.winners[0].name).toBe("alice");
+  });
+
+  it("identifies full house achievers", () => {
+    const stats = buildStats(db, races, ["alice", "bob"]);
+    expect(stats.fulls[0].name).toBe("alice");
+  });
+
+  it("tracks hits leaders", () => {
+    const stats = buildStats(db, races, ["alice", "bob"]);
+    expect(stats.hitsLeaders[0].name).toBe("alice");
+    expect(stats.hitsLeaders[0].value).toBe(7);
+  });
+
+  it("tracks vote distributions", () => {
+    const stats = buildStats(db, races, ["alice", "bob"]);
+    expect(stats.votePole.length).toBeGreaterThan(0);
+  });
+
+  it("skips races without results for scoring stats", () => {
+    const dbNoRes = { ...db, results: {} };
+    const stats = buildStats(dbNoRes, races, ["alice", "bob"]);
+    expect(stats.winners).toEqual([]);
+    expect(stats.votePole.length).toBeGreaterThan(0);
   });
 });

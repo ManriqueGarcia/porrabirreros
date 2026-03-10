@@ -40,7 +40,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
       setScores(FUTBOL_BASE_TEAMS.map(()=>({home:"",away:""})));
     }
-  },[selected,futbol,editingMode]);
+  },[selected,editingMode]);
   useEffect(()=>{
     if(editUser && selected && editingMode==="bet"){
       const bet=futbol.bets?.[selected]?.[editUser];
@@ -60,7 +60,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       const res=futbol.results?.[selected];
       setScores((res?.matches?.length?res.matches:baseMatches.map(()=>({home:"",away:""}))).map(m=>({home:m.home==null?"":String(m.home), away:m.away==null?"":String(m.away)})));
     }
-  },[editUser,selected,editingMode,futbol,matches]);
+  },[editUser,selected,editingMode]);
   const participants=useMemo(()=>getParticipantsForPorra(db,"futbol"),[db.participants,db.users]);
   if(!isAdminFor(db.users?.[currentUser], "futbol")) return null;
   const ensureId=()=>{
@@ -82,7 +82,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
     });
     adminFutbol(id, currentUser, "jornada", {...jornadaData, order:[...(futbol.order||[]), ...(futbol.order?.includes(id)?[]:[id])]})
-      .catch(err => console.error("Error sync jornada:", err));
+      .catch(err => { console.error("Error sync jornada:", err); toast.error("Error al sincronizar jornada con el servidor"); });
     setSelected(id);
     toast.success("Jornada guardada");
   };
@@ -116,7 +116,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       return {...prev, futbol:{...futbolPrev, results:resultsMap}};
     });
     saveResultFutbol(id, currentUser, resultData)
-      .catch(err => console.error("Error sync resultados futbol:", err));
+      .catch(err => { console.error("Error sync resultados futbol:", err); toast.error("Error al guardar resultados en el servidor"); });
     toast.success("Resultados guardados");
   };
   const setBetsOverride=(mode)=>{
@@ -133,10 +133,10 @@ export function FutbolAdmin({db,setDb,currentUser}){
       return {...prev, futbol:{...futbolPrev, betsWindow:windowMap, betsReveal:revealMap}};
     });
     adminFutbol(id, currentUser, "window", mode==="auto"?{}:windowData)
-      .catch(err => console.error("Error sync betsWindow:", err));
+      .catch(err => { console.error("Error sync betsWindow:", err); toast.error("Error al sincronizar con el servidor"); });
     if(mode==="close"){
       adminFutbol(id, currentUser, "reveal", {forceShow:true})
-        .catch(err => console.error("Error sync betsReveal:", err));
+        .catch(err => { console.error("Error sync betsReveal:", err); toast.error("Error al sincronizar con el servidor"); });
     }
   };
   const setReveal=(mode)=>{
@@ -151,7 +151,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       return {...prev, futbol:{...futbolPrev, betsReveal:map}};
     });
     adminFutbol(id, currentUser, "reveal", revealData)
-      .catch(err => console.error("Error sync betsReveal:", err));
+      .catch(err => { console.error("Error sync betsReveal:", err); toast.error("Error al sincronizar con el servidor"); });
   };
   const [savingAdminBet,setSavingAdminBet]=useState(false);
   const saveAdminBet=async()=>{
@@ -177,7 +177,15 @@ export function FutbolAdmin({db,setDb,currentUser}){
       const prevBet=raceBets[editUser];
       const fullBet={...prevBet, ...nextBet};
       const nextBets={...(futbolPrev.bets||{}), [id]:{...raceBets, [editUser]:fullBet}};
-      return {...prev, futbol:{...futbolPrev, bets:nextBets}};
+      let betHistory=futbolPrev.betHistory||{};
+      const sameMatch=prevBet && JSON.stringify(prevBet.matches)===JSON.stringify(nextBet.matches);
+      if(!prevBet || !sameMatch || !!prevBet?.late!==!!nextBet.late){
+        const jHistory={...(betHistory[id]||{})};
+        const userLog=[...(jHistory[editUser]||[])];
+        userLog.push({ts,matches:nextBet.matches,late:editLate,editedByAdmin:true,delegated:editDelegated});
+        betHistory={...betHistory,[id]:{...jHistory,[editUser]:userLog}};
+      }
+      return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
     });
     setSavingAdminBet(false);
     toast.success(editDelegated ? `Apuesta delegada de ${editUser} guardada (a tiempo)` : "Apuesta guardada para el usuario");

@@ -9,8 +9,6 @@ export const CONFIG = {
   futbolDeadlineHour: "15:00",
 };
 
-export const LS_KEY = "porra_f1_clean_v3";
-
 // echo -n "TuPassword" | sha256sum
 export const DEFAULT_PASSWORD_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 export const RECOVERY_CODE_HASH = DEFAULT_PASSWORD_HASH;
