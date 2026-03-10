@@ -12,17 +12,11 @@ export function ChangeAvatarModal({ open, onClose, db, setDb, user }) {
   const handleFile = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
-    const ok = /\.(jpe?g|png|svg)$/i.test(file.name) || ["image/jpeg", "image/png", "image/svg+xml"].includes(file.type);
-    if (!ok) { toast.error("Formato no válido. Usa JPG, PNG o SVG."); return; }
+    const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.name) || ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(file.type);
+    if (!ok) { toast.error("Formato no válido. Usa JPG, PNG, GIF o WebP."); return; }
     setBusy(true);
     try {
-      let dataUrl;
-      if (file.type === "image/svg+xml") {
-        dataUrl = await readFileAsDataUrl(file);
-        if (dataUrl.length > MAX_AVATAR_BASE64) { toast.error("El SVG es demasiado grande. Usa uno más simple o JPG/PNG."); setBusy(false); return; }
-      } else {
-        dataUrl = await resizeImageToDataUrl(file);
-      }
+      const dataUrl = await resizeImageToDataUrl(file);
       setDb(prev => ({ ...prev, meta: { ...(prev.meta || {}), avatars: { ...(prev.meta?.avatars || {}), [user]: dataUrl } } }));
       toast.success("Avatar actualizado");
       onClose();

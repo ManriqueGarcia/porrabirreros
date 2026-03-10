@@ -55,6 +55,10 @@ function sanitizeState(state) {
   return s;
 }
 
+function safeDecodeURI(str) {
+  try { return decodeURIComponent(str); } catch { return null; }
+}
+
 function isValidId(id) {
   return typeof id === "string" && /^[a-zA-Z0-9_-]{1,50}$/.test(id);
 }
@@ -72,6 +76,28 @@ function validateF1Bet(bet) {
   if (bet.podium && bet.podium.some(d => typeof d !== "string" || d.length > 100)) return "valor de podium inválido";
   if (bet.q && (!Array.isArray(bet.q) || bet.q.length > 10)) return "preguntas inválidas";
   if (bet.q && bet.q.some(a => typeof a !== "string" || a.length > 500)) return "respuesta demasiado larga";
+  return null;
+}
+
+function validateF1Result(result) {
+  if (typeof result.pole !== "undefined" && typeof result.pole !== "string") return "pole debe ser string";
+  if (result.pole && result.pole.length > 100) return "pole demasiado largo";
+  if (result.podium && (!Array.isArray(result.podium) || result.podium.length > 5)) return "podium inválido";
+  if (result.podium && result.podium.some(d => typeof d !== "string" || d.length > 100)) return "valor de podium inválido";
+  return null;
+}
+
+function validateFutbolResult(result) {
+  if (result.matches && !Array.isArray(result.matches)) return "matches debe ser un array";
+  if (result.matches && result.matches.length > 20) return "demasiados partidos";
+  if (result.matches) {
+    for (const m of result.matches) {
+      if (!m || typeof m !== "object") return "partido inválido";
+      const h = Number(m.home), a = Number(m.away);
+      if (!Number.isInteger(h) || h < 0 || h > 99) return "marcador fuera de rango";
+      if (!Number.isInteger(a) || a < 0 || a > 99) return "marcador fuera de rango";
+    }
+  }
   return null;
 }
 
@@ -122,7 +148,7 @@ function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-user,x-porra-group,authorization,accept",
+    "Access-Control-Allow-Headers": "content-type,x-porra-secret,x-porra-group,authorization,accept",
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
     "Cache-Control": "no-store",
     ...extra,
@@ -216,14 +242,12 @@ async function resolveUser(inputName) {
   if (!inputName) return "";
   const exact = await getItem(`USER#${inputName}`, "PROFILE");
   if (exact) return inputName;
-  const r = await client.send(new ScanCommand({
-    TableName: TABLE,
-    FilterExpression: "begins_with(pk, :prefix) AND sk = :sk",
-    ExpressionAttributeValues: { ":prefix": "USER#", ":sk": "PROFILE" },
-    ProjectionExpression: "pk",
-  }));
-  const match = (r.Items || []).find(i => i.pk.replace("USER#", "").toLowerCase() === inputName.trim().toLowerCase());
-  return match ? match.pk.replace("USER#", "") : "";
+  const capitalized = inputName.charAt(0).toUpperCase() + inputName.slice(1).toLowerCase();
+  if (capitalized !== inputName) {
+    const cap = await getItem(`USER#${capitalized}`, "PROFILE");
+    if (cap) return capitalized;
+  }
+  return "";
 }
 
 async function isAdmin(userName) {
@@ -477,6 +501,8 @@ async function handleSaveResultF1(raceKey, reqUser, body) {
   if (!raceKey) return badReq("Falta raceKey");
   if (!isValidId(raceKey)) return badReq("raceKey inválido");
   const result = body.result || body;
+  const resErr = validateF1Result(result);
+  if (resErr) return badReq(resErr);
   await putItem(`F1#${raceKey}`, "RESULT", {
     pole: result.pole || "", podium: result.podium || ["", "", ""],
   });
@@ -488,6 +514,8 @@ async function handleSaveResultFutbol(jornadaId, reqUser, body) {
   if (!jornadaId) return badReq("Falta jornadaId");
   if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
   const { pk, sk, ...resultData } = body.result || body;
+  const resErr = validateFutbolResult(resultData);
+  if (resErr) return badReq(resErr);
   await putItem(`FUT#${jornadaId}`, "RESULT", resultData);
   return res(200, { ok: true });
 }
@@ -551,6 +579,8 @@ async function handleAdminF1(raceKey, reqUser, body) {
       const { userName, bet } = data;
       if (!userName) return badReq("Falta userName");
       if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
+      const admF1Err = validateF1Bet(bet || {});
+      if (admF1Err) return badReq(admF1Err);
       await putItem(`F1#${raceKey}`, `BET#${userName}`, bet);
       break;
     }
@@ -588,6 +618,8 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
       const { userName, bet } = data;
       if (!userName) return badReq("Falta userName");
       if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
+      const admFutErr = validateFutbolBet(bet || {});
+      if (admFutErr) return badReq(admFutErr);
       await putItem(`FUT#${jornadaId}`, `BET#${userName}`, bet);
       break;
     }
@@ -712,7 +744,7 @@ async function handleJoinGroup(groupId, body) {
       ConditionExpression: "attribute_not_exists(pk)",
     }));
   } catch (err) {
-    if (err.name === "ConditionalCheckFailedException") return badReq("Ese nombre de usuario ya existe en el grupo");
+    if (err.name === "ConditionalCheckFailedException") return badReq("No se pudo completar el registro. Prueba con otro nombre.");
     throw err;
   }
   await writeUIDX(name.trim(), groupId, groupMeta.name);
@@ -912,18 +944,16 @@ export const handler = async (event) => {
     }
   }
 
-  if (API_SECRET && hdrs["x-porra-secret"] !== API_SECRET) {
-    return forbidden("API secret invalido");
+  if (API_SECRET) {
+    if (hdrs["x-porra-secret"] !== API_SECRET) return forbidden("API secret invalido");
   }
 
   const bearerToken = extractBearerToken(hdrs);
-  let rawUser;
+  let rawUser = "";
   if (bearerToken) {
     const sessionUser = await validateSession(bearerToken);
     if (!sessionUser) return res(401, { error: "Sesión expirada. Vuelve a iniciar sesión." });
     rawUser = sessionUser;
-  } else {
-    rawUser = hdrs["x-porra-user"] || "";
   }
   const path = rawPath.replace(/\/+$/, "") || "/";
   const segments = path.split("/").filter(Boolean);
@@ -941,9 +971,11 @@ export const handler = async (event) => {
   }
 
   try {
-    // GET /state
+    // GET /state (legacy, admin-only — deprecated in favor of /g/{gid}/state)
     if (method === "GET" && path === "/state") {
       if (!rawUser) return forbidden("Autenticación requerida");
+      const reqUser = await resolveUser(rawUser);
+      if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede acceder al estado legacy");
       const state = await getFullState();
       return res(200, sanitizeState(state));
     }
@@ -997,7 +1029,8 @@ export const handler = async (event) => {
     }
     // GET /users/{name}/groups (requires matching user or admin)
     if (method === "GET" && segments[0] === "users" && segments[1] && segments[2] === "groups") {
-      const targetName = decodeURIComponent(segments[1]);
+      const targetName = safeDecodeURI(segments[1]);
+      if (targetName === null) return badReq("Formato de URL inválido");
       if (!rawUser) return forbidden("Autenticación requerida");
       if (rawUser.trim().toLowerCase() !== targetName.trim().toLowerCase()) {
         const callerGroups = await getUserGroups(rawUser.trim());
@@ -1053,6 +1086,9 @@ export const handler = async (event) => {
     }
     // GET /invite/{code}
     if (method === "GET" && segments[0] === "invite" && segments[1]) {
+      if (!checkRateLimit(`invite:${clientIp}`, WRITE_RATE_MAX)) {
+        return res(429, { error: "Demasiadas peticiones. Espera un momento." });
+      }
       return handleGetInvite(segments[1]);
     }
     // POST /groups/{groupId}/join
@@ -1071,7 +1107,10 @@ export const handler = async (event) => {
     // GET /g/{groupId}/state
     if (method === "GET" && segments[0] === "g" && segments[1] && segments[2] === "state") {
       if (!rawUser) return forbidden("Autenticación requerida");
-      const state = await getGroupState(segments[1]);
+      const gid = segments[1];
+      const memberName = await resolveUserInGroup(gid, rawUser);
+      if (!memberName) return forbidden("No perteneces a este grupo");
+      const state = await getGroupState(gid);
       return res(200, sanitizeState(state));
     }
     // PUT /g/{groupId}/bets/f1/{raceKey}
@@ -1124,7 +1163,8 @@ export const handler = async (event) => {
       const gid = segments[1];
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!reqUser) return forbidden("Falta x-porra-user");
-      const targetUser = decodeURIComponent(segments[3]);
+      const targetUser = safeDecodeURI(segments[3]);
+      if (targetUser === null) return badReq("Formato de URL inválido");
       if (!isValidUserName(targetUser)) return badReq("Nombre de usuario no válido");
       if (reqUser !== targetUser && !(await isAdminInGroup(gid, reqUser))) return forbidden("Solo puedes modificar tu propio perfil");
       const existing = await gGetItem(gid, `USER#${targetUser}`, "PROFILE");
@@ -1158,6 +1198,8 @@ export const handler = async (event) => {
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin puede guardar resultados");
       const result = body.result || body;
+      const f1ResErr = validateF1Result(result);
+      if (f1ResErr) return badReq(f1ResErr);
       await gPutItem(gid, `F1#${segments[4]}`, "RESULT", { pole: result.pole || "", podium: result.podium || ["","",""] });
       return res(200, { ok: true });
     }
@@ -1167,6 +1209,8 @@ export const handler = async (event) => {
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin puede guardar resultados");
       const { pk: _pk, sk: _sk, ...resultData } = body.result || body;
+      const futResErr = validateFutbolResult(resultData);
+      if (futResErr) return badReq(futResErr);
       await gPutItem(gid, `FUT#${segments[4]}`, "RESULT", resultData);
       return res(200, { ok: true });
     }
@@ -1194,7 +1238,8 @@ export const handler = async (event) => {
       const gid = segments[1];
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
       if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
-      const targetUser = decodeURIComponent(segments[3]);
+      const targetUser = safeDecodeURI(segments[3]);
+      if (targetUser === null) return badReq("Formato de URL inválido");
       if (!isValidUserName(targetUser)) return badReq("Nombre de usuario no válido");
       if (reqUser === targetUser) return badReq("No puedes eliminarte a ti mismo");
       await gDeleteItem(gid, `USER#${targetUser}`, "PROFILE");
@@ -1223,6 +1268,8 @@ export const handler = async (event) => {
           const { userName, bet } = data;
           if (!userName) return badReq("Falta userName");
           if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
+          const gAdmF1Err = validateF1Bet(bet || {});
+          if (gAdmF1Err) return badReq(gAdmF1Err);
           await gPutItem(gid, `F1#${raceKey}`, `BET#${userName}`, bet);
           break;
         }
@@ -1257,6 +1304,8 @@ export const handler = async (event) => {
           const { userName, bet } = data;
           if (!userName) return badReq("Falta userName");
           if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
+          const gAdmFutErr = validateFutbolBet(bet || {});
+          if (gAdmFutErr) return badReq(gAdmFutErr);
           await gPutItem(gid, `FUT#${jornadaId}`, `BET#${userName}`, bet);
           break;
         }
@@ -1399,7 +1448,9 @@ export const handler = async (event) => {
     // PUT /users/{name}
     if (method === "PUT" && segments[0] === "users" && segments[1]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleUpdateUser(decodeURIComponent(segments[1]), reqUser, body);
+      const targetUser = safeDecodeURI(segments[1]);
+      if (targetUser === null) return badReq("Formato de URL inválido");
+      return handleUpdateUser(targetUser, reqUser, body);
     }
 
     // POST /users (add new user)
@@ -1411,7 +1462,9 @@ export const handler = async (event) => {
     // DELETE /users/{name}
     if (method === "DELETE" && segments[0] === "users" && segments[1]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleDeleteUser(decodeURIComponent(segments[1]), reqUser);
+      const delUser = safeDecodeURI(segments[1]);
+      if (delUser === null) return badReq("Formato de URL inválido");
+      return handleDeleteUser(delUser, reqUser);
     }
 
     // PUT /meta
@@ -1434,7 +1487,7 @@ export const handler = async (event) => {
 
     return notFound(`Ruta no encontrada: ${method} ${path}`);
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error:", err?.message || "unknown");
     return res(500, { error: "Error interno" });
   }
 };

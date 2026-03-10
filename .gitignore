@@ -53,3 +53,6 @@ porra-ai.zip
 # Test artifacts
 test-results/
 playwright-report/
+
+# Fotos personales
+avatares_reales/

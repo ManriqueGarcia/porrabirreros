@@ -22,8 +22,12 @@ export function getSession() {
 }
 
 export function clearSession() {
-  sessionStorage.removeItem("porra_session");
-  sessionStorage.removeItem("porra_session_user");
+  const keysToRemove = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key?.startsWith("porra_")) keysToRemove.push(key);
+  }
+  keysToRemove.forEach(k => sessionStorage.removeItem(k));
 }
 
 export async function hashPassword(pwd) {

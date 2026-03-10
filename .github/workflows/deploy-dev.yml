@@ -34,21 +34,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
-      # Descarga el archivo config.local.js desde el bucket dev si existe (opcional, o podrías gestionarlo de otra forma)
       - name: Restaurar config.local.js
         run: |
-          aws s3 cp s3://porra-birreros-dev/config.local.js src/config.local.js || echo "No config.local.js found in S3"
-        continue-on-error: true
+          aws s3 cp s3://${{ secrets.S3_BUCKET_NAME_DEV || 'porra-birreros-dev' }}/config.local.js src/config.local.js
+          if [ ! -f src/config.local.js ]; then echo "ERROR: config.local.js no encontrado" && exit 1; fi
+
+      - name: Auditoría de seguridad
+        run: npm audit --audit-level=critical
 
       - name: Build (esbuild + Tailwind)
         env:
-          PORRA_API_BASE: "https://dev.porra.manriquegarcia.com"
+          PORRA_API_BASE: ${{ secrets.PORRA_API_BASE_DEV || 'https://dev.porra.manriquegarcia.com' }}
           PORRA_AI_URL: ${{ secrets.PORRA_AI_URL }}
         run: node build.mjs
 
       - name: Sincronizar dist/ con S3 (Dev)
         env:
-          S3_BUCKET: "porra-birreros-dev"
+          S3_BUCKET: ${{ secrets.S3_BUCKET_NAME_DEV || 'porra-birreros-dev' }}
         run: |
           aws s3 sync dist/ s3://$S3_BUCKET \
             --delete \
@@ -61,8 +63,9 @@ jobs:
             --cache-control "no-cache, no-store, must-revalidate"
 
       - name: Invalidar CloudFront (Dev)
+        if: env.CF_DIST_ID != ''
         env:
-          CF_DIST_ID: "E3APQ3GX8WMS5"
+          CF_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_DEV || 'E3APQ3GX8WMS5' }}
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "$CF_DIST_ID" \
