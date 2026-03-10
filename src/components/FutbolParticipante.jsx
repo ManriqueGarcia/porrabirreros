@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNow, nowISO, shareBet, betsAreEqual, parseLocalDateTime, formatDateTime } from "../utils.js";
+import { useNow, nowISO, shareBet, betsAreEqual, parseLocalDateTime, formatDateTime, formatTime } from "../utils.js";
 import { MADRID_TZ } from "../config.js";
 import { saveBetFutbol } from "../api.js";
 import { toast } from "../toast.jsx";
@@ -81,33 +81,59 @@ export function FutbolParticipante({user,db,setDb}){
         <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>
           {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id} {j.deadline?`— ${new Date(j.deadline).toLocaleDateString("es-ES")}`:""}</option>)}
         </select>
-        {jornada ? (
-          <div className="futbol-info-panel mb-4">
-            <h3 className="text-sm font-bold text-white/85 mb-2.5 flex items-center gap-2">🏟️ Info de la jornada</h3>
-            <div className="grid gap-2 text-sm">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-slate-400">Partidos:</span>
-                <span className="text-white/70 font-medium">{jornada.matches?.length||0}</span>
-                <span className="text-slate-500 text-xs">({(jornada.matches||[]).map(m=>m.home).join(" · ")})</span>
-              </div>
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-slate-400">Cierre apuestas:</span>
-                {deadline ? (
-                  <span className="text-emerald-300 font-bold">{formatDateTime(deadline,MADRID_TZ)}</span>
-                ) : (
-                  <span className="text-slate-500">Sin límite</span>
-                )}
-              </div>
-              <div className="mt-1 pt-2 border-t border-slate-600/30">
-                <div className="flex flex-wrap gap-3 text-xs">
-                  <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")||betsStatus.includes("Cierre")?"text-emerald-300":"text-amber-300"}>{betsStatus.includes("Cierre")?betsStatus.replace("Cierre: ","Abierto — cierre "):betsStatus}</span></span>
-                  <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas":"Ocultas hasta cierre"}</span></span>
-                </div>
+        {jornada ? (<>
+          <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500/10 via-emerald-900/5 to-transparent border border-emerald-500/20 p-4 text-center group hover:border-emerald-400/35 transition-all">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-emerald-400/[.03] to-transparent pointer-events-none"></div>
+              <div className="relative">
+                <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">⚽</div>
+                <div className="text-[10px] uppercase tracking-[.15em] text-emerald-300/60 font-bold mb-2">Partidos</div>
+                <div className="text-2xl font-black text-emerald-200">{jornada.matches?.length||0}</div>
+                <div className="text-[10px] text-white/25 mt-1.5 leading-relaxed">{(jornada.matches||[]).map(m=>m.home).join(" · ")}</div>
               </div>
             </div>
-            {deadline && <CountdownBadge target={deadline}/>}
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-500/10 via-amber-900/5 to-transparent border border-amber-500/20 p-4 text-center group hover:border-amber-400/35 transition-all">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-amber-400/[.03] to-transparent pointer-events-none"></div>
+              <div className="relative">
+                <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">⏰</div>
+                <div className="text-[10px] uppercase tracking-[.15em] text-amber-300/60 font-bold mb-2">Cierre apuestas</div>
+                {deadline ? (<>
+                  <div className="text-base font-black text-amber-200 leading-tight">{formatDateTime(deadline,MADRID_TZ)}</div>
+                  <div className="text-[10px] text-amber-300/40 mt-1 font-medium">🇪🇸 hora España</div>
+                </>) : <div className="text-sm text-white/25 italic">Sin límite</div>}
+              </div>
+            </div>
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/10 via-sky-900/5 to-transparent border border-sky-500/20 p-4 text-center group hover:border-sky-400/35 transition-all">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400/60 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-sky-400/[.03] to-transparent pointer-events-none"></div>
+              <div className="relative">
+                <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">📊</div>
+                <div className="text-[10px] uppercase tracking-[.15em] text-sky-300/60 font-bold mb-2">Estado</div>
+                {manualWindow?.forceClosed
+                  ? <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20 font-semibold">🔒 Cerrado</span>
+                  : isFutbolLate
+                    ? <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">⚠️ Fuera de plazo</span>
+                    : <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">✓ Abierto</span>}
+                <div className="text-[10px] text-white/25 mt-2">{manualReveal?.forceShow?"Apuestas visibles":"Ocultas hasta cierre"}</div>
+              </div>
+            </div>
           </div>
-        ) : (
+          {deadline && (
+            <div className="mb-4 p-3 rounded-xl bg-white/[.025] border border-white/[.06] relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-sm font-bold text-white/85">⏰ Cierre apuestas:</span>
+                  <span className="text-amber-300 font-bold text-lg tabular-nums">{formatTime(deadline,MADRID_TZ)}</span>
+                  <span className="text-amber-100 text-xs">(España)</span>
+                </div>
+              </div>
+              <CountdownBadge target={deadline}/>
+            </div>
+          )}
+        </>) : (
           <div className="futbol-info-panel mb-4 text-center py-6">
             <div className="text-2xl mb-2">⚽</div>
             <p className="text-sm text-white/40">No hay jornadas creadas. Pide al admin que añada una.</p>
