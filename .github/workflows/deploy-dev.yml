@@ -36,8 +36,12 @@ jobs:
 
       - name: Restaurar config.local.js
         run: |
-          aws s3 cp s3://${{ secrets.S3_BUCKET_NAME_DEV || 'porra-birreros-dev' }}/config.local.js src/config.local.js
-          if [ ! -f src/config.local.js ]; then echo "ERROR: config.local.js no encontrado" && exit 1; fi
+          aws s3 cp s3://${{ secrets.S3_BUCKET_NAME_DEV || 'porra-birreros-dev' }}/config.local.js src/config.local.js 2>/dev/null || true
+          if [ -f src/config.local.js ]; then
+            echo "✅ config.local.js restaurado desde S3"
+          else
+            echo "⚠️ config.local.js no encontrado en S3 — usando config.js genérico"
+          fi
 
       - name: Auditoría de seguridad
         run: npm audit --audit-level=critical
