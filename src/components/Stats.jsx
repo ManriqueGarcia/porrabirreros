@@ -280,7 +280,8 @@ function PointsTrendChart({trendData}){
   const participants=trendData.participants;
   const races=trendData.races;
   const sorted=[...participants].sort((a,b)=>a.name.localeCompare(b.name));
-  const colorOf=n=>PILOT_COLORS[n]||FALLBACK_COLORS[sorted.indexOf(n)%FALLBACK_COLORS.length];
+  const sortedNames=sorted.map(p=>p.name);
+  const colorOf=n=>PILOT_COLORS[n]||FALLBACK_COLORS[sortedNames.indexOf(n)%FALLBACK_COLORS.length];
   const allScores=participants.flatMap(p=>p.scores);
   const minPts=Math.min(...allScores,0);
   const maxPts=Math.max(...allScores,0);
@@ -318,7 +319,7 @@ function PointsTrendChart({trendData}){
         </svg>
       </div>
       <div className="flex flex-wrap gap-3 mt-3 pt-2 border-t border-white/5">
-        {sorted.map(name=><div key={name} className="flex items-center gap-1.5 text-xs"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor:colorOf(name)}}></div><span className="text-white/50">{name}</span></div>)}
+        {sorted.map(p=><div key={p.name} className="flex items-center gap-1.5 text-xs"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor:colorOf(p.name)}}></div><span className="text-white/50">{p.name}</span></div>)}
       </div>
     </div>
   );
