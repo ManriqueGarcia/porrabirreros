@@ -4,6 +4,27 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-10] — Mejoras UX: fútbol y F1 responsive
+
+### Fútbol
+- **Jornada actual por defecto**: al entrar en la sección de fútbol, ahora se selecciona la primera jornada cuyo deadline aún no ha pasado (en vez de la primera de la lista). Si todas han pasado, se muestra la última.
+- **Hora límite de apuestas → viernes 21:00**: cambiado el deadline por defecto de las jornadas de fútbol de 15:00 a 21:00, tanto en la configuración global como en el formulario de admin y en las jornadas predefinidas.
+
+### F1
+- **CircuitCard al final en móvil**: en pantallas pequeñas, la tarjeta de información del circuito se ha movido debajo del formulario de apuesta (antes estaba arriba y obligaba a hacer scroll para apostar).
+
+---
+
+## [2026-03-10] — Seguridad: eliminación de localStorage y fix CORS
+
+### Seguridad
+- **Eliminado localStorage**: todo el almacenamiento local (caché de DB, preferencias) migrado a sessionStorage o eliminado. Los datos van siempre contra la base de datos.
+- **Fix login doble para admin**: corregido bug donde el admin siempre se le pedía la contraseña dos veces por un timestamp stale en localStorage.
+- **Fix CORS en API Gateway**: configuración CORS de API Gateway actualizada para incluir POST y los headers custom necesarios.
+- **Protección config.local.js**: los workflows de deploy excluyen `config.local.js` del `--delete` en s3 sync.
+
+---
+
 ## [2026-03-05] — Segunda auditoria: bugs y seguridad
 
 ### Bugs corregidos

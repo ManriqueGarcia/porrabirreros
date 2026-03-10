@@ -1,6 +1,6 @@
 # TODO — Porra Birreros F1 & Fútbol
 
-Estado del proyecto y mejoras pendientes. Última revisión: 2026-03-04.
+Estado del proyecto y mejoras pendientes. Última revisión: 2026-03-10.
 
 ---
 
@@ -11,7 +11,7 @@ Estado del proyecto y mejoras pendientes. Última revisión: 2026-03-04.
 - **AI**: ManriBot con Gemma 3 27B (fútbol) y Jolpica API (F1)
 - **Asset hashing**: `app.[hash].js` y `styles.[hash].css` para cache-busting agresivo
 - **PWA**: Service Worker + manifest.json para instalación como app
-- **Tests**: 19 tests (Vitest) para lógica de puntuación F1 y fútbol
+- **Tests**: 124 tests (Vitest) — puntuación F1/fútbol + API funcional
 - **i18n**: Sistema de idiomas (es/en) con contexto React
 - **Tema**: Toggle dark/light mode con estilos completos
 
@@ -40,6 +40,9 @@ Estado del proyecto y mejoras pendientes. Última revisión: 2026-03-04.
 - [x] Meta description, Open Graph, theme-color
 - [x] Noscript fallback
 - [x] **Modo claro mejorado**: estilos para tablas, modales, inputs, selects, botones, badges, cards fútbol, podium
+- [x] **Fútbol: jornada actual por defecto** al entrar (en vez de la última pasada)
+- [x] **Fútbol: deadline viernes 21:00** (antes 15:00)
+- [x] **F1 móvil: CircuitCard al final** para facilitar apostar sin scroll
 
 ### Rendimiento (todo resuelto)
 - [x] `useMemo` para races, `useCallback` en Participante
@@ -61,7 +64,7 @@ Estado del proyecto y mejoras pendientes. Última revisión: 2026-03-04.
 - [x] Optimización de imágenes (warning para >500KB)
 - [x] `serve` en devDependencies
 - [x] ESLint configurado
-- [x] Tests con Vitest (19 tests)
+- [x] Tests con Vitest (124 tests: scoring + API funcional)
 - [x] npm audit en workflow
 - [x] Concurrencia en deploys
 - [x] Notificación de fallo (crea GitHub issue)
