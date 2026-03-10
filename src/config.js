@@ -6,7 +6,7 @@ export const CONFIG = {
   sessionTimeoutMs: 30 * 60 * 1000,
   questionAuthorsOrder: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
   futbolTeams: ["Equipo1", "Equipo2", "Equipo3", "Equipo4"],
-  futbolDeadlineHour: "15:00",
+  futbolDeadlineHour: "21:00",
 };
 
 // echo -n "TuPassword" | sha256sum

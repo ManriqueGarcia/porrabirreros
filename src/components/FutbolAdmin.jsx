@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNow, nowISO, parseLocalDateTime, toLocalDateTimeInput, nextFridayAt1500, betsAreEqual } from "../utils.js";
+import { useNow, nowISO, parseLocalDateTime, toLocalDateTimeInput, nextFridayAt2100, betsAreEqual } from "../utils.js";
 import { toast } from "../toast.jsx";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { FUTBOL_BASE_TEAMS } from "../config.js";
@@ -14,7 +14,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
   const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
   const [jId,setJId]=useState("");
   const [jName,setJName]=useState("");
-  const [deadlineInput,setDeadlineInput]=useState(()=>toLocalDateTimeInput(nextFridayAt1500()));
+  const [deadlineInput,setDeadlineInput]=useState(()=>toLocalDateTimeInput(nextFridayAt2100()));
   const [matches,setMatches]=useState(()=>FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
   const [scores,setScores]=useState(()=>matches.map(()=>({home:"",away:""})));
   const [editUser,setEditUser]=useState("");
@@ -26,7 +26,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
     if(j){
       setJId(j.id);
       setJName(j.name||j.id);
-      setDeadlineInput(toLocalDateTimeInput(j.deadline?new Date(j.deadline):nextFridayAt1500()));
+      setDeadlineInput(toLocalDateTimeInput(j.deadline?new Date(j.deadline):nextFridayAt2100()));
       const baseMatches=(j.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
       setMatches(baseMatches);
       if(editingMode==="results"){
@@ -36,7 +36,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
     } else {
       setJId("");
       setJName("");
-      setDeadlineInput(toLocalDateTimeInput(nextFridayAt1500()));
+      setDeadlineInput(toLocalDateTimeInput(nextFridayAt2100()));
       setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
       setScores(FUTBOL_BASE_TEAMS.map(()=>({home:"",away:""})));
     }
@@ -70,7 +70,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
   const saveJornada=()=>{
     const id=ensureId();
     if(!id) return toast.error("Define ID o nombre de jornada");
-    const parsedDeadline=parseLocalDateTime(deadlineInput)||nextFridayAt1500();
+    const parsedDeadline=parseLocalDateTime(deadlineInput)||nextFridayAt2100();
     const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`}));
     const jornadaData={id,name:jName||id,deadline:parsedDeadline?parsedDeadline.toISOString():null,matches:fixedMatches};
     setDb(prev=>{

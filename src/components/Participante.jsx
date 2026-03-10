@@ -145,7 +145,6 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
         {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
       </div>
       <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
-      {race && <div className="md:hidden"><CircuitCard race={race} circuits={circuits}/></div>}
       {race && (
         <div className="mb-4 p-3 rounded-xl bg-white/[.025] border border-white/[.06] relative overflow-hidden"><div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
           <h3 className="text-sm font-bold text-white/85 mb-2 flex items-center gap-2">🕐 Horarios del GP</h3>
@@ -278,6 +277,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           </div>
         </div>
       )}
+      {race && <div className="md:hidden mt-4"><CircuitCard race={race} circuits={circuits}/></div>}
     </div>
     {showOthersPanel && (<div className="card p-4 md:min-w-[220px] md:max-w-[320px] self-start"><h2 className="section-title mb-4">Apuestas de otros {showStatusOnly && <span className="text-xs text-emerald-300">(estado admin)</span>}</h2>
       {!race && <p className="text-sm text-slate-300">Selecciona un GP para ver apuestas.</p>}

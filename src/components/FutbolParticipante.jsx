@@ -57,8 +57,12 @@ export function FutbolParticipante({user,db,setDb}){
   const [showOthers,setShowOthers]=useState(false);
   const futbol=db.futbol||defaultFutbolState();
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
-  const [selected,setSelected]=useState(()=>jornadas[0]?.id||"");
-  useEffect(()=>{ if((!selected || !jornadas.find(j=>j.id===selected)) && jornadas.length) setSelected(jornadas[0].id); },[selected,jornadas]);
+  const [selected,setSelected]=useState(()=>{
+    const nowMs=Date.now();
+    const upcoming=jornadas.find(j=>j.deadline && new Date(j.deadline).getTime()>nowMs);
+    return upcoming?.id || jornadas[jornadas.length-1]?.id || "";
+  });
+  useEffect(()=>{ if((!selected || !jornadas.find(j=>j.id===selected)) && jornadas.length) { const nowMs=Date.now(); const upcoming=jornadas.find(j=>j.deadline && new Date(j.deadline).getTime()>nowMs); setSelected(upcoming?.id || jornadas[jornadas.length-1]?.id); } },[selected,jornadas]);
   const jornada=jornadas.find(j=>j.id===selected);
   const deadline=jornada?.deadline?new Date(jornada.deadline):null;
   const manualWindow=futbol.betsWindow?.[selected];

@@ -105,13 +105,13 @@ export function toLocalDateTimeInput(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function nextFridayAt1500() {
+export function nextFridayAt2100() {
   const now = new Date();
   const day = now.getDay();
   const diff = (5 - day + 7) % 7 || 7;
   const target = new Date(now);
   target.setDate(now.getDate() + diff);
-  target.setHours(15, 0, 0, 0);
+  target.setHours(21, 0, 0, 0);
   return target;
 }
 
