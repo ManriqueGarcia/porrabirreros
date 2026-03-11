@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 // Genera avatares SVG estilo caricatura extrema (Sebastian Krüger)
-// Añadido Marc: 14 años, pelirrojo, rizoso, hincha del Man City.
 
-const API_BASE = "https://porra.manriquegarcia.com";
-const GROUP_ID = "birreros";
+const API_BASE = process.env.PORRA_API_BASE || "https://tu-api.example.com";
+const GROUP_ID = process.env.PORRA_GROUP_ID || "tu-grupo";
 
 function svgToDataUrl(svg) {
   return "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
@@ -76,28 +75,21 @@ function buildAvatar(w, h, opts) {
 
   // Pelo
   const hairY = headY - headH + 10;
-  if (name === "Marc") { // Rizoso, pelirrojo
-    svg += `<path d="M${w/2 - headW + 5} ${hairY+15} 
-             Q${w/2 - headW - 10} ${hairY-10} ${w/2 - headW/2} ${hairY-15} 
-             Q${w/2} ${hairY-25} ${w/2 + headW/2} ${hairY-15} 
-             Q${w/2 + headW + 10} ${hairY-10} ${w/2 + headW - 5} ${hairY+15}
-             Q${w/2} ${hairY-5} ${w/2 - headW + 5} ${hairY+15} Z" fill="${hairColor}"/>`;
-    // Rizos extras
-    for(let i=0; i<8; i++) {
-       svg += `<circle cx="${w/2 - headW/2 + i*8}" cy="${hairY - 5 + (i%2)*5}" r="12" fill="${hairColor}"/>`;
-    }
-  } else if (name === "Antonio") { // Poco pelo, algo canoso
-    svg += `<path d="M${w/2 - headW + 10} ${hairY+15} Q${w/2 - headW} ${hairY} ${w/2 - headW/2 + 5} ${hairY+5} Z" fill="${hairColor}"/>`;
-    svg += `<path d="M${w/2 + headW - 10} ${hairY+15} Q${w/2 + headW} ${hairY} ${w/2 + headW/2 - 5} ${hairY+5} Z" fill="${hairColor}"/>`;
-  } else if (name === "Carlos") { // Siempre afeitado, pelo normal
-    svg += `<path d="M${w/2 - headW} ${hairY+10} Q${w/2} ${hairY-15} ${w/2 + headW} ${hairY+10} Q${w/2} ${hairY+5} ${w/2 - headW} ${hairY+10} Z" fill="${hairColor}"/>`;
-  } else if (name === "Toni") { // Entradas
-    svg += `<path d="M${w/2 - headW} ${hairY+20} Q${w/2 - headW+15} ${hairY-5} ${w/2 - 10} ${hairY+5} Q${w/2} ${hairY-10} ${w/2 + 10} ${hairY+5} Q${w/2 + headW-15} ${hairY-5} ${w/2 + headW} ${hairY+20} Q${w/2} ${hairY+10} ${w/2 - headW} ${hairY+20} Z" fill="${hairColor}"/>`;
-  } else if (name === "Pere") { // Liso canoso
-    svg += `<path d="M${w/2 - headW} ${hairY+25} Q${w/2 - headW} ${hairY-10} ${w/2} ${hairY-10} Q${w/2 + headW} ${hairY-10} ${w/2 + headW} ${hairY+25} Q${w/2} ${hairY+10} ${w/2 - headW} ${hairY+25} Z" fill="${hairColor}"/>`;
-  } else if (name === "Manrique") { // Pelo corto oscuro
-    svg += `<path d="M${w/2 - headW} ${hairY+15} Q${w/2} ${hairY-10} ${w/2 + headW} ${hairY+15} Q${w/2} ${hairY+5} ${w/2 - headW} ${hairY+15} Z" fill="${hairColor}"/>`;
-  }
+  // Generic hair styles cycled by name hash
+  const hairStyles = [
+    () => { // Style A: curly
+      let h = `<path d="M${w/2 - headW + 5} ${hairY+15} Q${w/2 - headW - 10} ${hairY-10} ${w/2 - headW/2} ${hairY-15} Q${w/2} ${hairY-25} ${w/2 + headW/2} ${hairY-15} Q${w/2 + headW + 10} ${hairY-10} ${w/2 + headW - 5} ${hairY+15} Q${w/2} ${hairY-5} ${w/2 - headW + 5} ${hairY+15} Z" fill="${hairColor}"/>`;
+      for(let i=0; i<8; i++) h += `<circle cx="${w/2 - headW/2 + i*8}" cy="${hairY - 5 + (i%2)*5}" r="12" fill="${hairColor}"/>`;
+      return h;
+    },
+    () => `<path d="M${w/2 - headW + 10} ${hairY+15} Q${w/2 - headW} ${hairY} ${w/2 - headW/2 + 5} ${hairY+5} Z" fill="${hairColor}"/><path d="M${w/2 + headW - 10} ${hairY+15} Q${w/2 + headW} ${hairY} ${w/2 + headW/2 - 5} ${hairY+5} Z" fill="${hairColor}"/>`, // Style B: thin
+    () => `<path d="M${w/2 - headW} ${hairY+10} Q${w/2} ${hairY-15} ${w/2 + headW} ${hairY+10} Q${w/2} ${hairY+5} ${w/2 - headW} ${hairY+10} Z" fill="${hairColor}"/>`, // Style C: short
+    () => `<path d="M${w/2 - headW} ${hairY+20} Q${w/2 - headW+15} ${hairY-5} ${w/2 - 10} ${hairY+5} Q${w/2} ${hairY-10} ${w/2 + 10} ${hairY+5} Q${w/2 + headW-15} ${hairY-5} ${w/2 + headW} ${hairY+20} Q${w/2} ${hairY+10} ${w/2 - headW} ${hairY+20} Z" fill="${hairColor}"/>`, // Style D: receding
+    () => `<path d="M${w/2 - headW} ${hairY+25} Q${w/2 - headW} ${hairY-10} ${w/2} ${hairY-10} Q${w/2 + headW} ${hairY-10} ${w/2 + headW} ${hairY+25} Q${w/2} ${hairY+10} ${w/2 - headW} ${hairY+25} Z" fill="${hairColor}"/>`, // Style E: straight
+    () => `<path d="M${w/2 - headW} ${hairY+15} Q${w/2} ${hairY-10} ${w/2 + headW} ${hairY+15} Q${w/2} ${hairY+5} ${w/2 - headW} ${hairY+15} Z" fill="${hairColor}"/>`, // Style F: cropped
+  ];
+  const styleIdx = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % hairStyles.length;
+  svg += hairStyles[styleIdx]();
 
   // Ojos desorbitados
   const eyeY = headY - 10;
@@ -122,7 +114,7 @@ function buildAvatar(w, h, opts) {
 
   // Cejas
   const browY = eyeY - eyeR - 5;
-  if (name === "Toni") {
+  if (faceShape === "long") {
     svg += `<path d="M${w/2 - eyeOff - 15} ${browY+5} L${w/2 - eyeOff + 10} ${browY}" stroke="${hairColor}" stroke-width="6" stroke-linecap="round"/>`;
     svg += `<path d="M${w/2 + eyeOff + 15} ${browY+5} L${w/2 + eyeOff - 10} ${browY}" stroke="${hairColor}" stroke-width="6" stroke-linecap="round"/>`;
   } else {
@@ -139,7 +131,7 @@ function buildAvatar(w, h, opts) {
     svg += `<line x1="${w/2 - eyeOff + gw/2}" y1="${eyeY}" x2="${w/2 + eyeOff - gw/2}" y2="${eyeY}" stroke="${glassesColor}" stroke-width="3"/>`;
   }
 
-  // Nariz (gigante y detallada para Krüger style, excepto Marc que es niño)
+  // Nariz (gigante y detallada para Krüger style, excepto kids)
   const noseY = eyeY + 15;
   if (noseType === "big") {
     svg += `<path d="M${w/2 - 5} ${noseY} Q${w/2 - 15} ${noseY+25} ${w/2 - 10} ${noseY+30} Q${w/2} ${noseY+35} ${w/2 + 10} ${noseY+30} Q${w/2 + 15} ${noseY+25} ${w/2 + 5} ${noseY}" fill="${skinShadow}" stroke="#c48a60" stroke-width="1.5"/>`;
@@ -181,47 +173,43 @@ function buildAvatar(w, h, opts) {
 
 const W = 150, H = 200;
 
-// Descripciones:
-// Antonio: 1.75, poco pelo, algo canoso, con gafas, taxista (Barcelona) -> Mono rojo F1, Kit rojo futbol
-// Carlos: 1.70 siempre afeitado, sin gafas, deporte, Real Sociedad -> Mono F1 azul/blanco, Kit Real Sociedad (azul/blanco)
-// Toni: 1.92, barba cortada al 7, con gafas, pelo oscuro entradas, vino Burgos -> Mono F1 granate, Kit granate
-// Pere: 1.85, canoso liso, sin gafas bien afeitado, NBA -> Mono F1 naranja, Kit amarillo/morado (Lakers style)
-// Manrique: 1.77, gafas azules, barba cortada al 5, pelo oscuro, Sporting Gijón -> Mono F1 Aston Martin, Kit Sporting (rojo/blanco)
-// Marc: 14 años, pelirrojo, rizoso, hincha Manchester City -> Mono F1 celeste, Kit Manchester City (celeste)
+// Personaliza los avatares de tus participantes aquí.
+// Cada entrada necesita configuraciones para F1 y fútbol con: skinColor, hairColor, eyeColor,
+// hasGlasses, faceShape (round/square/long), beardType (none/full/goatee), suitColor1/2, number.
 
 const avatars = {
-  Antonio: {
+  Jugador1: {
     f1: buildAvatar(W, H, {
-      name: "Antonio", isF1: true, isKid: false,
+      name: "Jugador1", isF1: true, isKid: false,
       skinColor: "#f5c6a0", skinShadow: "#d49a70", faceShape: "square",
-      hairColor: "#b0a898", eyeColor: "#5c4033",
+      hairColor: "#3a2a1a", eyeColor: "#5c4033",
       hasGlasses: true, glassesColor: "#222",
       noseType: "big", smileType: "big",
       beardType: "none", beardColor: "transparent",
-      suitColor1: "#cc0000", suitColor2: "#ffffff", number: "14"
+      suitColor1: "#cc0000", suitColor2: "#ffffff", number: "1"
     }),
     futbol: buildAvatar(W, H, {
-      name: "Antonio", isF1: false, isKid: false,
+      name: "Jugador1", isF1: false, isKid: false,
       skinColor: "#f5c6a0", skinShadow: "#d49a70", faceShape: "square",
-      hairColor: "#b0a898", eyeColor: "#5c4033",
+      hairColor: "#3a2a1a", eyeColor: "#5c4033",
       hasGlasses: true, glassesColor: "#222",
       noseType: "big", smileType: "big",
       beardType: "none", beardColor: "transparent",
       suitColor1: "#cc0000", suitColor2: "#004f9e", number: "7"
     }),
   },
-  Carlos: {
+  Jugador2: {
     f1: buildAvatar(W, H, {
-      name: "Carlos", isF1: true, isKid: false,
+      name: "Jugador2", isF1: true, isKid: false,
       skinColor: "#e8b890", skinShadow: "#c68b60", faceShape: "round",
       hairColor: "#2a1a1a", eyeColor: "#2a1a1a",
       hasGlasses: false, glassesColor: "transparent",
       noseType: "big", smileType: "smirk",
       beardType: "none", beardColor: "transparent",
-      suitColor1: "#005baa", suitColor2: "#ffffff", number: "55"
+      suitColor1: "#005baa", suitColor2: "#ffffff", number: "10"
     }),
     futbol: buildAvatar(W, H, {
-      name: "Carlos", isF1: false, isKid: false,
+      name: "Jugador2", isF1: false, isKid: false,
       skinColor: "#e8b890", skinShadow: "#c68b60", faceShape: "round",
       hairColor: "#2a1a1a", eyeColor: "#2a1a1a",
       hasGlasses: false, glassesColor: "transparent",
@@ -230,86 +218,6 @@ const avatars = {
       suitColor1: "#ffffff", suitColor2: "#005baa", number: "10"
     }),
   },
-  Toni: {
-    f1: buildAvatar(W, H, {
-      name: "Toni", isF1: true, isKid: false,
-      skinColor: "#f0c098", skinShadow: "#d0956b", faceShape: "long",
-      hairColor: "#2c1d10", eyeColor: "#402010",
-      hasGlasses: true, glassesColor: "#555",
-      noseType: "big", smileType: "smirk",
-      beardType: "full", beardColor: "#2c1d10",
-      suitColor1: "#722f37", suitColor2: "#c9a84c", number: "1"
-    }),
-    futbol: buildAvatar(W, H, {
-      name: "Toni", isF1: false, isKid: false,
-      skinColor: "#f0c098", skinShadow: "#d0956b", faceShape: "long",
-      hairColor: "#2c1d10", eyeColor: "#402010",
-      hasGlasses: true, glassesColor: "#555",
-      noseType: "big", smileType: "smirk",
-      beardType: "full", beardColor: "#2c1d10",
-      suitColor1: "#722f37", suitColor2: "#ffffff", number: "1"
-    }),
-  },
-  Pere: {
-    f1: buildAvatar(W, H, {
-      name: "Pere", isF1: true, isKid: false,
-      skinColor: "#f5cdab", skinShadow: "#d6a178", faceShape: "long",
-      hairColor: "#c0bcba", eyeColor: "#3a5a80",
-      hasGlasses: false, glassesColor: "transparent",
-      noseType: "big", smileType: "big",
-      beardType: "none", beardColor: "transparent",
-      suitColor1: "#ff8c00", suitColor2: "#222222", number: "33"
-    }),
-    futbol: buildAvatar(W, H, {
-      name: "Pere", isF1: false, isKid: false,
-      skinColor: "#f5cdab", skinShadow: "#d6a178", faceShape: "long",
-      hairColor: "#c0bcba", eyeColor: "#3a5a80",
-      hasGlasses: false, glassesColor: "transparent",
-      noseType: "big", smileType: "big",
-      beardType: "none", beardColor: "transparent",
-      suitColor1: "#552583", suitColor2: "#fdb927", number: "23"
-    }),
-  },
-  Manrique: {
-    f1: buildAvatar(W, H, {
-      name: "Manrique", isF1: true, isKid: false,
-      skinColor: "#eec2a0", skinShadow: "#cc9570", faceShape: "square",
-      hairColor: "#3a2a1a", eyeColor: "#50301a",
-      hasGlasses: true, glassesColor: "#1e3a8a", // Gafas azules
-      noseType: "big", smileType: "smirk",
-      beardType: "stubble", beardColor: "#3a2a1a",
-      suitColor1: "#005baa", suitColor2: "#00c853", number: "14"
-    }),
-    futbol: buildAvatar(W, H, {
-      name: "Manrique", isF1: false, isKid: false,
-      skinColor: "#eec2a0", skinShadow: "#cc9570", faceShape: "square",
-      hairColor: "#3a2a1a", eyeColor: "#50301a",
-      hasGlasses: true, glassesColor: "#1e3a8a",
-      noseType: "big", smileType: "smirk",
-      beardType: "stubble", beardColor: "#3a2a1a",
-      suitColor1: "#cc0000", suitColor2: "#ffffff", number: "6"
-    }),
-  },
-  Marc: {
-    f1: buildAvatar(W, H, {
-      name: "Marc", isF1: true, isKid: true,
-      skinColor: "#ffdfc4", skinShadow: "#e6b89c", faceShape: "round",
-      hairColor: "#d94b18", eyeColor: "#2a6a8c", // Pelirrojo
-      hasGlasses: false, glassesColor: "transparent",
-      noseType: "small", smileType: "big",
-      beardType: "none", beardColor: "transparent",
-      suitColor1: "#6cabdd", suitColor2: "#ffffff", number: "9" // City celeste
-    }),
-    futbol: buildAvatar(W, H, {
-      name: "Marc", isF1: false, isKid: true,
-      skinColor: "#ffdfc4", skinShadow: "#e6b89c", faceShape: "round",
-      hairColor: "#d94b18", eyeColor: "#2a6a8c",
-      hasGlasses: false, glassesColor: "transparent",
-      noseType: "small", smileType: "big",
-      beardType: "none", beardColor: "transparent",
-      suitColor1: "#6cabdd", suitColor2: "#ffffff", number: "9" // City celeste
-    }),
-  }
 };
 
 async function uploadAvatars() {
@@ -340,8 +248,9 @@ async function uploadAvatars() {
     ":avf": { M: avatarsFutbolM },
   });
 
-  const cmd = `aws dynamodb update-item --table-name porra-f1 --region us-east-1 --key '${JSON.stringify({
-    pk: { S: "G#birreros" },
+  const tableName = process.env.DYNAMODB_TABLE || "PorraBirreros";
+  const cmd = `aws dynamodb update-item --table-name ${tableName} --region ${process.env.AWS_REGION || "eu-west-1"} --key '${JSON.stringify({
+    pk: { S: `G#${GROUP_ID}` },
     sk: { S: "META|CONFIG" },
   })}' --update-expression '${updateExpr}' --expression-attribute-values '${exprValues}'`;
 

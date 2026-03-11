@@ -3,7 +3,7 @@
   "note": "Últimas 3 carreras de la temporada 2025",
   "bets": {
     "las_vegas": {
-      "Toni": {
+      "Jugador4": {
         "q": [
           "12",
           "No",
@@ -18,7 +18,7 @@
           "Kimi Antonelli"
         ]
       },
-      "Manrique": {
+      "Jugador1": {
         "q": [
           "15",
           "No",
@@ -33,7 +33,7 @@
           "Charles Leclerc"
         ]
       },
-      "Antonio": {
+      "Jugador3": {
         "q": [
           "14",
           "NO",
@@ -48,7 +48,7 @@
           "Max Verstappen"
         ]
       },
-      "Pere": {
+      "Jugador2": {
         "q": [
           "10",
           "No",
@@ -65,7 +65,7 @@
       }
     },
     "abu_dhabi": {
-      "Toni": {
+      "Jugador4": {
         "q": [
           "Sí",
           "Gasly",
@@ -81,7 +81,7 @@
           "George Russell"
         ]
       },
-      "Manrique": {
+      "Jugador1": {
         "q": [
           "Sí",
           "Colapinto",
@@ -97,7 +97,7 @@
           "Max Verstappen"
         ]
       },
-      "Antonio": {
+      "Jugador3": {
         "q": [
           "No",
           "Stroll",
@@ -113,7 +113,7 @@
           "George Russell"
         ]
       },
-      "Pere": {
+      "Jugador2": {
         "q": [
           "Sí",
           "Colapinto",
@@ -129,7 +129,7 @@
           "George Russell"
         ]
       },
-      "Carlos": {
+      "Jugador5": {
         "q": [
           "No",
           "Tsunoda",
@@ -147,7 +147,7 @@
       }
     },
     "qatar": {
-      "Toni": {
+      "Jugador4": {
         "q": [
           "Norris",
           "Norris",
@@ -163,7 +163,7 @@
           "Max Verstappen"
         ]
       },
-      "Manrique": {
+      "Jugador1": {
         "q": [
           "Norris",
           "Norris",
@@ -178,7 +178,7 @@
           "Max Verstappen"
         ]
       },
-      "Antonio": {
+      "Jugador3": {
         "q": [
           "Norris",
           "Norris",
@@ -193,7 +193,7 @@
           "Max Verstappen"
         ]
       },
-      "Pere": {
+      "Jugador2": {
         "q": [
           "Piastri",
           "Norris",

@@ -152,7 +152,7 @@ test.describe("Flujo de usuario — Apuestas Fútbol", () => {
 test.describe("Flujo de usuario — Ver apuestas de otros", () => {
   test.beforeAll(async () => {
     // Admin bets on Australia and reveals
-    const API_BASE = process.env.E2E_BASE_URL || "https://dev.porra.manriquegarcia.com";
+    const API_BASE = process.env.E2E_BASE_URL;
     await fetch(`${API_BASE}/g/${ctx.groupId}/bets/f1/australia`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", "x-porra-user": ctx.adminUser },

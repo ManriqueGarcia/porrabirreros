@@ -48,7 +48,7 @@ jobs:
 
       - name: Build (esbuild + Tailwind)
         env:
-          PORRA_API_BASE: ${{ secrets.PORRA_API_BASE_DEV || 'https://dev.porra.manriquegarcia.com' }}
+          PORRA_API_BASE: ${{ secrets.PORRA_API_BASE_DEV }}
           PORRA_AI_URL: ${{ secrets.PORRA_AI_URL }}
         run: node build.mjs
 

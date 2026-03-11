@@ -25,7 +25,7 @@ Estado del proyecto y mejoras pendientes. Última revisión: 2026-03-10.
 - [x] `JSON.parse` sin try/catch en `callGemini`
 - [x] Error handling en carga inicial
 - [x] **Histórico: no dejaba cambiar año tras error 404** (selector siempre visible ahora)
-- [x] **Ranking: mostraba "Pere paga" con todos a 0 pts** (ahora dice "todos pagamos")
+- [x] **Ranking: mostraba "X paga" con todos a 0 pts** (ahora dice "todos pagamos")
 
 ### Seguridad (todo resuelto)
 - [x] `ALLOWED_ORIGIN` restrictivo + validación

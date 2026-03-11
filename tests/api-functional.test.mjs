@@ -2,7 +2,7 @@
  * Tests funcionales de la API contra el entorno de dev.
  *
  * Variables de entorno:
- *   TEST_API_BASE   – URL base de la API dev (default: https://dev.porra.manriquegarcia.com)
+ *   TEST_API_BASE   – URL base de la API dev (requerido)
  *   TEST_API_SECRET – Secret de la API (si aplica)
  *   SKIP_CLEANUP    – Si es "1", no borra los datos al final (para inspeccionar en frontend)
  *
@@ -11,7 +11,8 @@
  */
 import { describe, it, expect } from "vitest";
 
-const API_BASE = (process.env.TEST_API_BASE || "https://dev.porra.manriquegarcia.com").replace(/\/$/, "");
+if (!process.env.TEST_API_BASE) throw new Error("TEST_API_BASE env var is required");
+const API_BASE = process.env.TEST_API_BASE.replace(/\/$/, "");
 const API_SECRET = process.env.TEST_API_SECRET || "";
 
 const TEST_PREFIX = `_test_${Date.now()}`;

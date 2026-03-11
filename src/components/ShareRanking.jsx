@@ -154,7 +154,7 @@ function drawShareImage({ mode, title, rows, subtitle, highlights, prevPositions
   ctx.textAlign = "center";
   ctx.fillStyle = MUTED + "80";
   ctx.font = "22px system-ui, sans-serif";
-  ctx.fillText("porra.manriquegarcia.com", W / 2, H - 60);
+  ctx.fillText("Porra Birreros", W / 2, H - 60);
   ctx.fillStyle = accentColor + "60";
   ctx.fillRect(W / 2 - 40, H - 45, 80, 2);
 

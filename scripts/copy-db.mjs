@@ -1,11 +1,11 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, ScanCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 
-const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-1" }));
+const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || "eu-west-1" }));
 
 async function run() {
-  const src = "porra-f1";
-  const dest = "porra-f1-dev";
+  const src = process.env.DYNAMODB_TABLE_SRC || "PorraBirreros";
+  const dest = process.env.DYNAMODB_TABLE_DEST || "PorraBirreros-dev";
   console.log(`Copiando datos de ${src} a ${dest}...`);
   
   let lastKey = undefined;

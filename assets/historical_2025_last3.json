@@ -13,7 +13,7 @@
     },
     "bets": {
         "las_vegas": {
-            "Toni": {
+            "Jugador4": {
                 "q": [
                     "12",
                     "No",
@@ -28,7 +28,7 @@
                     "Kimi Antonelli"
                 ]
             },
-            "Manrique": {
+            "Jugador1": {
                 "q": [
                     "15",
                     "No",
@@ -43,7 +43,7 @@
                     "Charles Leclerc"
                 ]
             },
-            "Antonio": {
+            "Jugador3": {
                 "q": [
                     "14",
                     "NO",
@@ -58,7 +58,7 @@
                     "Max Verstappen"
                 ]
             },
-            "Pere": {
+            "Jugador2": {
                 "q": [
                     "10",
                     "No",
@@ -75,7 +75,7 @@
             }
         },
         "abu_dhabi": {
-            "Toni": {
+            "Jugador4": {
                 "q": [
                     "S\u00ed",
                     "Gasly",
@@ -91,7 +91,7 @@
                     "George Russell"
                 ]
             },
-            "Manrique": {
+            "Jugador1": {
                 "q": [
                     "S\u00ed",
                     "Colapinto",
@@ -107,7 +107,7 @@
                     "Max Verstappen"
                 ]
             },
-            "Antonio": {
+            "Jugador3": {
                 "q": [
                     "No",
                     "Stroll",
@@ -123,7 +123,7 @@
                     "George Russell"
                 ]
             },
-            "Pere": {
+            "Jugador2": {
                 "q": [
                     "S\u00ed",
                     "Colapinto",
@@ -139,7 +139,7 @@
                     "George Russell"
                 ]
             },
-            "Carlos": {
+            "Jugador5": {
                 "q": [
                     "No",
                     "Tsunoda",
@@ -157,7 +157,7 @@
             }
         },
         "qatar": {
-            "Toni": {
+            "Jugador4": {
                 "q": [
                     "Norris",
                     "Norris",
@@ -173,7 +173,7 @@
                     "Max Verstappen"
                 ]
             },
-            "Manrique": {
+            "Jugador1": {
                 "q": [
                     "Norris",
                     "Norris",
@@ -188,7 +188,7 @@
                     "Max Verstappen"
                 ]
             },
-            "Antonio": {
+            "Jugador3": {
                 "q": [
                     "Norris",
                     "Norris",
@@ -203,7 +203,7 @@
                     "Max Verstappen"
                 ]
             },
-            "Pere": {
+            "Jugador2": {
                 "q": [
                     "Piastri",
                     "Norris",
@@ -221,40 +221,40 @@
         }
     },
     "users": {
-        "Toni": {
-            "name": "Toni",
+        "Jugador4": {
+            "name": "Jugador4",
             "mustChange": false,
             "changedAt": "2025-11-19T21:04:21.042Z",
             "isAdmin": false,
             "blocked": false,
             "passwordHash": "4f8de44ba0a6a041020b0dc9673bff4da1011d7b614d6e36b914edeb2706b4a3"
         },
-        "Manrique": {
-            "name": "Manrique",
+        "Jugador1": {
+            "name": "Jugador1",
             "mustChange": false,
             "changedAt": "2025-11-18T08:17:01.662Z",
             "isAdmin": true,
             "blocked": false,
             "passwordHash": "690cf705a6c3443b541e366a6b09f368b3301073d0d181840e3cc874d06d741b"
         },
-        "Antonio": {
-            "name": "Antonio",
+        "Jugador3": {
+            "name": "Jugador3",
             "mustChange": false,
             "changedAt": "2025-11-29T12:14:24.902Z",
             "isAdmin": false,
             "blocked": false,
             "passwordHash": "975f7402b37b29795ba7be4abd00765c7ac9c8c3b86e88845cbbdd0ea8867528"
         },
-        "Carlos": {
-            "name": "Carlos",
+        "Jugador5": {
+            "name": "Jugador5",
             "mustChange": false,
             "changedAt": "2025-12-06T13:17:57.684Z",
             "isAdmin": false,
             "blocked": false,
             "passwordHash": "f61c00666000349d2a8a1308b5ad2214692bd84577af976714dc13b20f32c975"
         },
-        "Pere": {
-            "name": "Pere",
+        "Jugador2": {
+            "name": "Jugador2",
             "mustChange": false,
             "changedAt": "2025-11-21T20:49:59.594Z",
             "isAdmin": false,
@@ -363,9 +363,9 @@
     },
     "meta": {
         "championships": {
-            "Carlos": 1,
-            "Toni": 1,
-            "Pere": 1
+            "Jugador5": 1,
+            "Jugador4": 1,
+            "Jugador2": 1
         },
         "futbolJornadasUpdated": true,
         "raceOverrides": {},
@@ -376,35 +376,35 @@
         "basePoints": {}
     },
     "questionOwner": {
-        "united_states": "Toni",
-        "las_vegas": "Antonio",
-        "azerbaijan": "Antonio",
-        "brazil": "Pere",
-        "japan": "Manrique",
-        "great_britain": "Pere",
-        "netherlands": "Toni",
-        "australia": "Pere",
-        "bahrain": "Toni",
-        "monaco": "Manrique",
-        "hungary": "Manrique",
-        "miami": "Pere",
-        "singapore": "Manrique",
-        "abu_dhabi": "Toni",
-        "mexico": "Carlos",
-        "qatar": "Manrique",
-        "china": "Antonio",
-        "canada": "Antonio",
-        "barcelona": "Toni",
-        "saudi_arabia": "Carlos",
-        "austria": "Carlos",
-        "madrid": "Pere",
-        "belgium": "Antonio",
-        "italy": "Carlos"
+        "united_states": "Jugador4",
+        "las_vegas": "Jugador3",
+        "azerbaijan": "Jugador3",
+        "brazil": "Jugador2",
+        "japan": "Jugador1",
+        "great_britain": "Jugador2",
+        "netherlands": "Jugador4",
+        "australia": "Jugador2",
+        "bahrain": "Jugador4",
+        "monaco": "Jugador1",
+        "hungary": "Jugador1",
+        "miami": "Jugador2",
+        "singapore": "Jugador1",
+        "abu_dhabi": "Jugador4",
+        "mexico": "Jugador5",
+        "qatar": "Jugador1",
+        "china": "Jugador3",
+        "canada": "Jugador3",
+        "barcelona": "Jugador4",
+        "saudi_arabia": "Jugador5",
+        "austria": "Jugador5",
+        "madrid": "Jugador2",
+        "belgium": "Jugador3",
+        "italy": "Jugador5"
     },
     "questionsStatus": {
         "australia": {
             "publishedAt": "2026-03-03T18:30:58.836Z",
-            "author": "Pere",
+            "author": "Jugador2",
             "published": true
         }
     },
@@ -452,7 +452,7 @@
     "scoreAdjustments": {},
     "betHistory": {
         "las_vegas": {
-            "Toni": [
+            "Jugador4": [
                 {
                     "q": [
                         "Primero",
@@ -514,7 +514,7 @@
                     "ts": "2025-11-21T18:25:54.740Z"
                 }
             ],
-            "Manrique": [
+            "Jugador1": [
                 {
                     "q": [
                         "15",
@@ -531,7 +531,7 @@
                     "ts": "2025-11-21T18:34:25.598Z"
                 }
             ],
-            "Antonio": [
+            "Jugador3": [
                 {
                     "q": [
                         "14",
@@ -548,7 +548,7 @@
                     "ts": "2025-11-21T22:27:05.048Z"
                 }
             ],
-            "Pere": [
+            "Jugador2": [
                 {
                     "q": [
                         "10",
@@ -567,7 +567,7 @@
             ]
         },
         "abu_dhabi": {
-            "Toni": [
+            "Jugador4": [
                 {
                     "q": [
                         "",
@@ -645,7 +645,7 @@
                     "editedByAdmin": true
                 }
             ],
-            "Manrique": [
+            "Jugador1": [
                 {
                     "q": [
                         "",
@@ -693,7 +693,7 @@
                     "editedByAdmin": true
                 }
             ],
-            "Antonio": [
+            "Jugador3": [
                 {
                     "q": [
                         "Hulkenberg",
@@ -743,7 +743,7 @@
                     "editedByAdmin": true
                 }
             ],
-            "Pere": [
+            "Jugador2": [
                 {
                     "q": [
                         "",
@@ -822,7 +822,7 @@
                     "editedByAdmin": true
                 }
             ],
-            "Carlos": [
+            "Jugador5": [
                 {
                     "q": [
                         "",
@@ -857,7 +857,7 @@
             ]
         },
         "qatar": {
-            "Toni": [
+            "Jugador4": [
                 {
                     "q": [
                         "Norris",
@@ -890,7 +890,7 @@
                     "editedByAdmin": true
                 }
             ],
-            "Manrique": [
+            "Jugador1": [
                 {
                     "q": [
                         "Norris",
@@ -922,7 +922,7 @@
                     "ts": "2025-11-29T14:29:32.867Z"
                 }
             ],
-            "Antonio": [
+            "Jugador3": [
                 {
                     "q": [
                         "Norris",
@@ -954,7 +954,7 @@
                     "ts": "2025-11-29T14:42:06.062Z"
                 }
             ],
-            "Pere": [
+            "Jugador2": [
                 {
                     "q": [
                         "",
@@ -989,24 +989,24 @@
         }
     },
     "participants": {
-        "Toni": {
-            "name": "Toni",
+        "Jugador4": {
+            "name": "Jugador4",
             "createdAt": "2025-11-18T08:16:02.215Z"
         },
-        "Manrique": {
-            "name": "Manrique",
+        "Jugador1": {
+            "name": "Jugador1",
             "createdAt": "2025-11-18T08:16:02.215Z"
         },
-        "Antonio": {
-            "name": "Antonio",
+        "Jugador3": {
+            "name": "Jugador3",
             "createdAt": "2025-11-18T08:16:02.215Z"
         },
-        "Carlos": {
-            "name": "Carlos",
+        "Jugador5": {
+            "name": "Jugador5",
             "createdAt": "2025-11-18T08:16:02.215Z"
         },
-        "Pere": {
-            "name": "Pere",
+        "Jugador2": {
+            "name": "Jugador2",
             "createdAt": "2025-11-18T08:16:02.215Z"
         }
     }

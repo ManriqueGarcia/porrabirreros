@@ -122,7 +122,7 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 ### Lógica de birras
 
 - **El ganador recibe birras**: invertida la lógica — ahora los demás invitan al primero en la clasificación (antes el último pagaba).
-- **Marc excluido**: el usuario Marc no participa en la lógica de birras (menor de edad). Configurable en `BEER_EXCLUDED_USERS`.
+- **Usuarios excluidos de birras**: ciertos usuarios pueden excluirse de la lógica de birras. Configurable en `BEER_EXCLUDED_USERS`.
 - Actualizado en: Stats, WelcomeBanner, Ranking, FutbolRanking, Rules, LandingPage, App footer, Participante, FutbolParticipante.
 
 ### Rendimiento
@@ -337,7 +337,7 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 ### Birras condicionales
 - **F1 Ranking**: no se muestra badge "🍺 paga las birras" ni podio si no hay GPs con resultados.
 - **Fútbol Ranking**: misma lógica para jornadas sin resultados.
-- **WelcomeBanner**: si no hay resultados, muestra "las birras las paga Antonio, como siempre" en vez de un ranking arbitrario.
+- **WelcomeBanner**: si no hay resultados, muestra un mensaje motivacional en vez de un ranking arbitrario.
 - Caso de empate total con resultados: badge "🍺 todos pagamos" (ambos modos).
 
 ### Documentación
@@ -417,7 +417,7 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 - 10 avatares SVG rediseñados: estilo Vizcarra (F1, pilotos) y Alberto Arias (fútbol, futbolistas).
 - Fix: avatares F1/fútbol mezclados en rankings — prop `mode` explícito en todos los `Avatar`.
-- Fix: Manrique siempre mostrando avatar fútbol — reescritura de `Avatar.jsx` con `useRef` para fallback.
+- Fix: un usuario siempre mostrando avatar fútbol — reescritura de `Avatar.jsx` con `useRef` para fallback.
 - Fix: XML syntax errors en SVGs (carlos, pere, toni, antonio).
 - Fix: compartir apuesta WhatsApp ahora incluye respuestas a las 3 preguntas.
 
@@ -508,7 +508,7 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 - Fix: histórico 2025 solo datos reales (Las Vegas, Qatar, Abu Dhabi).
 - Calendario F1 2026: 24 GP con fechas y horarios.
 - Pilotos y escuderías F1 2026.
-- Pere: +1 campeonato mundial (ganador 2025).
+- Ganador 2025: +1 campeonato mundial.
 - Sincronización con repositorio porrabirreros.
 
 ## [2025-12-16] — Versión inicial

@@ -4,7 +4,7 @@ import path from "path";
 import { execSync } from "child_process";
 
 const DIR = path.join(process.cwd(), "avatares_reales");
-const PARTICIPANTES = ["Antonio", "Carlos", "Toni", "Pere", "Manrique", "Marc"];
+const PARTICIPANTES = process.env.PORRA_PARTICIPANTS?.split(",") || ["Jugador1", "Jugador2", "Jugador3"];
 const MODOS = ["f1", "futbol"];
 
 // Formatos permitidos
@@ -77,9 +77,12 @@ async function run() {
   }
 
   // Obtenemos los avatares actuales de la BD para hacer merge (por si solo subes 1 o 2 imágenes nuevas)
+  const tbl = process.env.DYNAMODB_TABLE || "PorraBirreros";
+  const grp = process.env.PORRA_GROUP_ID || "tu-grupo";
+  const rgn = process.env.AWS_REGION || "eu-west-1";
   let currentMeta = null;
   try {
-    const res = execSync(`aws dynamodb get-item --table-name porra-f1 --region us-east-1 --key '{"pk":{"S":"G#birreros"},"sk":{"S":"META|CONFIG"}}' --projection-expression "avatars,avatarsFutbol"`, { encoding: "utf8" });
+    const res = execSync(`aws dynamodb get-item --table-name ${tbl} --region ${rgn} --key '{"pk":{"S":"G#${grp}"},"sk":{"S":"META|CONFIG"}}' --projection-expression "avatars,avatarsFutbol"`, { encoding: "utf8" });
     const parsed = JSON.parse(res);
     if (parsed.Item) {
       if (parsed.Item.avatars?.M) Object.assign(avatarsM, parsed.Item.avatars.M, avatarsM); // Prioriza los nuevos
@@ -95,8 +98,8 @@ async function run() {
     ":avf": { M: avatarsFutbolM },
   });
 
-  const cmd = `aws dynamodb update-item --table-name porra-f1 --region us-east-1 --key '${JSON.stringify({
-    pk: { S: "G#birreros" },
+  const cmd = `aws dynamodb update-item --table-name ${tbl} --region ${rgn} --key '${JSON.stringify({
+    pk: { S: `G#${grp}` },
     sk: { S: "META|CONFIG" },
   })}' --update-expression '${updateExpr}' --expression-attribute-values '${exprValues}'`;
 

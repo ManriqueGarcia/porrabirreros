@@ -2,6 +2,15 @@
 
 Aplicacion web para gestionar porras de Formula 1 y Futbol entre amigos. Al que gane, le invitan a birras.
 
+## 📦 Versiones
+
+| Version | Fecha | Descripcion |
+|---------|-------|-------------|
+| **v2.0.0** | 2026-03-11 | Bravuconadas, estadísticas fútbol, birrómetro, muro de la vergüenza, logros, historial personal, ranking compartible. Fix React #300 en logout, gradientes responsive, trashtalk fútbol. |
+| **v1.0.0** | 2026-03-01 | Primera versión estable: porra F1 y fútbol, login global, multi-tenancy, ManriBot AI, ranking, estadísticas, PWA. |
+
+Ver [CHANGELOG.md](CHANGELOG.md) para el detalle completo de cada versión.
+
 ## 🏗️ Arquitectura de la aplicacion
 
 ```mermaid

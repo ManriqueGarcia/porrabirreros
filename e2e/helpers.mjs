@@ -2,7 +2,8 @@
  * Helpers compartidos para los tests E2E.
  */
 
-const API_BASE = process.env.E2E_BASE_URL || "https://dev.porra.manriquegarcia.com";
+if (!process.env.E2E_BASE_URL) throw new Error("E2E_BASE_URL env var is required");
+const API_BASE = process.env.E2E_BASE_URL;
 // SHA-256 of "test123"
 const PASSWORD_HASH = "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae";
 const PASSWORD = "test123";
