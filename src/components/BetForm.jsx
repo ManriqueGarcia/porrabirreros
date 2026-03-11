@@ -34,11 +34,13 @@ function BetForm({bet,disabled,onSubmit,questions,drivers,late,canEdit}){
   const [editing,setEditing]=useState(!hasSavedBet);
   const [pole,setPole]=useState(bet.pole||""); const [p1,setP1]=useState(bet.podium?.[0]||""); const [p2,setP2]=useState(bet.podium?.[1]||""); const [p3,setP3]=useState(bet.podium?.[2]||"");
   const [q1,setQ1]=useState(bet.q?.[0]||""); const [q2,setQ2]=useState(bet.q?.[1]||""); const [q3,setQ3]=useState(bet.q?.[2]||"");
-  const betFingerprint=JSON.stringify([bet.pole,bet.podium,bet.q,bet.submittedAt]);
+  const [trashtalk,setTrashtalk]=useState(bet.trashtalk||"");
+  const betFingerprint=JSON.stringify([bet.pole,bet.podium,bet.q,bet.submittedAt,bet.trashtalk]);
   useEffect(()=>{
     setPole(bet.pole||"");
     setP1(bet.podium?.[0]||""); setP2(bet.podium?.[1]||""); setP3(bet.podium?.[2]||"");
     setQ1(bet.q?.[0]||""); setQ2(bet.q?.[1]||""); setQ3(bet.q?.[2]||"");
+    setTrashtalk(bet.trashtalk||"");
     if(bet.submittedAt && (bet.pole || bet.podium?.some(Boolean))) setEditing(false);
   },[betFingerprint]);
   const hasQuestions=questions.some(q=>q&&q.trim());
@@ -46,7 +48,7 @@ function BetForm({bet,disabled,onSubmit,questions,drivers,late,canEdit}){
     e.preventDefault();
     const pod=[p1,p2,p3].filter(Boolean);
     if(pod.length!==new Set(pod).size) return toast.error("No puedes repetir piloto en el podio");
-    onSubmit({pole,podium:[p1,p2,p3],q:[q1,q2,q3]});
+    onSubmit({pole,podium:[p1,p2,p3],q:[q1,q2,q3],trashtalk:trashtalk.trim()});
     setEditing(false);
   };
 
@@ -79,6 +81,7 @@ function BetForm({bet,disabled,onSubmit,questions,drivers,late,canEdit}){
                 <span className="text-white/80 text-sm ml-auto shrink-0">{bet.q?.[i]||<span className="text-white/25 italic">—</span>}</span>
               </div>)}
             </div>}
+            {bet.trashtalk && <div className="mt-2 pt-2 border-t border-white/5 flex items-start gap-1.5"><span className="text-sm">💬</span><span className="text-xs text-white/50 italic">"{bet.trashtalk}"</span></div>}
           </div>
         </div>
         <button
@@ -114,6 +117,10 @@ function BetForm({bet,disabled,onSubmit,questions,drivers,late,canEdit}){
       ) : (
         <div className="text-xs text-white/30 italic p-2 border border-white/5 rounded bg-white/[.02]">Las preguntas aún no han sido publicadas por el autor.</div>
       )}
+      <div className="mt-3">
+        <label className="text-sm font-semibold flex items-center gap-1.5">💬 Bravuconada <span className="text-[10px] text-white/30 font-normal">(opcional — se revela con los resultados)</span></label>
+        <input disabled={disabled} className="select border rounded px-3 py-2 w-full mt-1" value={trashtalk} onChange={e=>setTrashtalk(e.target.value)} placeholder="¿Algo que decir? Ej: Esta la tengo clarísima..." maxLength={120}/>
+      </div>
       <div className="flex gap-2 mt-3">
         <button disabled={disabled} className={`flex-1 px-4 py-2 rounded ${disabled?"bg-slate-200 text-slate-500":late?"bg-amber-600 text-white":"bg-emerald-600 text-white"}`}>{disabled?"Cerrado por admin":late?"Guardar (fuera de plazo, -2 pts)":"Guardar apuesta"}</button>
         {hasSavedBet && <button type="button" onClick={()=>setEditing(false)} className="px-4 py-2 rounded bg-white/5 border border-white/10 text-white/50 hover:text-white/70 transition-colors">Cancelar</button>}

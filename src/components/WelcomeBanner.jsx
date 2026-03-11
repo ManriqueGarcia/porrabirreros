@@ -6,6 +6,7 @@ import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
 function WelcomeBanner({user,db,races,mode,onDismiss}){
+  const isFut=mode==="futbol";
   const porraParticipants=useMemo(()=>getParticipantsForPorra(db,mode==="f1"?"f1":"futbol"),[db.participants,db.users,mode]);
   const standings=useMemo(()=>{
     if(mode==="f1") return computeGlobalStandings(db,races,porraParticipants);
@@ -18,31 +19,41 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const pos=myIdx>=0?myIdx+1:null;
   const myPts=pos?standings[myIdx].points:0;
   const trend=useMemo(()=>{
-    if(mode!=="f1"||!races?.length) return null;
-    const completedRaces=races.filter(r=>db.results?.[r.key]);
-    if(completedRaces.length<2) return null;
-    const allButLast=completedRaces.slice(0,-1);
-    const lastRace=completedRaces[completedRaces.length-1];
-    const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants);
+    if(mode==="f1"){
+      if(!races?.length) return null;
+      const completedRaces=races.filter(r=>db.results?.[r.key]);
+      if(completedRaces.length<2) return null;
+      const allButLast=completedRaces.slice(0,-1);
+      const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants);
+      const prevPos=prevStandings.findIndex(s=>s.name===user)+1;
+      if(!prevPos||!pos) return null;
+      return prevPos-pos;
+    }
+    const futbol=db.futbol||defaultFutbolState();
+    const jornadas=listFutbolJornadas(futbol);
+    const completed=jornadas.filter(j=>futbol.results?.[j.id]);
+    if(completed.length<2) return null;
+    const allButLast=completed.slice(0,-1);
+    const prevStandings=computeFutbolStandings(futbol,porraParticipants,allButLast);
     const prevPos=prevStandings.findIndex(s=>s.name===user)+1;
-    const currPos=pos;
-    if(!prevPos||!currPos) return null;
-    const diff=prevPos-currPos;
-    return diff;
+    if(!prevPos||!pos) return null;
+    return prevPos-pos;
   },[db,races,mode,user,pos,porraParticipants]);
-  const nextRaceInfo=useMemo(()=>{
-    if(mode!=="f1") return null;
+  const nextEventInfo=useMemo(()=>{
     const now=Date.now();
-    const next=(races||[]).find(r=>r.cutoff&&r.cutoff.getTime()>now);
+    if(mode==="f1"){
+      const next=(races||[]).find(r=>r.cutoff&&r.cutoff.getTime()>now);
+      if(!next) return null;
+      const hasBet=!!db.bets?.[next.key]?.[user]?.submittedAt;
+      return {name:next.grand_prix,hasBet,key:next.key};
+    }
+    const futbol=db.futbol||defaultFutbolState();
+    const jornadas=listFutbolJornadas(futbol);
+    const next=jornadas.find(j=>j.deadline&&new Date(j.deadline).getTime()>now);
     if(!next) return null;
-    const hasBet=!!db.bets?.[next.key]?.[user]?.submittedAt;
-    return {name:next.grand_prix,hasBet,key:next.key};
-  },[races,db.bets,user,mode]);
-  const leader=standings[0];
-  const last=standings[total-1];
-  if(!pos||total<2) return null;
-
-  const isFut=mode==="futbol";
+    const hasBet=!!futbol.bets?.[next.id]?.[user]?.submittedAt;
+    return {name:next.name||`Jornada ${next.id}`,hasBet,key:next.id};
+  },[races,db.bets,db.futbol,user,mode]);
   const nextRaceKey=useMemo(()=>{
     if(isFut){
       const futbol=db.futbol||defaultFutbolState();
@@ -55,15 +66,19 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     const next=(races||[]).find(r=>r.qStart&&r.qStart.getTime()>now);
     return next?next.key:(races||[]).length?races[races.length-1].key:"unknown";
   },[races,mode,db.futbol]);
-  const dismissKey=`porra_banner_${user}_${nextRaceKey}`;
-  if(sessionStorage.getItem(dismissKey)==="1") return null;
-
   const hasResults=useMemo(()=>{
     if(mode==="f1") return (races||[]).some(r=>db.results?.[r.key]);
     const futbol=db.futbol||defaultFutbolState();
     const jornadas=listFutbolJornadas(futbol);
     return jornadas.some(j=>futbol.results?.[j.id]);
   },[db,races,mode]);
+
+  const leader=standings[0];
+  const last=standings[total-1];
+  if(!pos||total<2) return null;
+
+  const dismissKey=`porra_banner_${user}_${nextRaceKey}`;
+  if(sessionStorage.getItem(dismissKey)==="1") return null;
 
   const gap=leader?leader.points-myPts:0;
   const gapToLast=last&&myIdx!==total-1?myPts-last.points:0;
@@ -136,11 +151,11 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
             <div className="text-[10px] text-white/40">{trend>0?`Subiste ${trend} pos.`:trend<0?`Bajaste ${Math.abs(trend)} pos.`:"Mantienes posición"}</div>
           </div>
         )}
-        {nextRaceInfo&&(
+        {nextEventInfo&&(
           <div className="text-center p-2 rounded-lg bg-white/[.03] border border-white/5">
-            <div className="text-lg">{nextRaceInfo.hasBet?"✅":"❌"}</div>
-            <div className="text-[10px] text-white/40">{nextRaceInfo.hasBet?"Ya apostaste":"Sin apuesta"}</div>
-            <div className="text-[9px] text-white/25 truncate">{nextRaceInfo.name}</div>
+            <div className="text-lg">{nextEventInfo.hasBet?"✅":"❌"}</div>
+            <div className="text-[10px] text-white/40">{nextEventInfo.hasBet?"Ya apostaste":"Sin apuesta"}</div>
+            <div className="text-[9px] text-white/25 truncate">{nextEventInfo.name}</div>
           </div>
         )}
         <div className="text-center p-2 rounded-lg bg-white/[.03] border border-white/5">

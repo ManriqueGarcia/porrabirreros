@@ -7,9 +7,11 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
   const [editing,setEditing]=useState(!hasSavedBet);
   const initialScores=()=>matches.map((_,idx)=>({home:bet?.matches?.[idx]?.home??"", away:bet?.matches?.[idx]?.away??""}));
   const [scores,setScores]=useState(initialScores);
-  const betFingerprint=JSON.stringify([bet?.matches,bet?.submittedAt]);
+  const [trashtalk,setTrashtalk]=useState(bet?.trashtalk||"");
+  const betFingerprint=JSON.stringify([bet?.matches,bet?.submittedAt,bet?.trashtalk]);
   useEffect(()=>{
     setScores(initialScores());
+    setTrashtalk(bet?.trashtalk||"");
     if(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null)) setEditing(false);
   },[betFingerprint,jornada?.id,matches.length]);
   const handleScoreChange=(idx,field,val)=>{
@@ -21,7 +23,7 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
     e.preventDefault();
     if(!allFilled) return toast.error("Rellena todos los marcadores antes de guardar");
     const parsedScores=scores.map(s=>({home:Number(s.home), away:Number(s.away)}));
-    onSubmit({matches:parsedScores});
+    onSubmit({matches:parsedScores,trashtalk:trashtalk.trim()});
     setEditing(false);
   };
 
@@ -46,6 +48,7 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
               </div>
             ))}
           </div>
+          {bet.trashtalk && <div className="mt-2 pt-2 border-t border-white/5 flex items-start gap-1.5"><span className="text-sm">💬</span><span className="text-xs text-white/50 italic">"{bet.trashtalk}"</span></div>}
         </div>
         <button
           disabled={!canEdit}
@@ -78,9 +81,13 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
           </div>
         </div>
       ))}
+      <div className="mt-2">
+        <label className="text-sm font-semibold flex items-center gap-1.5">💬 Bravuconada <span className="text-[10px] text-white/30 font-normal">(opcional — se revela con los resultados)</span></label>
+        <input disabled={disabled} className="select border rounded px-3 py-2 w-full mt-1" value={trashtalk} onChange={e=>setTrashtalk(e.target.value)} placeholder="¿Algo que decir? Ej: Esta jornada es mía..." maxLength={120}/>
+      </div>
       <div className="flex gap-2 mt-1">
         <button disabled={disabled||!allFilled} className={`flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${disabled?"bg-white/5 text-white/30 border border-white/5":!allFilled?"bg-white/5 text-white/25 border border-white/5 cursor-not-allowed":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{disabled?"⏳ Cerrado por admin":!allFilled?"⚽ Rellena todos los marcadores":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"⚽ Guardar apuesta"}</button>
-        {hasSavedBet && <button type="button" onClick={()=>{setScores(initialScores());setEditing(false);}} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/70 transition-colors text-sm">Cancelar</button>}
+        {hasSavedBet && <button type="button" onClick={()=>{setScores(initialScores());setTrashtalk(bet?.trashtalk||"");setEditing(false);}} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/70 transition-colors text-sm">Cancelar</button>}
       </div>
     </form>
   );

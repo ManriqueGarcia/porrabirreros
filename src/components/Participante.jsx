@@ -9,6 +9,7 @@ import { Avatar } from "./Avatar.jsx";
 import { CircuitCard } from "./CircuitCard.jsx";
 import { BetForm } from "./BetForm.jsx";
 import { CountdownBadge } from "./CountdownBadge.jsx";
+import { fireConfetti } from "../confetti.js";
 
 export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceKey,setSelectedRaceKey}){
   const now=useNow();
@@ -44,7 +45,8 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const manualReveal=race ? db.betsReveal?.[race.key] : null;
   const isBeforeCutoff=race && now<race.cutoff;
   const isLate=race && !isBeforeCutoff;
-  const hasResult=race && !!db.results?.[race.key];
+  const raceResult=race ? db.results?.[race.key] : null;
+  const hasResult=!!(raceResult && raceResult.pole && raceResult.podium?.filter(p=>p).length===3);
   const canEdit=race ? (!manualWindow?.forceClosed && !hasResult) : false;
   const isAdmin=!!db.users?.[user]?.isAdmin;
   const canViewFull=race && (manualReveal?.forceShow || now>race.showBetsAt);
@@ -81,31 +83,35 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       }
       return {...prev, bets:nextBets, betHistory};
     });
-    late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
+    if(late){toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)");}else{toast.success("Apuesta guardada correctamente");fireConfetti();}
     setSavingF1(false); savingF1Ref.current = false;
   },[race?.key,race?.cutoff,user,setDb]);
   const betsStatus=race ? (hasResult?"Cerrado (resultados publicados)":manualWindow?.forceClosed?"Cerrado por admin":isLate?"Fuera de plazo (penalización -2 pts)":manualWindow?.forceOpen?"Abierto por admin":"Abierto") : "—";
+  const betCount=useMemo(()=>{
+    if(!race) return {done:0,total:0};
+    const betsForRace=db.bets?.[race.key]||{};
+    const done=f1Participants.filter(n=>betsForRace[n]?.submittedAt).length;
+    return {done,total:f1Participants.length};
+  },[race?.key,db.bets,f1Participants]);
   const showOthersPanel=showOthers && !!race;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
   return (<div className={`grid gap-4 ${layoutCols}`}>
-    {race && !bet?.submittedAt && !manualWindow?.forceClosed && race.cutoff && (race.cutoff.getTime() - Date.now() < 86400000) && (race.cutoff.getTime() - Date.now() > 0) && (
-      <div className="mb-4 p-4 rounded-xl bg-gradient-to-r from-red-500/15 to-amber-500/10 border border-red-500/25 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-500/60 via-amber-500/40 to-transparent"></div>
-        <div className="flex items-center gap-3">
-          <span className="text-3xl">⏰</span>
-          <div>
-            <div className="font-bold text-red-300 text-sm">¡No has apostado aún para {race.grand_prix}!</div>
-            <div className="text-xs text-white/50 mt-0.5">Quedan menos de 24 horas para el cierre de apuestas. ¡No te quedes sin jugar!</div>
-          </div>
-        </div>
-      </div>
-    )}
     <div className="card card-racing p-4 md:p-5 min-w-0">
       <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
           <h2 className="section-title">🏁 Tu apuesta <span className="text-xs opacity-40">· que te inviten a birras</span></h2>
         {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
       </div>
       <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
+      {race && betCount.total>0 && !hasResult && (
+        <div className="flex items-center gap-2 mb-3 text-xs">
+          <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{width:`${(betCount.done/betCount.total)*100}%`,background:betCount.done===betCount.total?"#22c55e":"linear-gradient(90deg,#f59e0b,#e10600)"}}></div>
+          </div>
+          <span className={`font-semibold whitespace-nowrap ${betCount.done===betCount.total?"text-emerald-400":"text-amber-300/70"}`}>
+            {betCount.done===betCount.total?"✓ Todos han apostado":`${betCount.done}/${betCount.total} han apostado`}
+          </span>
+        </div>
+      )}
       {race && (<>
         <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/10 via-sky-900/5 to-transparent border border-sky-500/20 p-4 text-center group hover:border-sky-400/35 transition-all">
@@ -146,21 +152,37 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
             </div>
           </div>
         </div>
-        <div className="mb-4 p-3 rounded-xl bg-white/[.025] border border-white/[.06] relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="text-sm font-bold text-white/85">⏰ Cierre apuestas:</span>
-              <span className="text-amber-300 font-bold text-lg tabular-nums">{formatTime(race.cutoff,MADRID_TZ)}</span>
-              <span className="text-amber-100 text-xs">(España)</span>
+        {(()=>{
+          const noBet=!bet?.submittedAt && canEdit && race.cutoff && race.cutoff.getTime()>Date.now();
+          const hoursLeft=race.cutoff?Math.max(0,(race.cutoff.getTime()-Date.now())/3600000):999;
+          const urgent=noBet && hoursLeft<24;
+          return (
+            <div className={`mb-4 p-3 rounded-xl relative overflow-hidden ${urgent?"bg-gradient-to-r from-red-500/12 to-amber-500/8 border border-red-500/25":noBet?"bg-gradient-to-r from-amber-500/8 to-sky-500/5 border border-amber-500/15":"bg-white/[.025] border border-white/[.06]"}`}>
+              <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${urgent?"from-red-500/60 via-amber-500/40 to-transparent":noBet?"from-amber-500/30 via-sky-500/20 to-transparent":"from-transparent via-red-500/30 to-transparent"}`}></div>
+              {noBet && (
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">{urgent?"🔥":"🏁"}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-bold text-sm ${urgent?"text-red-300":"text-amber-200"}`}>{urgent?`¡Solo quedan ${hoursLeft<1?`${Math.ceil(hoursLeft*60)} minutos`:Math.ceil(hoursLeft)+" horas"}!`:"¡Apuesta disponible!"}</div>
+                    <div className="text-xs text-white/50 mt-0.5">{urgent?"No apostar son -3 pts. ¡Rellena el formulario!":"Rellena tu apuesta antes del cierre. ¡Que te inviten a las birras!"}</div>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-sm font-bold text-white/85">⏰ Cierre:</span>
+                  <span className="text-amber-300 font-bold text-lg tabular-nums">{formatTime(race.cutoff,MADRID_TZ)}</span>
+                  <span className="text-amber-100 text-xs">(España)</span>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
+                  <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
+                </div>
+              </div>
+              <CountdownBadge target={race.cutoff}/>
             </div>
-            <div className="flex flex-wrap gap-3 text-xs">
-              <span><span className="text-slate-400">Estado:</span> <span className={betsStatus.includes("Abierto")?"text-emerald-300":"text-slate-300"}>{betsStatus}</span></span>
-              <span><span className="text-slate-400">Visibilidad:</span> <span className="text-slate-300">{manualReveal?.forceShow?"Publicadas por admin":"Ocultas hasta quali"}</span></span>
-            </div>
-          </div>
-          <CountdownBadge target={race.cutoff}/>
-        </div>
+          );
+        })()}
       </>)}
       {race && owner===user && !db.questionsStatus?.[race.key]?.published && (
         <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-red-500/[.06] border border-amber-400/25 relative overflow-hidden">
@@ -274,7 +296,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       {race && !showStatusOnly && !canViewFull && <p className="text-sm text-slate-300">Se verán 1 minuto después del inicio de la quali (o si el admin las publica antes).</p>}
       {race && canViewFull && (
         <ul className="space-y-2">
-          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="f1"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div></div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
+          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="f1"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div>{hasResult && bet.trashtalk && <div className="mt-1 text-xs italic text-white/40">💬 "{bet.trashtalk}"</div>}</div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
         </ul>
       )}
     </div>)}

@@ -4,6 +4,142 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-03-11d] — Fix crash al cerrar sesión + trashtalk fútbol
+
+### Bugfixes
+
+- **Error React #300 al pulsar "Salir"**: `WelcomeBanner` tenía hooks (`useMemo`) después de early returns, violando las reglas de hooks. Al hacer logout, `user` pasaba a `""`, activaba el early return y React veía menos hooks que en el render anterior. Movidos todos los hooks antes de cualquier `return`.
+- **Redirección durante render en `App`**: `window.location.hash = "#/"` se ejecutaba como side-effect durante render, causando posible `setState` durante render. Movido a `useEffect`.
+- **Trashtalk no visible en fútbol**: `FutbolParticipante.saveBet` no incluía `payload.trashtalk` en el objeto `nextBet` del estado local, por lo que la bravuconada no se mostraba tras guardar (ya desplegado en la iteración anterior).
+
+### Mantenimiento
+
+- **Service Worker v3**: actualizado `CACHE_NAME` para forzar limpieza de caché.
+
+### Archivos modificados
+- `src/components/WelcomeBanner.jsx` — Hooks movidos antes de early returns
+- `src/components/App.jsx` — Redirects movidos a useEffect
+- `src/components/FutbolParticipante.jsx` — trashtalk incluido en nextBet
+- `sw.js` — Cache name v3
+
+---
+
+## [2026-03-11c] — Fix responsive: gradientes y navegación móvil
+
+### Bugfixes
+
+- **Gradientes de títulos rotos en móvil**: `background-clip: text` fallaba en GPUs móviles dentro de contenedores con `backdrop-filter`, produciendo un gradiente negro-a-rojo ilegible. En pantallas < 641px ahora se usa texto blanco sólido; el gradiente decorativo se mantiene solo en desktop.
+- **Menú superior visible en móvil**: la regla CSS `display:flex` en `.porra-nav` sobreescribía la clase Tailwind `hidden md:flex`. Eliminado `display:flex` del CSS custom para que la bottom nav sea la única navegación en móvil.
+- **Scroll al cambiar de vista**: añadido `window.scrollTo(0, 0)` al cambiar de pestaña para que siempre se muestre la parte superior del contenido.
+
+### Mantenimiento
+
+- **Service Worker v2**: actualizado `CACHE_NAME` de `porra-v1` a `porra-v2` para forzar limpieza de caché antigua en todos los navegadores.
+
+### Archivos modificados
+- `src.css` — Gradientes section-title solo desktop, eliminado display:flex de .porra-nav, light theme fix
+- `src/components/App.jsx` — Scroll-to-top en cambio de vista, header móvil simplificado
+- `sw.js` — Cache name v2
+
+---
+
+## [2026-03-11b] — Bravuconadas, Muro de la vergüenza y Birrómetro
+
+### Nuevas funcionalidades
+
+- **Bravuconadas (trash-talk)**: campo opcional de texto (máx. 120 caracteres) en los formularios de apuesta de F1 y Fútbol. El mensaje se guarda con la apuesta y se revela tras la publicación de resultados. Visible en la apuesta propia, en las apuestas de otros (post-resultados) y en el resumen del último GP del ranking F1 (con icono 🤡 para quien quedó mal y 😏 para el resto).
+
+- **Muro de la vergüenza**: nuevo bloque en Estadísticas (F1 y Fútbol) que destaca con humor las peores predicciones. Incluye: peor puntuación individual (💀), rey del farolillo rojo (🥄), siempre tarde (🐌), el fantasma (👻) y bravuconadas fallidas (🗣️) — cuando alguien deja un trashtalk y acaba en la parte baja del ranking del evento. Frases de vergüenza aleatorias.
+
+- **Birrómetro**: visualización del balance neto de birras por participante. Muestra cuántas te deben vs cuántas debes con barras bidireccionales (verde = positivo, rojo = negativo) y emojis contextuales (😎/😰/😅/😐). Excluye usuarios en BEER_EXCLUDED_USERS.
+
+### UX
+
+- **Menú móvil simplificado**: eliminada la barra de usuario duplicada en móvil (avatar + contraseña + salir), ya que la bottom nav cubre toda la navegación. Los botones de contraseña y salir quedan integrados en el header de forma compacta.
+
+### Archivos nuevos
+- `src/components/WallOfShame.jsx` — Muro de la vergüenza
+- `src/components/Birrometro.jsx` — Balance neto de birras
+
+### Archivos modificados
+- `src/components/BetForm.jsx` — Campo trashtalk en apuestas F1
+- `src/components/FutbolBetForm.jsx` — Campo trashtalk en apuestas Fútbol
+- `src/components/Participante.jsx` — Revelado de bravuconadas en apuestas de otros
+- `src/components/FutbolParticipante.jsx` — Revelado de bravuconadas en apuestas de otros
+- `src/components/Ranking.jsx` — Sección de bravuconadas en resumen último GP
+- `src/components/Stats.jsx` — Integración WallOfShame y Birrometro
+- `src/components/FutbolStats.jsx` — Integración WallOfShame y Birrometro
+- `src/components/App.jsx` — Eliminado menú responsive duplicado
+
+---
+
+## [2026-03-11] — Dinamismo, engagement y UX móvil (8 funcionalidades)
+
+### Nuevas funcionalidades
+
+- **Bottom navigation móvil** (#6): barra de navegación fija en la parte inferior de la pantalla en dispositivos móviles (md:hidden). Incluye Apuesta, Ranking, Stats, Preguntas (F1), Normas, Admin y ManriBot. La nav superior se oculta en móvil. Soporte para tema claro, safe-area-inset y modo F1/Fútbol con colores diferenciados.
+
+- **Rivalidades automáticas** (#17): detección automática de los 3 pares de participantes que más compiten cabeza a cabeza. Algoritmo basado en cercanía en puntos (40%), equilibrio de victorias H2H (40%) y similitud de apuestas (20%). Visualización con barra comparativa, victorias H2H, empates e intensidad. Funciona para F1 (pole/podio) y Fútbol (signo de partidos). Requiere 2+ eventos y 3+ participantes.
+
+- **Comparativa Tú vs Amigo** (#11): selector de rival con comparación directa en Stats (F1 y Fútbol). Muestra barra de puntos, grid de estadísticas (puntos, victorias, empates, aciertos, exactos) y mini-gráfico SVG de evolución por evento con barras duales.
+
+- **Skeleton loaders** (#8): esqueletos animados con pulso que reemplazan el texto "Conectando con el servidor..." durante la carga inicial. Incluye SkeletonNav (barra de tabs) y SkeletonPage (2 tarjetas con filas de avatar + texto).
+
+- **Logros/achievements** (#15): sistema de logros desbloqueables por participante. 12 logros F1 (primera apuesta, primera victoria, tricampeón, vidente de poles, hat-trick poles, pleno, en racha ×3, imparable ×5, rey de birras, nunca fallo, remontada, podio perfecto) y 10 logros fútbol (primera apuesta, primera victoria, exacto, coleccionista de exactos, jornada perfecta, en racha, rey de birras, nunca fallo, signólogo, remontada). Barra de progreso, selector de usuario, diseño con gradientes y estados bloqueado/desbloqueado.
+
+- **Swipe entre vistas en móvil** (#9): detección de swipe horizontal en el contenedor principal para cambiar de pestaña. Threshold de 60px mínimo, ángulo máximo de 70% respecto al vertical, velocidad máxima de 400ms. Navega secuencialmente entre Apuesta → Ranking → Stats → Preguntas → Normas.
+
+- **Historial personal con timeline** (#16): timeline vertical visual para cada participante con puntos de color según resultado (verde=positivo, rojo=negativo, dorado=pleno, gris=neutro). Muestra puntos del evento, posición en el evento, acumulado total, ranking acumulado, y badges (pole, podio exacto, pleno, exactos, signos, tarde, no apostó). Selector de usuario para ver el historial de cualquier participante. Funciona para F1 y Fútbol.
+
+- **Animación cambio de posición en ranking** (#2): indicadores ▲N (verde), ▼N (rojo) y = (naranja) junto al nombre del participante en rankings F1 y Fútbol. Compara la posición actual con la que tendría sin el último evento completado. Animación popIn CSS. Requiere 2+ eventos completados.
+
+### Archivos nuevos
+- `src/components/HeadToHead.jsx` — Comparativa Tú vs Amigo
+- `src/components/Skeleton.jsx` — Skeleton loaders
+- `src/components/Achievements.jsx` — Logros/achievements
+- `src/components/PersonalHistory.jsx` — Historial personal con timeline
+- `src/components/Rivalries.jsx` — Rivalidades automáticas
+- `src/components/BeerChart.jsx` — Gráfico de birras con jarras SVG
+- `src/components/ShareRanking.jsx` — Imagen compartible del ranking
+
+### Archivos modificados
+- `src/components/App.jsx` — Bottom nav, skeleton, swipe, currentUser prop
+- `src/components/Stats.jsx` — Integración HeadToHead, Achievements, PersonalHistory, Rivalries
+- `src/components/FutbolStats.jsx` — Integración HeadToHead, Achievements, PersonalHistory, Rivalries
+- `src.css` — Estilos bottom-nav, tema claro, safe-area
+
+---
+
+## [2026-03-10] — UX, rendimiento y lógica de birras
+
+### UX — Rediseño visual
+
+- **Horarios del GP en tres tarjetas**: la sección de horarios del GP se ha dividido en tres tarjetas visuales lado a lado (Clasificación azul, Carrera rojo, Preguntas ámbar) con gradientes, línea de acento y hover animado. Countdown badge debajo en barra separada.
+- **Info jornada fútbol en tres tarjetas**: mismo diseño para fútbol (Partidos verde, Cierre ámbar, Estado azul).
+- **Ranking F1 con conteo y ticks**: el selector de ranking F1 ahora muestra el número de carreras disputadas en la opción Global y un ✓ detrás de cada GP con resultados (como ya hacía fútbol).
+- **Apuestas cerradas tras resultados completos**: cuando el admin publica todos los resultados (F1: pole + podio completo; fútbol: todos los marcadores), el estado pasa a "Cerrado" y se oculta el formulario de apuesta y el aviso de fuera de plazo. Resultados parciales no cierran las apuestas.
+
+### Lógica de birras
+
+- **El ganador recibe birras**: invertida la lógica — ahora los demás invitan al primero en la clasificación (antes el último pagaba).
+- **Marc excluido**: el usuario Marc no participa en la lógica de birras (menor de edad). Configurable en `BEER_EXCLUDED_USERS`.
+- Actualizado en: Stats, WelcomeBanner, Ranking, FutbolRanking, Rules, LandingPage, App footer, Participante, FutbolParticipante.
+
+### Rendimiento
+
+- **ETag en GET /g/{groupId}/state**: el servidor computa un hash MD5 del estado y lo envía como ETag. Si el cliente envía `If-None-Match` y coincide, responde 304 sin body (ahorra ancho de banda y re-renders).
+- **Polling adaptativo**: 60s con pestaña activa, 5 min en background, refresco inmediato al volver.
+- **CountdownBadge con intervalo dinámico**: componente compartido con timeout adaptativo (1s < 2h, 10s < 12h, 60s > 12h). Deduplicado entre Participante y FutbolParticipante.
+- **React.memo en charts**: PositionEvolutionChart, PointsTrendChart y FutbolEvolutionChart envueltos en memo para evitar re-renders innecesarios.
+- **CORS actualizado**: expone ETag y acepta If-None-Match.
+
+### Bugfixes
+
+- **React error #31 en Stats**: `PointsTrendChart` renderizaba objetos `{name, scores}` como hijos React. Corregido accediendo a `p.name`.
+- **Deploys CI/CD fallaban**: el paso "Restaurar config.local.js" abortaba si el archivo no existía en S3. Ahora advierte y usa config.js genérico como fallback.
+
+---
+
 ## [2026-03-10] — Auditoría de seguridad completa + Skills de Cursor
 
 ### Seguridad — 27 fixes aplicados

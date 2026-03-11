@@ -1,6 +1,6 @@
 # Porra Birreros — F1 y Futbol 🍺
 
-Aplicacion web para gestionar porras de Formula 1 y Futbol entre amigos. El que pierde, pone las birras.
+Aplicacion web para gestionar porras de Formula 1 y Futbol entre amigos. Al que gane, le invitan a birras.
 
 ## 🏗️ Arquitectura de la aplicacion
 
@@ -18,13 +18,14 @@ graph TB
         subgraph F1["🏎️ Modo F1"]
             Participante["Participante<br/>Apuestas + Countdown"]
             RankingF1["Ranking<br/>Standings + Desglose"]
-            Stats["Stats<br/>Birras · Tendencia · Suerte · WhatIf"]
+            Stats["Stats<br/>Birras · Tendencia · Suerte · WhatIf<br/>Rivalidades · H2H · Logros · Timeline"]
             Historico["Histórico"]
         end
         
         subgraph Futbol["⚽ Modo Fútbol"]
             FutPart["FutbolParticipante<br/>Apuestas + Countdown"]
             FutRank["FutbolRanking<br/>Standings + Evolución"]
+            FutStats["FutbolStats<br/>Birras · Tendencia · Rachas<br/>Rivalidades · H2H · Logros · Timeline"]
         end
         
         subgraph Shared["🔧 Compartidos"]
@@ -33,6 +34,15 @@ graph TB
             Auth["Auth (Login)"]
             ManriBot["🤖 ManriBot"]
             Charts["Charts (SVG)"]
+            HeadToHead["HeadToHead (Tú vs Amigo)"]
+            Achievements["Achievements (Logros)"]
+            PersonalHistory["PersonalHistory (Timeline)"]
+            Rivalries["Rivalries (Rivalidades)"]
+            BeerChart["BeerChart (SVG)"]
+            ShareRanking["ShareRanking (Canvas)"]
+            Skeleton["Skeleton (Loaders)"]
+            WallOfShame["WallOfShame (Muro vergüenza)"]
+            Birrometro["Birrometro (Balance birras)"]
         end
 
         subgraph Logic["📐 Lógica de negocio"]
@@ -109,13 +119,24 @@ src/
     ├── App.jsx             Componente raiz (routing, estado global, sync)
     ├── Auth.jsx            Login, cambio de contrasena, cambio de avatar
     ├── WelcomeBanner.jsx   Mini-dashboard personal al entrar
+    ├── CountdownBadge.jsx  Countdown compartido con intervalo adaptativo
     ├── Participante.jsx    Vista de apuestas F1 (con countdown y reminder)
     ├── BetForm.jsx         Formulario de apuesta F1
     ├── FutbolParticipante.jsx  Vista de apuestas futbol
     ├── FutbolBetForm.jsx   Formulario de apuesta futbol
     ├── Ranking.jsx         Ranking F1 + desglose + resumen post-carrera
     ├── FutbolRanking.jsx   Ranking futbol + grafico evolucion
-    ├── Stats.jsx           Estadisticas, birras, tendencia, suerte, simulador
+    ├── Stats.jsx           Estadisticas, birras, tendencia, suerte, simulador, rivalidades
+    ├── FutbolStats.jsx     Estadisticas futbol (birras, tendencia, rachas, rivalidades)
+    ├── HeadToHead.jsx      Comparativa Tu vs Amigo (H2H) con grafico
+    ├── Achievements.jsx    Sistema de logros/achievements desbloqueables
+    ├── PersonalHistory.jsx Historial personal con timeline visual
+    ├── Rivalries.jsx       Deteccion y visualizacion de rivalidades automaticas
+    ├── WallOfShame.jsx     Muro de la verguenza (peores predicciones con humor)
+    ├── Birrometro.jsx      Balance neto de birras por participante
+    ├── BeerChart.jsx       Grafico SVG de jarras de cerveza
+    ├── ShareRanking.jsx    Imagen compartible del ranking (Canvas)
+    ├── Skeleton.jsx        Skeleton loaders animados durante carga
     ├── Charts.jsx          Grafico de evolucion de posiciones F1
     ├── AdminPanel.jsx      Panel admin unificado (tabs General/F1/Futbol)
     ├── UserManagement.jsx  Gestion de usuarios y grupos
@@ -179,12 +200,24 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 - Apuesta catastrofica (futbol, 0 aciertos): **-1 pt**
 
 ### Estadisticas y analisis
-- **Historico de birras**: quien ha pagado mas rondas por GP/jornada
-- **Tendencia de puntos**: grafico SVG de barras agrupadas por carrera
+- **Historico de birras**: a quien le han invitado mas birras por GP/jornada, con grafico SVG de jarras de cerveza
+- **Tendencia de puntos**: grafico SVG de barras agrupadas por carrera/jornada con eje Y
 - **Indice de suerte**: tasa de aciertos, eficiencia, consistencia, plenos
 - **Simulador "Que habria pasado si..."**: modifica resultados y recalcula ranking
 - **Resumen post-carrera**: ganador, perdedor, aciertos de pole, plenos
 - **Grafico de evolucion**: posiciones por carrera/jornada
+- **Rivalidades automaticas**: deteccion de pares que compiten cabeza a cabeza (cercanía en puntos, equilibrio H2H, similitud de apuestas)
+- **Rachas**: rachas activas y records historicos (victorias, positivos, poles, exactos)
+- **Consenso del grupo**: insights sobre lo que aposto la mayoria y apuestas contrarian exitosas
+- **Ranking compartible**: imagen Canvas de alta resolucion para compartir via Web Share API
+
+### Engagement y dinamismo
+- **Tu vs Amigo**: comparativa directa eligiendo un rival (puntos, victorias, exactos, mini-grafico)
+- **Logros/achievements**: 12 logros F1 + 10 logros futbol desbloqueables (pleno, racha, remontada, etc.)
+- **Historial personal**: timeline visual con puntos, posicion y ranking acumulado por evento
+- **Confetti**: animacion de celebracion al guardar apuesta a tiempo
+- **Puntualidad**: ranking de quien apuesta mas antes del cierre, con medallas
+- **Live badge**: barra de progreso "X de Y ya apostaron" por evento
 
 ### Multi-tenancy
 - **Login global**: un usuario se autentica una vez y accede a todos sus grupos
@@ -201,6 +234,13 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 - **PWA**: instalable como app, Service Worker con cache
 - **Avatares**: caricaturas SVG personalizadas por participante y modo
 - **Multidioma**: soporte es/en
+- **Bottom nav movil**: barra de navegacion fija inferior en pantallas pequenas
+- **Swipe entre vistas**: deslizar horizontalmente en movil para cambiar de pestana
+- **Skeleton loaders**: esqueletos animados mientras se carga la aplicacion
+- **Ranking dinamico**: indicadores de cambio de posicion (▲▼=) respecto al evento anterior
+- **Bravuconadas**: campo de trash-talk opcional al apostar, revelado tras resultados
+- **Muro de la verguenza**: peores predicciones con humor (farolillo rojo, siempre tarde, fantasma, bravuconadas fallidas)
+- **Birrometro**: balance neto de birras por participante con barras visuales
 
 ## 🔧 Configuracion
 
@@ -266,7 +306,7 @@ El backend (`porra-state-api.mjs`) expone rutas granulares con validacion server
 | `PUT` | `/g/{gid}/admin/f1/{raceKey}` | Operaciones admin F1 | Solo admin |
 | `PUT` | `/g/{gid}/admin/futbol/{jornadaId}` | Operaciones admin futbol | Solo admin |
 
-Cada peticion incluye `x-porra-user` para identificar al usuario. Las operaciones de escritura validan permisos en el servidor.
+Cada peticion incluye `Authorization: Bearer <token>` para identificar al usuario. Las operaciones de escritura validan permisos en el servidor. El servidor usa ETag para cacheo condicional del estado (304 Not Modified).
 
 ### Esquema DynamoDB
 
@@ -392,7 +432,7 @@ Variables de entorno de la Lambda State (`porra-state-api.mjs`):
 |----------|-------------|
 | `TABLE_NAME` | Nombre de la tabla DynamoDB (default: `PorraBirreros`) |
 | `ALLOWED_ORIGIN` | Tu dominio para CORS |
-| `API_SECRET` | (opcional) Secret compartido con el frontend |
+| `API_SECRET` | (opcional) Secret para scripts backend (no se usa en frontend) |
 
 Variables de entorno de la Lambda AI (`porra-ai.mjs`):
 
@@ -500,7 +540,8 @@ git push origin main
 
 - El modo seleccionado (F1/Futbol) se guarda en localStorage
 - Los datos se sincronizan automaticamente con el backend remoto (S3 via Lambda)
-- Si no hay resultados publicados, no se asigna quien paga las birras
+- Si no hay resultados publicados, no se asigna a quien le invitan las birras
+- Cuando el admin publica todos los resultados (pole + podio completo en F1; todos los marcadores en futbol), las apuestas se cierran automaticamente
 - Datos de F1 historicos (1950-hoy) disponibles via Jolpica/Ergast API (client-side, sin coste)
 - La app funciona offline gracias al Service Worker (PWA)
 - Al hacer fork, el repositorio no contiene datos personales: necesitas crear `config.local.js` y `.env`

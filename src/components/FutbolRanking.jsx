@@ -4,6 +4,7 @@ import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js
 import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
+import { ShareRankingButton } from "./ShareRanking.jsx";
 
 export function FutbolRanking({db}){
   const futbol=db.futbol||defaultFutbolState();
@@ -24,6 +25,12 @@ export function FutbolRanking({db}){
   const selectedJornada=scope==="all"?null:jornadas.find(j=>j.id===scope);
   const res=scope==="all"?null:futbol.results?.[scope];
   const completedJornadas=jornadas.filter(j=>futbol.results?.[j.id]);
+  const prevPositions=useMemo(()=>{
+    if(scope!=="all"||completedJornadas.length<2) return null;
+    const prevJornadas=completedJornadas.slice(0,-1);
+    const prevStandings=computeFutbolStandings(futbol,participants,prevJornadas);
+    const map={}; prevStandings.forEach((s,i)=>{map[s.name]=i+1;}); return map;
+  },[scope,completedJornadas,futbol,participants]);
   return (
     <div className="space-y-4">
       <div className="card card-racing p-4 md:p-5 space-y-4">
@@ -57,7 +64,7 @@ export function FutbolRanking({db}){
                     <Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} avatarFutbol={db.meta?.avatarsFutbol?.[r.name]} size="sm" mode="futbol"/>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-bold ${idx===0?"text-white":"text-white/80"}`}>{r.name}</span>
+                        <span className={`font-bold ${idx===0?"text-white":"text-white/80"}`}>{r.name}</span>{prevPositions&&scope==="all"&&completedJornadas.length>=2&&(()=>{const prev=prevPositions[r.name];if(prev==null)return null;const curr=idx+1;const diff=prev-curr;if(diff>0)return <span className="text-emerald-400/90 text-[10px] font-bold" style={{animation:"popIn 0.25s ease-out"}}>▲{diff}</span>;if(diff<0)return <span className="text-red-400/90 text-[10px] font-bold" style={{animation:"popIn 0.25s ease-out"}}>▼{Math.abs(diff)}</span>;return <span className="text-amber-400/70 text-[10px] font-bold" style={{animation:"popIn 0.25s ease-out"}}>=</span>;})()}
                         {r.missed>=3 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20">eliminado</span>}
                         {isFirst&&canReceiveBeer && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/15">🍺 le invitan</span>}
                         {hasResults&&allTied&&idx===0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 todos invitamos</span>}
@@ -103,6 +110,13 @@ export function FutbolRanking({db}){
         <button className="mt-3 ml-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
           exportPDF("Ranking Fútbol — Porra Birreros",["Pos","Nombre","Puntos","Victorias","Exactos","Signos","Pen."],standings.map((r,i)=>[i+1,r.name,r.points,r.wins,r.exact,r.signs,r.penCount]));
         }}>📄 Exportar PDF</button>
+        {completedJornadas.length>0&&<ShareRankingButton
+          mode="futbol"
+          title="Ranking Fútbol"
+          subtitle={`${completedJornadas.length} jornada${completedJornadas.length!==1?"s":""} · ${new Date().toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"})}`}
+          rows={standings.map(r=>({name:r.name,points:r.points,statsLine:`Vict: ${r.wins}  Exact: ${r.exact}  Sign: ${r.signs}  Pen: ${r.penCount}`}))}
+          prevPositions={prevPositions}
+        />}
       </div>
     </div>
   );

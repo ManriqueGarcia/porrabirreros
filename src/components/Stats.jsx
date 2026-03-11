@@ -2,8 +2,15 @@ import { useMemo, useState, useEffect, memo } from "react";
 import { buildStats, scoreForRace, computeGlobalStandings } from "../scoring.js";
 import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
+import { BeerChart } from "./BeerChart.jsx";
+import { Rivalries } from "./Rivalries.jsx";
+import { HeadToHead } from "./HeadToHead.jsx";
+import { Achievements } from "./Achievements.jsx";
+import { PersonalHistory } from "./PersonalHistory.jsx";
+import { WallOfShame } from "./WallOfShame.jsx";
+import { Birrometro } from "./Birrometro.jsx";
 
-function Stats({db,races}){
+function Stats({db,races,currentUser}){
   const f1Participants=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
   const stats=useMemo(()=>buildStats(db,races,f1Participants),[db,races,f1Participants]);
   const beerHistory=useMemo(()=>{
@@ -22,19 +29,17 @@ function Stats({db,races}){
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   },[beerHistory]);
   const trendData=useMemo(()=>{
-    const participants=Object.keys(db.participants||{});
     const completedRaces=(races||[]).filter(r=>db.results?.[r.key]);
-    if(!completedRaces.length||participants.length<2) return null;
+    if(!completedRaces.length||f1Participants.length<2) return null;
     return {
       races:completedRaces.map(r=>({key:r.key,label:r.grand_prix?.substring(0,3)||r.round,round:r.round})),
-      participants:participants.map(name=>({name,scores:completedRaces.map(r=>scoreForRace(db,r.key,name).points)}))
+      participants:f1Participants.map(name=>({name,scores:completedRaces.map(r=>scoreForRace(db,r.key,name).points)}))
     };
-  },[db,races]);
+  },[db,races,f1Participants]);
   const luckIndex=useMemo(()=>{
-    const participants=Object.keys(db.participants||{});
     const completed=(races||[]).filter(r=>db.results?.[r.key]);
-    if(completed.length<2||participants.length<2) return null;
-    return participants.map(name=>{
+    if(completed.length<2||f1Participants.length<2) return null;
+    return f1Participants.map(name=>{
       const raceScores=completed.map(r=>scoreForRace(db,r.key,name));
       const totalPts=raceScores.reduce((s,r)=>s+r.points,0);
       const totalHits=raceScores.reduce((s,r)=>s+r.hits,0);
@@ -61,10 +66,47 @@ function Stats({db,races}){
       };
     }).sort((a,b)=>b.luckScore-a.luckScore);
   },[db,races]);
+  const f1Rivalries=useMemo(()=>{
+    const completed=(races||[]).filter(r=>db.results?.[r.key]);
+    if(completed.length<2||f1Participants.length<3) return [];
+    const totals={};
+    f1Participants.forEach(name=>{
+      totals[name]=completed.reduce((sum,r)=>sum+scoreForRace(db,r.key,name).points,0);
+    });
+    const pairs=[];
+    for(let i=0;i<f1Participants.length;i++){
+      for(let j=i+1;j<f1Participants.length;j++){
+        const a=f1Participants[i],b=f1Participants[j];
+        let aWins=0,bWins=0,ties=0,sameChoices=0,totalChoices=0;
+        completed.forEach(r=>{
+          const sa=scoreForRace(db,r.key,a),sb=scoreForRace(db,r.key,b);
+          if(sa.points>sb.points)aWins++;else if(sb.points>sa.points)bWins++;else ties++;
+          const ba=db.bets?.[r.key]?.[a],bb=db.bets?.[r.key]?.[b];
+          if(ba?.submittedAt&&bb?.submittedAt){
+            totalChoices+=4;
+            if(ba.pole&&ba.pole===bb.pole)sameChoices++;
+            (ba.podium||[]).forEach((p,idx)=>{if(p&&p===(bb.podium||[])[idx])sameChoices++;});
+          }
+        });
+        const pointDiff=Math.abs(totals[a]-totals[b]);
+        const maxPts=Math.max(totals[a],totals[b],1);
+        const closeness=1-(pointDiff/maxPts);
+        const h2hBalance=1-Math.abs(aWins-bWins)/Math.max(aWins+bWins,1);
+        const sim=totalChoices>0?sameChoices/totalChoices:0;
+        const intensity=Math.min(100,Math.round((closeness*40+h2hBalance*40+sim*20)*100)/100);
+        pairs.push({
+          a:{name:a,points:totals[a]},b:{name:b,points:totals[b]},
+          h2h:{aWins,bWins,ties},pointDiff,
+          similarity:Math.round(sim*100),intensity
+        });
+      }
+    }
+    pairs.sort((a,b)=>b.intensity-a.intensity);
+    return pairs.slice(0,3);
+  },[db,races,f1Participants]);
   const allDrivers=useMemo(()=>{
-    const fromMeta=db.meta?.drivers;
-    if(fromMeta?.length) return fromMeta;
     const seen=new Set();
+    (db.meta?.drivers||[]).forEach(d=>seen.add(d));
     (races||[]).forEach(r=>{
       const res=db.results?.[r.key];
       if(res?.pole) seen.add(res.pole);
@@ -82,7 +124,7 @@ function Stats({db,races}){
   useEffect(()=>{
     if(whatIfRaceKey&&db.results?.[whatIfRaceKey]){
       const r=db.results[whatIfRaceKey];
-      setWhatIfResult({pole:r.pole||"",podium:[...(r.podium||["","",""])]});
+      setWhatIfResult({pole:r.pole||"",podium:[...(r.podium||["","",""])],qAnswers:[...(r.qAnswers||["","",""])]});
     }else{
       setWhatIfResult(null);
     }
@@ -92,7 +134,7 @@ function Stats({db,races}){
     if(f1Participants.length<2) return null;
     const modifiedDb={
       ...db,
-      results:{...db.results,[whatIfRaceKey]:{...db.results[whatIfRaceKey],pole:whatIfResult.pole,podium:whatIfResult.podium}}
+      results:{...db.results,[whatIfRaceKey]:{...db.results[whatIfRaceKey],pole:whatIfResult.pole,podium:whatIfResult.podium,qAnswers:whatIfResult.qAnswers}}
     };
     const original=computeGlobalStandings(db,races,f1Participants);
     const modified=computeGlobalStandings(modifiedDb,races,f1Participants);
@@ -172,13 +214,76 @@ function Stats({db,races}){
             </div>
             {beerCount.length>0&&(
               <div className="rounded-xl p-3 bg-white/[.02] border border-white/[.06]">
-                <h3 className="font-semibold mb-1">A quién le han invitado más birras</h3>
-                <ul className="space-y-1 text-sm mt-1">{beerCount.map(([name,count],idx)=><li key={name} className="flex items-center justify-between border border-white/10 rounded px-2 py-1 bg-neutral-900"><span>{idx+1}. {name}</span><span className="text-xs text-emerald-300">{count} {count===1?"vez":"veces"}</span></li>)}</ul>
+                <h3 className="font-semibold mb-2">A quién le han invitado más birras</h3>
+                <BeerChart data={beerCount.map(([name,count])=>({name,count}))} />
               </div>
             )}
           </>
         ):(<p className="text-sm text-slate-400">Aún no hay suficientes resultados o participantes.</p>)}
       </div>
+      {completedRaces.length>=2&&(()=>{
+        const sorted=[...completedRaces].sort((a,b)=>a.round-b.round);
+        const streaks=f1Participants.map(name=>{
+          const perRace=sorted.map(r=>{
+            const s=scoreForRace(db,r.key,name);
+            const scores=f1Participants.map(n=>scoreForRace(db,r.key,n));
+            const best=Math.max(...scores.map(x=>x.points));
+            const winners=scores.filter(x=>x.points===best);
+            const won=winners.length===1&&s.points===best;
+            const top3=[...scores].sort((a,b)=>b.points-a.points);
+            const rank=top3.findIndex(x=>x===s)+1;
+            return {won,pole:s.gotPole,positive:s.points>0,top3:rank<=3,hits:s.hits>0};
+          });
+          const calc=(fn)=>{let cur=0,max=0;for(let i=perRace.length-1;i>=0;i--){if(fn(perRace[i])){cur++;max=Math.max(max,cur);}else if(cur>0)break;}let best=0,run=0;perRace.forEach(r=>{if(fn(r)){run++;best=Math.max(best,run);}else run=0;});return {current:cur,best};};
+          return {name,wins:calc(r=>r.won),poles:calc(r=>r.pole),positive:calc(r=>r.positive),top3:calc(r=>r.top3),hits:calc(r=>r.hits)};
+        });
+        const active=[];
+        const types=[{key:"wins",label:"victorias",icon:"🏆"},{key:"positive",label:"pts positivos",icon:"📈"},{key:"top3",label:"en top 3",icon:"🥉"},{key:"poles",label:"pole acertada",icon:"🏁"},{key:"hits",label:"con aciertos",icon:"🎯"}];
+        types.forEach(t=>{
+          streaks.forEach(s=>{if(s[t.key].current>=2) active.push({name:s.name,type:t.label,icon:t.icon,current:s[t.key].current,best:s[t.key].best});});
+        });
+        active.sort((a,b)=>b.current-a.current);
+        const records=[];
+        types.forEach(t=>{
+          let best=0,who=[];
+          streaks.forEach(s=>{const b=s[t.key].best;if(b>best){best=b;who=[s.name];}else if(b===best&&b>=2) who.push(s.name);});
+          if(best>=2) records.push({type:t.label,icon:t.icon,best,who});
+        });
+        return (active.length>0||records.length>0)&&(
+          <div className="card card-racing p-4 md:p-5">
+            <h3 className="section-title mb-3">🔥 Rachas</h3>
+            {active.length>0&&(<>
+              <p className="text-xs text-white/40 mb-2">Rachas activas (desde la última carrera)</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {active.map((s,i)=>(
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/8 to-transparent border border-amber-500/15">
+                    <span className="text-lg">{s.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-amber-200">{s.name}</div>
+                      <div className="text-[10px] text-white/40">{s.current} {s.type} seguidas{s.best>s.current?` (récord: ${s.best})`:s.current===s.best?" ⭐ récord":""}</div>
+                    </div>
+                    <div className="text-xl font-black text-amber-400/80">{s.current}</div>
+                  </div>
+                ))}
+              </div>
+            </>)}
+            {records.length>0&&(
+              <div className={active.length>0?"mt-3 pt-3 border-t border-white/5":""}>
+                <p className="text-xs text-white/40 mb-2">Récords históricos</p>
+                <div className="flex flex-wrap gap-2">
+                  {records.map((r,i)=>(
+                    <div key={i} className="text-xs px-2.5 py-1.5 rounded-lg bg-white/[.03] border border-white/5">
+                      <span>{r.icon} {r.best} {r.type}</span>
+                      <span className="text-white/30 ml-1">— {r.who.join(", ")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+      {f1Rivalries.length>0 && <Rivalries rivalries={f1Rivalries} mode="f1" />}
       {trendData&&(
         <PointsTrendChart trendData={trendData} />
       )}
@@ -223,6 +328,59 @@ function Stats({db,races}){
           </div>
         </div>
       )}
+      {completedRaces.length>0&&(()=>{
+        const pData=f1Participants.map(name=>{
+          const completed2=completedRaces.filter(r=>db.bets?.[r.key]?.[name]?.submittedAt);
+          if(!completed2.length) return {name,avgHoursBefore:null,onTime:0,late:0,betsCount:0,total:completedRaces.length};
+          let onTime=0,late=0;
+          const avgMs=completed2.reduce((sum,r)=>{
+            const sub=new Date(db.bets[r.key][name].submittedAt).getTime();
+            const cut=r.cutoff?r.cutoff.getTime():sub;
+            const diff=cut-sub;
+            if(diff>=0) onTime++; else late++;
+            return sum+diff;
+          },0)/completed2.length;
+          return {name,avgHoursBefore:avgMs/3600000,onTime,late,betsCount:completed2.length,total:completedRaces.length};
+        }).filter(p=>p.betsCount>0).sort((a,b)=>{
+          const aRatio=a.onTime/a.betsCount, bRatio=b.onTime/b.betsCount;
+          if(bRatio!==aRatio) return bRatio-aRatio;
+          return b.avgHoursBefore-a.avgHoursBefore;
+        });
+        const fmtTime=h=>{
+          if(h<0) return `${Math.abs(h).toFixed(1)}h tarde`;
+          if(h<1) return `${Math.round(h*60)}min antes`;
+          if(h<24) return `${h.toFixed(1)}h antes`;
+          const d=Math.floor(h/24);
+          const rem=h%24;
+          return `${d}d ${Math.round(rem)}h antes`;
+        };
+        const maxAbs=Math.max(...pData.map(x=>Math.abs(x.avgHoursBefore||0)),1);
+        let medalIdx=0;
+        return pData.length>0&&(
+          <div className="card card-racing p-4 md:p-5">
+            <h3 className="section-title mb-3">⏱️ Puntualidad</h3>
+            <p className="text-xs text-white/40 mb-3">Tiempo medio de envío respecto al cierre de apuestas. ¿Quién es el más previsor?</p>
+            <div className="space-y-2">
+              {pData.map((p,i)=>{
+                const isEarly=p.avgHoursBefore>=0;
+                const pct=Math.max(8,(Math.abs(p.avgHoursBefore)/maxAbs)*100);
+                const medal=isEarly&&medalIdx<3?["🥇","🥈","🥉"][medalIdx++]:"";
+                return (
+                  <div key={p.name} className="flex items-center gap-3">
+                    <div className="w-20 text-sm font-medium text-white/80 truncate">{medal} {p.name}</div>
+                    <div className="flex-1 h-5 rounded-full bg-white/5 overflow-hidden relative">
+                      <div className="h-full rounded-full transition-all duration-500" style={{width:`${pct}%`,background:isEarly?"linear-gradient(90deg,#22c55e,#16a34a)":"linear-gradient(90deg,#ef4444,#dc2626)"}}></div>
+                      <span className={`absolute inset-0 flex items-center px-3 text-[11px] font-semibold ${isEarly?"text-white/70":"text-red-200/80"}`}>{fmtTime(p.avgHoursBefore)}</span>
+                    </div>
+                    <div className="text-[10px] text-white/30 w-16 text-right" title={`${p.onTime} a tiempo, ${p.late} tarde`}>{p.onTime}✓ {p.late>0?`${p.late}✗`:""}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 text-[10px] text-white/25">Basado en {completedRaces.length} carrera{completedRaces.length!==1?"s":""} con resultados. Medallas solo para envíos a tiempo. A la derecha: a tiempo (✓) y tarde (✗).</div>
+          </div>
+        );
+      })()}
       {completedRaces.length>0&&(
         <div className="card card-racing p-4 md:p-5">
           <h3 className="section-title mb-3">🔮 ¿Qué habría pasado si...?</h3>
@@ -251,6 +409,19 @@ function Stats({db,races}){
                   </div>
                 ))}
               </div>
+              <div>
+                <label className="text-[10px] text-white/40 uppercase mb-1 block">Respuestas a preguntas</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[0,1,2].map(i=>{
+                    const qLabel=db.questions?.[whatIfRaceKey]?.[i];
+                    return (
+                      <div key={i}>
+                        <input className="select border rounded px-2 py-1.5 w-full text-sm" placeholder={qLabel?`Q${i+1}: ${qLabel}`:`Pregunta ${i+1}`} value={whatIfResult.qAnswers?.[i]||""} onChange={e=>setWhatIfResult(prev=>{const q=[...(prev.qAnswers||["","",""])];q[i]=e.target.value;return{...prev,qAnswers:q};})}/>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               {whatIfStandings&&(
                 <div className="overflow-x-auto rounded-lg border border-white/5">
                   <table className="text-sm w-full">
@@ -272,6 +443,11 @@ function Stats({db,races}){
           )}
         </div>
       )}
+      <WallOfShame db={db} races={races} mode="f1" currentUser={currentUser} />
+      <Birrometro db={db} races={races} mode="f1" />
+      <HeadToHead db={db} races={races} mode="f1" currentUser={currentUser} />
+      <Achievements db={db} races={races} mode="f1" currentUser={currentUser} />
+      <PersonalHistory db={db} races={races} mode="f1" currentUser={currentUser} />
     </div>
   );
 }
@@ -286,6 +462,12 @@ const PointsTrendChart = memo(function PointsTrendChart({trendData}){
   const minPts=Math.min(...allScores,0);
   const maxPts=Math.max(...allScores,0);
   const range=Math.max(maxPts-minPts,1);
+  const niceStep=(r)=>{const raw=r/5;const mag=Math.pow(10,Math.floor(Math.log10(raw)));const norm=raw/mag;return (norm<=1?1:norm<=2?2:norm<=5?5:10)*mag;};
+  const step=niceStep(range);
+  const ticks=[];
+  for(let v=Math.ceil(minPts/step)*step;v<=maxPts;v+=step) ticks.push(Math.round(v*100)/100);
+  if(!ticks.includes(0)&&minPts<=0&&maxPts>=0) ticks.push(0);
+  ticks.sort((a,b)=>b-a);
   const padL=40,padR=90,padT=20,padB=28;
   const nR=races.length;
   const nP=participants.length;
@@ -296,12 +478,19 @@ const PointsTrendChart = memo(function PointsTrendChart({trendData}){
   const chartH=120;
   const W=padL+chartW+padR,H=padT+chartH+padB;
   const zeroY=padT+chartH*(maxPts/range);
+  const valToY=v=>padT+chartH*((maxPts-v)/range);
   return (
     <div className="card card-racing p-4 md:p-5">
       <h3 className="section-title mb-3">📈 Tendencia de puntos por carrera</h3>
       <div className="overflow-x-auto -mx-2 px-2">
         <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",minWidth:nR>4?`${nR*70}px`:"100%",height:"auto"}} className="block">
-          <line x1={padL} y1={zeroY} x2={padL+chartW} y2={zeroY} stroke="rgba(255,255,255,.2)" strokeDasharray="2,4"/>
+          {ticks.map(v=>{
+            const y=valToY(v);
+            return <g key={`tick-${v}`}>
+              <line x1={padL-4} y1={y} x2={padL+chartW} y2={y} stroke={v===0?"rgba(255,255,255,.2)":"rgba(255,255,255,.07)"} strokeDasharray={v===0?"2,4":"2,6"}/>
+              <text x={padL-6} y={y+3} fill="rgba(255,255,255,.35)" fontSize="7" textAnchor="end" fontWeight="500">{v}</text>
+            </g>;
+          })}
           {races.map((r,i)=>{
             const gx=padL+i*groupW+groupW/2;
             return <text key={r.key} x={gx} y={H-6} fill="rgba(255,255,255,.22)" fontSize="7" textAnchor="middle" fontWeight="600">{r.label}</text>;

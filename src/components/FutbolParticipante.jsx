@@ -8,6 +8,7 @@ import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, default
 import { Avatar } from "./Avatar.jsx";
 import { FutbolBetForm } from "./FutbolBetForm.jsx";
 import { CountdownBadge } from "./CountdownBadge.jsx";
+import { fireConfetti } from "../confetti.js";
 
 export function FutbolParticipante({user,db,setDb}){
   const now=useNow();
@@ -26,7 +27,8 @@ export function FutbolParticipante({user,db,setDb}){
   const manualReveal=futbol.betsReveal?.[selected];
   const isBeforeDeadline=deadline ? now<deadline : true;
   const isFutbolLate=deadline ? now>=deadline : false;
-  const hasResult=jornada && !!futbol.results?.[selected];
+  const jornadaResult=jornada ? futbol.results?.[selected] : null;
+  const hasResult=!!(jornadaResult && jornadaResult.matches?.length>0 && jornadaResult.matches.every(m=>m.home!=null && m.away!=null));
   const canEdit=!manualWindow?.forceClosed && !hasResult;
   const revealAt=deadline?new Date(deadline.getTime()+60*1000):null;
   const canViewFull=manualReveal?.forceShow || (!!revealAt && now>revealAt);
@@ -42,7 +44,7 @@ export function FutbolParticipante({user,db,setDb}){
     setSaving(true);
     const ts=nowISO();
     const late=deadline ? new Date()>=deadline : false;
-    const nextBet={matches:payload.matches, submittedAt:ts, late};
+    const nextBet={matches:payload.matches, trashtalk:payload.trashtalk, submittedAt:ts, late};
     try {
       await saveBetFutbol(selected, user, nextBet);
     } catch(err) {
@@ -67,9 +69,15 @@ export function FutbolParticipante({user,db,setDb}){
       }
       return {...prev, futbol:{...futbolPrev, bets:nextBets, betHistory}};
     });
-    late?toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)"):toast.success("Apuesta guardada correctamente");
+    if(late){toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)");}else{toast.success("Apuesta guardada correctamente");fireConfetti();}
     setSaving(false);
   };
+  const betCount=useMemo(()=>{
+    if(!jornada) return {done:0,total:0};
+    const betsForJornada=futbol.bets?.[selected]||{};
+    const done=futbolParticipants.filter(n=>betsForJornada[n]?.submittedAt).length;
+    return {done,total:futbolParticipants.length};
+  },[selected,futbol.bets,futbolParticipants]);
   const showOthersPanel=showOthers && !!jornada;
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,340px)]":"";
   return (
@@ -82,6 +90,16 @@ export function FutbolParticipante({user,db,setDb}){
         <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>
           {jornadas.map(j=><option key={j.id} value={j.id}>{j.name||j.id} {j.deadline?`— ${new Date(j.deadline).toLocaleDateString("es-ES")}`:""}</option>)}
         </select>
+        {jornada && betCount.total>0 && !hasResult && (
+          <div className="flex items-center gap-2 mb-3 text-xs">
+            <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-500" style={{width:`${(betCount.done/betCount.total)*100}%`,background:betCount.done===betCount.total?"#22c55e":"linear-gradient(90deg,#22c55e,#16a34a)"}}></div>
+            </div>
+            <span className={`font-semibold whitespace-nowrap ${betCount.done===betCount.total?"text-emerald-400":"text-emerald-300/70"}`}>
+              {betCount.done===betCount.total?"✓ Todos han apostado":`${betCount.done}/${betCount.total} han apostado`}
+            </span>
+          </div>
+        )}
         {jornada ? (<>
           <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500/10 via-emerald-900/5 to-transparent border border-emerald-500/20 p-4 text-center group hover:border-emerald-400/35 transition-all">
@@ -123,19 +141,33 @@ export function FutbolParticipante({user,db,setDb}){
               </div>
             </div>
           </div>
-          {deadline && (
-            <div className="mb-4 p-3 rounded-xl bg-white/[.025] border border-white/[.06] relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-sm font-bold text-white/85">⏰ Cierre apuestas:</span>
-                  <span className="text-amber-300 font-bold text-lg tabular-nums">{formatTime(deadline,MADRID_TZ)}</span>
-                  <span className="text-amber-100 text-xs">(España)</span>
+          {deadline && (()=>{
+            const noBet=!bet?.submittedAt && canEdit && deadline.getTime()>Date.now();
+            const hoursLeft=Math.max(0,(deadline.getTime()-Date.now())/3600000);
+            const urgent=noBet && hoursLeft<24;
+            return (
+              <div className={`mb-4 p-3 rounded-xl relative overflow-hidden ${urgent?"bg-gradient-to-r from-red-500/12 to-amber-500/8 border border-red-500/25":noBet?"bg-gradient-to-r from-emerald-500/8 to-sky-500/5 border border-emerald-500/15":"bg-white/[.025] border border-white/[.06]"}`}>
+                <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${urgent?"from-red-500/60 via-amber-500/40 to-transparent":noBet?"from-emerald-500/30 via-sky-500/20 to-transparent":"from-transparent via-emerald-500/30 to-transparent"}`}></div>
+                {noBet && (
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">{urgent?"🔥":"⚽"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-bold text-sm ${urgent?"text-red-300":"text-emerald-200"}`}>{urgent?`¡Solo quedan ${hoursLeft<1?`${Math.ceil(hoursLeft*60)} minutos`:Math.ceil(hoursLeft)+" horas"}!`:"¡Apuesta disponible!"}</div>
+                      <div className="text-xs text-white/50 mt-0.5">{urgent?"No apostar son -3 pts. ¡Rellena los marcadores!":"Rellena tus pronósticos antes del cierre. ¡Que te inviten a las birras!"}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-sm font-bold text-white/85">⏰ Cierre:</span>
+                    <span className="text-amber-300 font-bold text-lg tabular-nums">{formatTime(deadline,MADRID_TZ)}</span>
+                    <span className="text-amber-100 text-xs">(España)</span>
+                  </div>
                 </div>
+                <CountdownBadge target={deadline}/>
               </div>
-              <CountdownBadge target={deadline}/>
-            </div>
-          )}
+            );
+          })()}
         </>) : (
           <div className="futbol-info-panel mb-4 text-center py-6">
             <div className="text-2xl mb-2">⚽</div>
@@ -213,7 +245,7 @@ export function FutbolParticipante({user,db,setDb}){
                     {other?.late && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">fuera de plazo</span>}
                     {other?.delegated && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/20">delegada</span>}
                   </div>
-                  {other ? (
+                  {other ? (<>
                     <div className="space-y-1">
                       {(jornada.matches||[]).map((m,idx)=>(
                         <div key={idx} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-white/[.02]">
@@ -223,7 +255,8 @@ export function FutbolParticipante({user,db,setDb}){
                         </div>
                       ))}
                     </div>
-                  ) : (<div className="text-xs text-slate-400 text-center py-2">Sin apuesta</div>)}
+                    {hasResult && other?.trashtalk && <div className="mt-1.5 text-xs italic text-white/40 flex items-start gap-1">💬 "{other.trashtalk}"</div>}
+                  </>) : (<div className="text-xs text-slate-400 text-center py-2">Sin apuesta</div>)}
                 </div>
               ))}
             </div>

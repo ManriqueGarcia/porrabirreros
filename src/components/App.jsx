@@ -18,10 +18,12 @@ import { Participante } from "./Participante.jsx";
 import { WelcomeBanner } from "./WelcomeBanner.jsx";
 import { FutbolParticipante } from "./FutbolParticipante.jsx";
 import { FutbolRanking, FutbolEvolutionChart } from "./FutbolRanking.jsx";
+import { FutbolStats } from "./FutbolStats.jsx";
 import { AdminPanel } from "./AdminPanel.jsx";
 import { hasAnyAdminRole } from "../admin-roles.js";
 import { CreateGroup } from "./CreateGroup.jsx";
 import { JoinGroup } from "./JoinGroup.jsx";
+import { SkeletonPage, SkeletonNav } from "./Skeleton.jsx";
 
 console.info("[PorraF1] Versión carga", CACHE_BUST);
 
@@ -160,15 +162,24 @@ export function App() {
   const hash = useHashRoute();
   const route = parseRoute(hash);
 
+  useEffect(() => {
+    if (route.page === "root") {
+      const session = getSession();
+      if (session?.user && session?.groups?.length) {
+        const saved = getSavedGroupId();
+        const target = saved || session.groups[0].groupId;
+        if (!saved) sessionStorage.setItem("porra_group_id", target);
+        window.location.hash = `#/g/${target}`;
+      }
+    } else if (route.page !== "create" && route.page !== "join") {
+      const session = getSession();
+      if (!session?.user) window.location.hash = "#/";
+    }
+  }, [route.page, hash]);
+
   if (route.page === "root") {
     const session = getSession();
-    if (session?.user && session?.groups?.length) {
-      const saved = getSavedGroupId();
-      const target = saved || session.groups[0].groupId;
-      if (!saved) sessionStorage.setItem("porra_group_id", target);
-      window.location.hash = `#/g/${target}`;
-      return null;
-    }
+    if (session?.user && session?.groups?.length) return null;
     return <GlobalLogin />;
   }
   if (route.page === "create") {
@@ -194,10 +205,7 @@ export function App() {
   }
 
   const session = getSession();
-  if (!session?.user) {
-    window.location.hash = "#/";
-    return null;
-  }
+  if (!session?.user) return null;
 
   return <GroupApp key={route.groupId} groupId={route.groupId} />;
 }
@@ -216,7 +224,8 @@ function GroupApp({ groupId }) {
   const [theme, setTheme] = useState(() => sessionStorage.getItem("porra_theme") || "dark");
   useEffect(() => { sessionStorage.setItem("porra_theme", theme); document.documentElement.dataset.theme = theme; }, [theme]);
   const [db, setDb] = useState({}); const [cal, setCal] = useState([]); const [drivers, setDrivers] = useState([]); const [teams, setTeams] = useState([]); const [circuits, setCircuits] = useState({}); const [selectedRaceKey, setSelectedRaceKey] = useState(() => sessionStorage.getItem("porra_selected_race") || ""); useEffect(() => { if (selectedRaceKey && !cal?.find(r => r.key === selectedRaceKey) && cal?.length) { const nowMs=Date.now(); const upcoming=cal.find(r=>r.cutoff && r.cutoff.getTime()>nowMs); setSelectedRaceKey(upcoming?.key || cal[cal.length-1].key); } }, [cal, selectedRaceKey]); useEffect(() => { if (selectedRaceKey) sessionStorage.setItem("porra_selected_race", selectedRaceKey); }, [selectedRaceKey]); const [user, setUser] = useState(() => { const s = getSession(); return s?.user || sessionStorage.getItem("porra_session_user") || ""; }); const [view, setView] = useState("participante"); const [mode, setMode] = useState(() => sessionStorage.getItem("porra_mode") || "f1"); const [showPass, setShowPass] = useState(false); const [showAvatar, setShowAvatar] = useState(false); const [showAI, setShowAI] = useState(false); const [hydrated, setHydrated] = useState(false); const [defaultPwdHash, setDefaultPwdHash] = useState("");
-  const [showBanner, setShowBanner] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+  useEffect(() => { window.scrollTo(0, 0); }, [view]);
   useEffect(() => { setSaveRemoteUser(user); }, [user]);
   const setDbUser = useCallback((updater) => { setDb(prev => typeof updater === "function" ? updater(prev) : updater); }, []);
   const userGroups = useMemo(() => getSession()?.groups || [], [user]);
@@ -449,12 +458,36 @@ function GroupApp({ groupId }) {
   }, [hydrated, races, db.participants, db.questionOwner]);
   useEffect(() => { document.body.dataset.porraMode = mode || "f1"; }, [mode]);
   const sidebarRace = mode === "f1" && view === "participante" && selectedRaceKey ? races?.find(r => r.key === selectedRaceKey) : null;
+  const viewTabs = useMemo(() => {
+    const base = ["participante", "ranking", "stats"];
+    if (mode === "f1") base.push("questions");
+    base.push("rules");
+    return base;
+  }, [mode]);
+  const touchRef = useRef(null);
+  const handleTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    touchRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+  }, []);
+  const handleTouchEnd = useCallback((e) => {
+    if (!touchRef.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchRef.current.x;
+    const dy = t.clientY - touchRef.current.y;
+    const dt = Date.now() - touchRef.current.time;
+    touchRef.current = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7 || dt > 400) return;
+    const idx = viewTabs.indexOf(view);
+    if (idx < 0) return;
+    if (dx < 0 && idx < viewTabs.length - 1) setView(viewTabs[idx + 1]);
+    else if (dx > 0 && idx > 0) setView(viewTabs[idx - 1]);
+  }, [view, viewTabs]);
   const handleModeChange = (newMode) => {
     setMode(newMode);
     sessionStorage.setItem("porra_mode", newMode);
     if (newMode === "f1" && !["participante", "ranking", "stats", "questions", "historico", "rules", "admin"].includes(view)) {
       setView("participante");
-    } else if (newMode === "futbol" && !["participante", "ranking", "rules", "admin"].includes(view)) {
+    } else if (newMode === "futbol" && !["participante", "ranking", "stats", "rules", "admin"].includes(view)) {
       setView("participante");
     }
   };
@@ -482,35 +515,34 @@ function GroupApp({ groupId }) {
             <button className="text-white/40 hover:text-white/70 text-xs ml-1 transition-colors" onClick={() => setShowPass(true)}>🔑</button>
             <button className="text-white/40 hover:text-white/70 text-xs transition-colors" onClick={() => logout()}>Salir</button>
           </div>}
+          {user && <div className="flex md:hidden items-center gap-1.5 ml-auto">
+            {userGroups.length > 1 && <select value={groupId} onChange={e => { sessionStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/50 text-[10px] border border-white/10 rounded px-1 py-0.5">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
+            <button className="text-white/30 hover:text-white/60 text-[10px] transition-colors" onClick={() => setShowPass(true)}>🔑</button>
+            <button className="text-white/30 hover:text-white/60 text-[10px] transition-colors" onClick={() => logout()}>Salir</button>
+          </div>}
         </div>
-        {user && <div className="flex md:hidden items-center justify-center gap-3 text-xs pt-2 mt-1 border-t border-white/8">
-          <div className="flex items-center gap-1.5"><Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} size="sm" mode={mode} /><span className="font-semibold text-white/70">{user}</span></div>
-          {userGroups.length > 1 && <select value={groupId} onChange={e => { sessionStorage.setItem("porra_group_id", e.target.value); window.location.hash = `#/g/${e.target.value}`; }} className="bg-transparent text-white/60 text-xs border border-white/10 rounded px-1 py-0.5">{userGroups.map(g => <option key={g.groupId} value={g.groupId} className="bg-neutral-900">{g.groupName || g.groupId}</option>)}</select>}
-          <button className="text-white/35 hover:text-white/70 transition-colors" onClick={() => setShowPass(true)}>Contraseña</button>
-          <button className="text-white/40 hover:text-white/65 transition-colors" onClick={() => logout()}>Salir</button>
-        </div>}
       </div>
     </header>
-    {user && <nav className="porra-nav justify-center" role="tablist" aria-label="Navegación principal">
+    {user && <nav className="porra-nav justify-center hidden md:flex" role="tablist" aria-label="Navegación principal">
       <button role="tab" aria-selected={view === "participante"} className={view === "participante" ? "nav-active" : ""} onClick={() => setView("participante")}>Mi apuesta</button>
       <button role="tab" aria-selected={view === "ranking"} className={view === "ranking" ? "nav-active" : ""} onClick={() => setView("ranking")}>Ranking</button>
-      {mode === "f1" && <button role="tab" aria-selected={view === "stats"} className={view === "stats" ? "nav-active" : ""} onClick={() => setView("stats")}>Estadísticas</button>}
+      {(mode === "f1" || mode === "futbol") && <button role="tab" aria-selected={view === "stats"} className={view === "stats" ? "nav-active" : ""} onClick={() => setView("stats")}>Estadísticas</button>}
       {mode === "f1" && <button role="tab" aria-selected={view === "questions"} className={view === "questions" ? "nav-active" : ""} onClick={() => setView("questions")}>Preguntas</button>}
       {mode === "f1" && <button role="tab" aria-selected={view === "historico"} className={view === "historico" ? "nav-active" : ""} onClick={() => setView("historico")}>Histórico</button>}
       <button role="tab" aria-selected={view === "rules"} className={view === "rules" ? "nav-active" : ""} onClick={() => setView("rules")}>Normas</button>
       <button className="nav-special flex items-center gap-1.5" onClick={() => setShowAI(true)} aria-label="Abrir ManriBot"><img src="./assets/manribot.svg" alt="ManriBot" className="w-4 h-4" /> ManriBot</button>
       {hasAnyAdminRole(db.users?.[user]) && <button role="tab" aria-selected={view === "admin"} className={view === "admin" ? "nav-active" : ""} onClick={() => setView("admin")}>⚙ Admin</button>}
     </nav>}
-    {!hydrated ? (<div className="card p-6 max-w-sm mx-auto text-center"><div className="text-sm text-white/40 animate-pulse">Conectando con el servidor...</div></div>) : (<>
+    {!hydrated ? (<div className="space-y-4"><SkeletonNav /><SkeletonPage /></div>) : (<>
       {loadError && <div className="card p-4 mb-3 border border-red-500/30 bg-red-900/20 text-sm text-red-300">⚠️ {loadError}. Recarga la página para reintentar.</div>}
       {showBanner && <WelcomeBanner user={user} db={db} races={races} mode={mode} onDismiss={() => setShowBanner(false)} />}
-      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} mode={mode} /><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={() => setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/40 mt-1 tracking-wider uppercase">{currentGroupName || "birreros club"}</div>{sidebarRace && <div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact /></div>}</aside><main className="flex-1 space-y-4 min-w-0">
+      <div className="md:flex md:gap-4"><aside className="sidebar p-4 w-52 shrink-0 hidden md:flex md:flex-col md:items-center gap-2"><Avatar name={user} avatar={db.meta?.avatars?.[user]} avatarFutbol={db.meta?.avatarsFutbol?.[user]} mode={mode} /><button type="button" className="text-[11px] text-white/40 hover:text-white/60 transition-colors mt-1" onClick={() => setShowAvatar(true)}>Cambiar avatar</button><div className="text-[10px] text-amber-400/40 mt-1 tracking-wider uppercase">{currentGroupName || "birreros club"}</div>{sidebarRace && <div className="mt-2 w-full"><CircuitCard race={sidebarRace} circuits={circuits} compact /></div>}</aside><main className="flex-1 space-y-4 min-w-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {view === "admin" && <AdminPanel db={db} setDb={setDbUser} races={races} drivers={drivers} teams={teams} calendar={cal} currentUser={user} />}
         {view !== "admin" && mode === "f1" && (
           <>
             {view === "participante" && <Participante user={user} races={races} db={db} setDb={setDbUser} drivers={drivers} circuits={circuits} selectedRaceKey={mode === "f1" ? selectedRaceKey : ""} setSelectedRaceKey={mode === "f1" ? setSelectedRaceKey : () => { }} />}
             {view === "ranking" && <Ranking db={db} setDb={setDbUser} races={races} currentUser={user} />}
-            {view === "stats" && <Stats db={db} races={races} />}
+            {view === "stats" && <Stats db={db} races={races} currentUser={user} />}
             {view === "questions" && <QuestionsHistory db={db} races={races} />}
             {view === "historico" && <Historico />}
             {view === "rules" && <F1Rules />}
@@ -520,12 +552,32 @@ function GroupApp({ groupId }) {
           <>
             {view === "participante" && <FutbolParticipante user={user} db={db} setDb={setDbUser} />}
             {view === "ranking" && <><FutbolRanking db={db} /><FutbolEvolutionChart db={db} /></>}
+            {view === "stats" && <FutbolStats db={db} currentUser={user} />}
             {view === "rules" && <FutbolRules />}
           </>
         )}
       </main></div>
     </>)}
-    <footer className="text-[12px] text-amber-200 pt-8 pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · Quien gana, se lleva las birras <span className="beer-icon">🍻</span> {mode === "f1" ? "A todo gas" : "Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
+    <footer className="text-[12px] text-amber-200 pt-8 pb-20 md:pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · Quien gana, se lleva las birras <span className="beer-icon">🍻</span> {mode === "f1" ? "A todo gas" : "Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
+    {user && <nav className="bottom-nav md:hidden" aria-label="Navegación móvil">
+      {[
+        {id:"participante",icon:"🎯",label:"Apuesta"},
+        {id:"ranking",icon:"🏆",label:"Ranking"},
+        {id:"stats",icon:"📊",label:"Stats"},
+        ...(mode==="f1"?[{id:"questions",icon:"❓",label:"Preguntas"}]:[]),
+        {id:"rules",icon:"📖",label:"Normas"},
+        ...(hasAnyAdminRole(db.users?.[user])?[{id:"admin",icon:"⚙️",label:"Admin"}]:[]),
+      ].map(tab=>(
+        <button key={tab.id} className={`bottom-nav-item${view===tab.id?" bottom-nav-active":""}`} onClick={()=>setView(tab.id)}>
+          <span className="text-lg leading-none">{tab.icon}</span>
+          <span className="text-[9px] leading-tight">{tab.label}</span>
+        </button>
+      ))}
+      <button className="bottom-nav-item" onClick={()=>setShowAI(true)}>
+        <img src="./assets/manribot.svg" alt="ManriBot" className="w-5 h-5" />
+        <span className="text-[9px] leading-tight">Bot</span>
+      </button>
+    </nav>}
     <ChangePasswordModal open={showPass} onClose={() => setShowPass(false)} db={db} setDb={setDbUser} user={user} />
     <ChangePasswordModal open={forcePwdChange} onClose={() => setForcePwdChange(false)} db={db} setDb={setDbUser} user={user} forceChange />
     <ChangeAvatarModal open={showAvatar} onClose={() => setShowAvatar(false)} db={db} setDb={setDbUser} user={user} />

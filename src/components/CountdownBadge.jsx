@@ -7,9 +7,7 @@ export function CountdownBadge({ target }) {
     if (!target) return;
     const diff = target.getTime() - Date.now();
     if (diff <= 0) return;
-    const totalMin = Math.floor(diff / 60000);
-    const delay = totalMin < 120 ? 1000 : totalMin < 720 ? 10_000 : 60_000;
-    const id = setTimeout(() => setTick(Date.now()), delay);
+    const id = setTimeout(() => setTick(Date.now()), 1000);
     return () => clearTimeout(id);
   }, [target, tick]);
 
