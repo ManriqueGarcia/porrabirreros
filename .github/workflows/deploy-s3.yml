@@ -49,7 +49,7 @@ jobs:
       - name: Build (esbuild + Tailwind)
         env:
           PORRA_API_BASE: ${{ secrets.PORRA_API_BASE || 'https://dmz7273q5h.execute-api.us-east-1.amazonaws.com' }}
-          PORRA_AI_URL: ${{ secrets.PORRA_AI_URL }}
+          PORRA_AI_URL: ${{ secrets.PORRA_AI_URL || 'https://x7gnt5ifb4.execute-api.eu-west-1.amazonaws.com' }}
         run: node build.mjs
 
       - name: Sincronizar dist/ con S3
