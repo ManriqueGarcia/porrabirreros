@@ -103,6 +103,40 @@ describe("scoreForRace", () => {
     expect(s.missed).toBe(false);
   });
 
+  it("bet exists but no results → 0 pts, no penalties", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A", "B", "C"], submittedAt: "2025-01-01" },
+      null,
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.pen).toBe(0);
+    expect(s.hits).toBe(0);
+    expect(s.missed).toBe(false);
+    expect(s.late).toBe(false);
+  });
+
+  it("incomplete bet + no results → 0 pts, no premature penalties", () => {
+    const db = mkDb(
+      { podium: ["HAM"], q: ["Sí", "No", "3"], submittedAt: "2025-01-01" },
+      null,
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.pen).toBe(0);
+  });
+
+  it("late bet + no results → 0 pts, no premature late penalty", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01", late: true },
+      null,
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.pen).toBe(0);
+    expect(s.late).toBe(false);
+  });
+
   it("incomplete bet (no pole, <3 podium) → -1 penalty", () => {
     const db = mkDb(
       { podium: ["HAM"], q: [], submittedAt: "2025-01-01" },
@@ -239,6 +273,30 @@ describe("computeGlobalStandings", () => {
     const standings = computeGlobalStandings(db, [{ key: "gp1" }], ["alice", "bob"]);
     expect(standings[0].points).toBe(standings[1].points);
     expect(standings[0].name).toBe("bob");
+  });
+
+  it("races without results do not affect standings", () => {
+    const db = {
+      bets: {
+        gp1: {
+          alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01" },
+          bob:   { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: [], submittedAt: "2025-01-01" },
+        },
+        gp2: {
+          alice: { q: ["Sí", "No", "3"], submittedAt: "2025-01-02" },
+        },
+      },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const standings = computeGlobalStandings(db, [{ key: "gp1" }, { key: "gp2" }], ["alice", "bob"]);
+    const aliceWith = standings.find(s => s.name === "alice");
+    const bobWith = standings.find(s => s.name === "bob");
+    const dbNoGp2 = { ...db, bets: { gp1: db.bets.gp1 } };
+    const standingsWithout = computeGlobalStandings(dbNoGp2, [{ key: "gp1" }], ["alice", "bob"]);
+    const aliceWithout = standingsWithout.find(s => s.name === "alice");
+    const bobWithout = standingsWithout.find(s => s.name === "bob");
+    expect(aliceWith.points).toBe(aliceWithout.points);
+    expect(bobWith.points).toBe(bobWithout.points);
   });
 
   it("accumulates points across multiple races", () => {

@@ -1,0 +1,27 @@
+---
+description: Mantener sincronizados lib/scoring.mjs y src/scoring.js. Aplicar siempre que se modifique lógica de puntuación.
+globs: "{src/scoring.js,lib/scoring.mjs}"
+alwaysApply: false
+---
+
+# Sincronización de Archivos de Scoring
+
+## Regla de Hierro
+
+Cada vez que se modifique lógica de puntuación, **SIEMPRE actualizar ambos archivos**:
+
+- `src/scoring.js` — usado por el build del frontend (esbuild)
+- `lib/scoring.mjs` — fuente canónica para tests (Vitest)
+
+Ambos contienen la misma lógica. Si se cambia uno sin el otro, los tests no cubrirán el código real o el frontend tendrá comportamiento distinto al testeado.
+
+## Procedimiento
+
+1. Hacer el cambio en `lib/scoring.mjs` (fuente canónica)
+2. Replicar exactamente en `src/scoring.js`
+3. Ejecutar `npx vitest run tests/scoring.test.mjs` para verificar
+4. Ejecutar `npm run build` para confirmar que compila
+
+## Contexto
+
+El proyecto usa dos copias porque `lib/` es accesible por Vitest (Node ESM) y `src/` es procesado por esbuild para el bundle del navegador. No se usa un alias de build para unificarlos.

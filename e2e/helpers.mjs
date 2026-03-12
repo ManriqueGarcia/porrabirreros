@@ -105,6 +105,24 @@ export async function seedF1Reveal(groupId, adminUser, raceKey) {
   }, adminUser);
 }
 
+export async function seedF1Questions(groupId, adminUser, raceKey, questions) {
+  await apiCall("PUT", `/g/${groupId}/admin/f1/${raceKey}`, {
+    type: "questions",
+    data: {
+      questions: { [raceKey]: questions },
+      questionsStatus: { [raceKey]: { published: true, author: adminUser, publishedAt: new Date().toISOString() } },
+      questionOwner: { [raceKey]: adminUser },
+    },
+  }, adminUser);
+}
+
+export async function seedF1Bet(groupId, user, raceKey, bet) {
+  await apiCall("PUT", `/g/${groupId}/admin/f1/${raceKey}`, {
+    type: "bet",
+    data: { userName: user, bet },
+  }, user);
+}
+
 export async function seedFutbolReveal(groupId, adminUser, jornadaId) {
   await apiCall("PUT", `/g/${groupId}/admin/futbol/${jornadaId}`, {
     type: "reveal", data: { forceShow: true },

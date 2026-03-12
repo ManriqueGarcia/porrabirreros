@@ -5,6 +5,9 @@ export function scoreForRace(db, raceKey, name) {
     const hasResults = !!res;
     return { points: hasResults ? -3 : 0, hits: 0, exact: 0, pen: hasResults ? 1 : 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: hasResults, late: false };
   }
+  if (!res) {
+    return { points: 0, hits: 0, exact: 0, pen: 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: bet.submittedAt || null, missed: false, late: false };
+  }
   let pts = 0, hits = 0, pen = 0, exact = 0;
   if (res?.pole && bet.pole === res.pole) { pts++; hits++; }
   if (res?.podium) { bet.podium?.forEach((p, i) => { if (p === res.podium[i]) { pts++; hits++; } }); }
