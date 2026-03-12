@@ -114,6 +114,23 @@ From 24 failure memories:
 - Time wasted on false completion → redirect → rework
 - Violates: "Honesty is a core value. If you lie, you'll be replaced."
 
+## Tests en CI/CD — Porra Birreros
+
+Los tests unitarios (`npm run test:unit`) se ejecutan automáticamente en GitHub Actions antes de cada deploy:
+- Push a `dev` → `deploy-dev.yml` → tests → build → deploy a dev.porra
+- Push a `main` → `deploy-s3.yml` → tests → build → deploy a producción
+
+Si los tests fallan, el deploy se bloquea. Esto garantiza que nunca se despliega código roto.
+
+### Comandos de verificación local
+
+| Comando | Qué verifica |
+|---------|-------------|
+| `npm run test:unit` | Tests unitarios (scoring F1 + fútbol) |
+| `npm run test:all` | Todos los tests Vitest |
+| `npm run build` | Compilación esbuild + Tailwind |
+| `npm run test:e2e` | Tests E2E con Playwright (requiere E2E_BASE_URL) |
+
 ## When To Apply
 
 **ALWAYS before:**

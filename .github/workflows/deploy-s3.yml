@@ -43,6 +43,9 @@ jobs:
             echo "⚠️ config.local.js no encontrado en S3 — usando config.js genérico"
           fi
 
+      - name: Tests unitarios
+        run: npm run test:unit
+
       - name: Auditoría de seguridad
         run: npm audit --audit-level=critical
 
