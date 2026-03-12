@@ -47,6 +47,9 @@ backup/
 # Cursor
 .cursor/
 
+# Skills con info confidencial (URLs, dominios, infra)
+.agents/skills/project-context/
+
 # Build / artefactos
 porra-ai.zip
 
