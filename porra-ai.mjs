@@ -5,8 +5,15 @@
  */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
+const ALLOWED_ORIGIN_RAW = process.env.ALLOWED_ORIGIN || "*";
+const ALLOWED_ORIGINS = ALLOWED_ORIGIN_RAW === "*" ? null : ALLOWED_ORIGIN_RAW.split(",").map(o => o.trim()).filter(Boolean);
 const API_SECRET = process.env.API_SECRET || "";
+
+function matchOrigin(origin) {
+  if (!ALLOWED_ORIGINS) return "*";
+  if (!origin) return ALLOWED_ORIGINS[0];
+  return ALLOWED_ORIGINS.includes(origin) ? origin : null;
+}
 
 function log(level, msg, data = {}) {
   const entry = { level, msg, ts: new Date().toISOString(), ...data };
@@ -67,10 +74,11 @@ const CIRCUIT_MAP = {
   yas_marina: "abu_dhabi", "abu_dhabi": "yas_marina",
 };
 
-function buildHeaders(extra = {}) {
+function buildHeaders(origin, extra = {}) {
+  const allowedOrigin = matchOrigin(origin) || (ALLOWED_ORIGINS ? ALLOWED_ORIGINS[0] : "*");
   return {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers": "content-type,x-porra-secret",
     "Access-Control-Allow-Methods": "POST,OPTIONS",
     "Cache-Control": "no-store, max-age=0",
@@ -310,35 +318,35 @@ export const handler = async (event) => {
   const httpMethod = event.requestContext?.http?.method || event.httpMethod;
   const headers = Object.fromEntries(Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
   const origin = headers["origin"] || "";
-  if (ALLOWED_ORIGIN !== "*" && origin && origin !== ALLOWED_ORIGIN) {
+  if (ALLOWED_ORIGINS && origin && !matchOrigin(origin)) {
     return {
       statusCode: 403,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ error: "Forbidden" }),
     };
   }
   if (API_SECRET && headers["x-porra-secret"] !== API_SECRET) {
     return {
       statusCode: 401,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ error: "Unauthorized" }),
     };
   }
   if (httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: buildHeaders(), body: "" };
+    return { statusCode: 204, headers: buildHeaders(origin), body: "" };
   }
   const clientIp = event.requestContext?.http?.sourceIp || event.requestContext?.identity?.sourceIp || "unknown";
   if (!checkRateLimit(clientIp)) {
     return {
       statusCode: 429,
-      headers: buildHeaders({ "Retry-After": "60" }),
+      headers: buildHeaders(origin, { "Retry-After": "60" }),
       body: JSON.stringify({ error: "Demasiadas peticiones. Espera un minuto." }),
     };
   }
   if (httpMethod !== "POST") {
     return {
       statusCode: 405,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
@@ -348,7 +356,7 @@ export const handler = async (event) => {
   } catch {
     return {
       statusCode: 400,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ error: "Invalid JSON" }),
     };
   }
@@ -356,7 +364,7 @@ export const handler = async (event) => {
   if (!question || question.length > 500) {
     return {
       statusCode: 400,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ error: "Pregunta vacía o demasiado larga" }),
     };
   }
@@ -372,14 +380,14 @@ export const handler = async (event) => {
     log("info", "Request completed", { reqId, mode, latencyMs, questionLen: question.length, answerLen: answer?.length || 0, ip: clientIp });
     return {
       statusCode: 200,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ answer }),
     };
   } catch (err) {
     log("error", "Handler uncaught error", { error: err.message, stack: err.stack?.slice(0, 300) });
     return {
       statusCode: 500,
-      headers: buildHeaders(),
+      headers: buildHeaders(origin),
       body: JSON.stringify({ error: "Error interno del asistente" }),
     };
   }
