@@ -122,6 +122,35 @@ Los tests unitarios (`npm run test:unit`) se ejecutan automáticamente en GitHub
 
 Si los tests fallan, el deploy se bloquea. Esto garantiza que nunca se despliega código roto.
 
+### Promoción dev → producción (Red-Green cruzado)
+
+Cuando se promueven cambios de `dev` a `main`, verificar con un ciclo Red-Green:
+
+```
+1. IDENTIFICAR tests nuevos en dev:
+   git diff main..dev --name-only -- tests/ e2e/
+
+2. RED — Copiar solo tests nuevos a main y ejecutar:
+   git checkout main
+   git checkout dev -- tests/ e2e/
+   npm run test:unit
+   → Deben FALLAR (bug existe en producción)
+
+3. LIMPIAR y MERGE:
+   git checkout -- tests/ e2e/
+   git merge dev
+
+4. GREEN — Ejecutar tests tras el merge:
+   npm run test:unit
+   → Deben PASAR (fix funciona)
+   npm run build
+
+5. PUSH:
+   git push origin main
+```
+
+Si los tests pasan en el paso 2 (Red), el bug NO existe en producción → investigar antes de mergear.
+
 ### Comandos de verificación local
 
 | Comando | Qué verifica |

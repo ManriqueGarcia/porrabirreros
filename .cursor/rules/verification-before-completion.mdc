@@ -26,9 +26,17 @@ Los tests unitarios se ejecutan automáticamente en cada push:
 
 Si los tests fallan, el deploy se bloquea. No se despliega código sin tests verdes.
 
+## Promoción dev → main
+
+Al promover a producción, seguir `.cursor/rules/promote-to-production.mdc`:
+1. Copiar tests nuevos de dev a main → ejecutar → deben FALLAR (bug en prod)
+2. Mergear dev → main → ejecutar tests → deben PASAR (fix funciona)
+3. Solo entonces push a main
+
 ## Prohibido
 
 - Usar "debería funcionar", "probablemente", "parece que"
 - Expresar satisfacción antes de verificar
 - Confiar en verificaciones parciales
 - Desplegar sin pasar tests primero
+- Mergear a main sin verificación Red-Green cruzada

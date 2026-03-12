@@ -1,0 +1,61 @@
+---
+description: Protocolo obligatorio para promover cambios de dev a producción (main). Verificar que los tests nuevos detectan el bug también en main antes de mergear.
+alwaysApply: true
+---
+
+# Promoción dev → producción
+
+Cuando el usuario pida pasar cambios de `dev` a `main` (producción), seguir este protocolo **sin excepciones**.
+
+## Protocolo de promoción
+
+### 1. Identificar tests nuevos en dev
+
+```bash
+git diff main..dev --name-only -- tests/ e2e/
+```
+
+Si hay tests nuevos o modificados, son candidatos para verificación cruzada.
+
+### 2. Verificar que el bug existe en main (Red)
+
+```bash
+git stash                          # Guardar trabajo local si lo hay
+git checkout main
+git checkout dev -- tests/ e2e/    # Copiar SOLO los tests nuevos de dev
+npm run test:unit                  # Deben FALLAR → confirma que el bug está en producción
+```
+
+- Si los tests **fallan**: el bug existe en producción → continuar con el merge
+- Si los tests **pasan**: el bug NO existe en producción → investigar por qué. Puede que main ya tenga el fix o que los tests no cubran el escenario real
+
+### 3. Limpiar y mergear
+
+```bash
+git checkout -- tests/ e2e/        # Descartar tests temporales
+git merge dev                      # Merge completo (código + tests)
+```
+
+### 4. Verificar que el fix funciona en main (Green)
+
+```bash
+npm run test:unit                  # Deben PASAR → confirma que el fix funciona
+npm run build                      # Compilación sin errores
+```
+
+### 5. Push a producción
+
+```bash
+git push origin main
+```
+
+## Regla de Hierro
+
+NO mergear dev → main sin haber verificado el ciclo Red-Green:
+1. Tests nuevos **fallan** en main sin el fix (Red)
+2. Tests nuevos **pasan** en main con el fix (Green)
+
+## Cuándo aplicar
+
+- Siempre que el usuario diga: "pásalo a producción", "merge a main", "deploy a prod"
+- Siempre que haya tests nuevos en dev que no existan en main

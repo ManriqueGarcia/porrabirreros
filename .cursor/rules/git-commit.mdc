@@ -24,6 +24,15 @@ Sigue las directrices de `.agents/skills/git-commit/SKILL.md`.
 - `chore`: mantenimiento
 - `security`: fix de seguridad
 
+## Promoción dev → main
+
+Al pasar cambios a producción, seguir el protocolo de `.cursor/rules/promote-to-production.mdc`:
+1. Verificar tests nuevos en dev
+2. Confirmar que fallan en main sin el fix (Red)
+3. Mergear dev → main
+4. Confirmar que pasan tras merge (Green)
+5. Push
+
 ## Reglas de seguridad git
 
 - NUNCA `--force` push a main/dev sin petición explícita
