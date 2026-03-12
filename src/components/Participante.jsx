@@ -4,7 +4,7 @@ import { CURRENT_SEASON_YEAR, MADRID_TZ, REAL_HISTORICAL_2025_KEYS } from "../co
 import { loadHistorical, saveBetF1 } from "../api.js";
 import { toast } from "../toast.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
-import { scoreForRace } from "../scoring.js";
+import { scoreForRace, hasRaceResults } from "../scoring.js";
 import { Avatar } from "./Avatar.jsx";
 import { CircuitCard } from "./CircuitCard.jsx";
 import { BetForm } from "./BetForm.jsx";
@@ -35,7 +35,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const prevYearPoints=race && historicalPrev?.pointsByKey?.[race.key]?.[user];
   const last3RacesDisplay=useMemo(()=>{
     const nowMs=Date.now();
-    const withResults=(races||[]).filter(r=>db.results?.[r.key] && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3).map(r=>({race:r,score:scoreForRace(db,r.key,user),hasData:true}));
+    const withResults=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]) && r.raceStart && r.raceStart.getTime()<nowMs).sort((a,b)=>b.round-a.round).slice(0,3).map(r=>({race:r,score:scoreForRace(db,r.key,user),hasData:true}));
     if(withResults.length>0) return withResults;
     return (races||[]).slice(0,3).map(r=>({race:r,score:null,hasData:false}));
   },[races,db.results,db.bets,user]);
@@ -236,7 +236,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           <div className="space-y-2">
             {last3RacesDisplay.filter(r=>r.hasData).map(({race:rc})=>{
               const res=db.results?.[rc.key];
-              if(!res) return null;
+              if(!hasRaceResults(res)) return null;
               return (
                 <div key={rc.key} className="text-sm border-b border-slate-600/40 pb-2 last:border-0 last:pb-0">
                   <div className="font-medium text-slate-200">{rc.round}. {rc.grand_prix}</div>

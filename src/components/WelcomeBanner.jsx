@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { CONFIG, BEER_EXCLUDED_USERS } from "../config.js";
-import { scoreForRace, computeGlobalStandings } from "../scoring.js";
+import { scoreForRace, computeGlobalStandings, hasRaceResults } from "../scoring.js";
 import { defaultFutbolState, listFutbolJornadas, computeFutbolStandings } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
@@ -21,7 +21,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const trend=useMemo(()=>{
     if(mode==="f1"){
       if(!races?.length) return null;
-      const completedRaces=races.filter(r=>db.results?.[r.key]);
+      const completedRaces=races.filter(r=>hasRaceResults(db.results?.[r.key]));
       if(completedRaces.length<2) return null;
       const allButLast=completedRaces.slice(0,-1);
       const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants);
@@ -67,7 +67,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     return next?next.key:(races||[]).length?races[races.length-1].key:"unknown";
   },[races,mode,db.futbol]);
   const hasResults=useMemo(()=>{
-    if(mode==="f1") return (races||[]).some(r=>db.results?.[r.key]);
+    if(mode==="f1") return (races||[]).some(r=>hasRaceResults(db.results?.[r.key]));
     const futbol=db.futbol||defaultFutbolState();
     const jornadas=listFutbolJornadas(futbol);
     return jornadas.some(j=>futbol.results?.[j.id]);

@@ -1,11 +1,11 @@
 import { useMemo, useCallback, memo } from "react";
 import { PILOT_COLORS, FALLBACK_COLORS } from "../config.js";
-import { scoreForRace, computeGPWins, computeAvgSubmitTime } from "../scoring.js";
+import { scoreForRace, computeGPWins, computeAvgSubmitTime, hasRaceResults } from "../scoring.js";
 
 const PositionEvolutionChart = memo(function PositionEvolutionChart({db,races,scope,participants}){
   const chartData=useMemo(()=>{
     if(participants.length<2) return null;
-    const withRes=(races||[]).filter(r=>db.results?.[r.key]);
+    const withRes=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
     let target;
     if(scope==="all"){ target=withRes; }
     else{

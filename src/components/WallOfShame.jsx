@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from "react";
-import { scoreForRace } from "../scoring.js";
+import { scoreForRace, hasRaceResults } from "../scoring.js";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
@@ -28,7 +28,7 @@ export const WallOfShame = memo(function WallOfShame({ db, races, mode, currentU
   const shameData = useMemo(() => {
     if (mode === "f1") {
       const participants = getParticipantsForPorra(db, "f1");
-      const completed = (races || []).filter(r => db.results?.[r.key]);
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
       if (completed.length < 1 || participants.length < 2) return null;
 
       let worstSingle = null;

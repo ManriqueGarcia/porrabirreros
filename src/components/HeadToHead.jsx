@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from "react";
-import { scoreForRace } from "../scoring.js";
+import { scoreForRace, hasRaceResults } from "../scoring.js";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { PILOT_COLORS, FALLBACK_COLORS } from "../config.js";
@@ -13,7 +13,7 @@ export const HeadToHead = memo(function HeadToHead({ db, races, mode, currentUse
     if (!rival || !me || rival === me) return null;
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => db.results?.[r.key]);
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
       if (!completed.length) return null;
       let myPts = 0, rivalPts = 0, myWins = 0, rivalWins = 0, ties = 0;
       let myHits = 0, rivalHits = 0, myExact = 0, rivalExact = 0;

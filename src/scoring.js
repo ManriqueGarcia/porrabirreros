@@ -1,11 +1,15 @@
+export function hasRaceResults(res) {
+  return !!(res && (res.pole || res.podium?.some(Boolean)));
+}
+
 export function scoreForRace(db, raceKey, name) {
   const bet = db.bets?.[raceKey]?.[name]; const res = db.results?.[raceKey];
+  const realResults = hasRaceResults(res);
   const noBet = !bet;
   if (noBet) {
-    const hasResults = !!res;
-    return { points: hasResults ? -3 : 0, hits: 0, exact: 0, pen: hasResults ? 1 : 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: hasResults, late: false };
+    return { points: realResults ? -3 : 0, hits: 0, exact: 0, pen: realResults ? 1 : 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: realResults, late: false };
   }
-  if (!res) {
+  if (!realResults) {
     return { points: 0, hits: 0, exact: 0, pen: 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: bet.submittedAt || null, missed: false, late: false };
   }
   let pts = 0, hits = 0, pen = 0, exact = 0;
@@ -31,7 +35,7 @@ export function computeGPWins(db, races, participants) {
   participants.forEach(n => { wins[n] = 0; });
   (races || []).forEach(race => {
     const res = db.results?.[race.key];
-    if (!res) return;
+    if (!hasRaceResults(res)) return;
     let best = -Infinity; let winners = [];
     participants.forEach(name => {
       const s = scoreForRace(db, race.key, name);
@@ -84,7 +88,7 @@ export function buildStats(db, races, participantsOverride) {
         if (b.podium[2]) votes.p3[b.podium[2]] = (votes.p3[b.podium[2]] || 0) + 1;
       }
     });
-    if (!db.results?.[race.key]) return;
+    if (!hasRaceResults(db.results?.[race.key])) return;
     const standings = participants.map(name => {
       const s = scoreForRace(db, race.key, name);
       hitsTotals[name] = (hitsTotals[name] || 0) + s.hits;

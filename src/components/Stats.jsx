@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, memo } from "react";
-import { buildStats, scoreForRace, computeGlobalStandings } from "../scoring.js";
+import { buildStats, scoreForRace, computeGlobalStandings, hasRaceResults } from "../scoring.js";
 import { PILOT_COLORS, FALLBACK_COLORS, BEER_EXCLUDED_USERS } from "../config.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { BeerChart } from "./BeerChart.jsx";
@@ -16,7 +16,7 @@ function Stats({db,races,currentUser}){
   const beerHistory=useMemo(()=>{
     const eligible=f1Participants.filter(n=>!BEER_EXCLUDED_USERS.has(n));
     if(eligible.length<2) return [];
-    return (races||[]).filter(r=>db.results?.[r.key]).map(race=>{
+    return (races||[]).filter(r=>hasRaceResults(db.results?.[r.key])).map(race=>{
       const scores=eligible.map(name=>({name,...scoreForRace(db,race.key,name)}));
       scores.sort((a,b)=>b.points-a.points||a.pen-b.pen);
       const allTied=scores.every(s=>s.points===scores[0].points);
@@ -29,7 +29,7 @@ function Stats({db,races,currentUser}){
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   },[beerHistory]);
   const trendData=useMemo(()=>{
-    const completedRaces=(races||[]).filter(r=>db.results?.[r.key]);
+    const completedRaces=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
     if(!completedRaces.length||f1Participants.length<2) return null;
     return {
       races:completedRaces.map(r=>({key:r.key,label:r.grand_prix?.substring(0,3)||r.round,round:r.round})),
@@ -37,7 +37,7 @@ function Stats({db,races,currentUser}){
     };
   },[db,races,f1Participants]);
   const luckIndex=useMemo(()=>{
-    const completed=(races||[]).filter(r=>db.results?.[r.key]);
+    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
     if(completed.length<2||f1Participants.length<2) return null;
     return f1Participants.map(name=>{
       const raceScores=completed.map(r=>scoreForRace(db,r.key,name));
@@ -67,7 +67,7 @@ function Stats({db,races,currentUser}){
     }).sort((a,b)=>b.luckScore-a.luckScore);
   },[db,races]);
   const f1Rivalries=useMemo(()=>{
-    const completed=(races||[]).filter(r=>db.results?.[r.key]);
+    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
     if(completed.length<2||f1Participants.length<3) return [];
     const totals={};
     f1Participants.forEach(name=>{
@@ -120,9 +120,9 @@ function Stats({db,races,currentUser}){
   },[db.meta?.drivers,db.results,db.bets,races]);
   const [whatIfRaceKey,setWhatIfRaceKey]=useState("");
   const [whatIfResult,setWhatIfResult]=useState(null);
-  const completedRaces=useMemo(()=>(races||[]).filter(r=>db.results?.[r.key]),[races,db]);
+  const completedRaces=useMemo(()=>(races||[]).filter(r=>hasRaceResults(db.results?.[r.key])),[races,db]);
   useEffect(()=>{
-    if(whatIfRaceKey&&db.results?.[whatIfRaceKey]){
+    if(whatIfRaceKey&&hasRaceResults(db.results?.[whatIfRaceKey])){
       const r=db.results[whatIfRaceKey];
       setWhatIfResult({pole:r.pole||"",podium:[...(r.podium||["","",""])],qAnswers:[...(r.qAnswers||["","",""])]});
     }else{

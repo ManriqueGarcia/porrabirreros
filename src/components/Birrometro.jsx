@@ -1,5 +1,5 @@
 import { useMemo, memo } from "react";
-import { scoreForRace } from "../scoring.js";
+import { scoreForRace, hasRaceResults } from "../scoring.js";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { BEER_EXCLUDED_USERS } from "../config.js";
@@ -8,7 +8,7 @@ export const Birrometro = memo(function Birrometro({ db, races, mode }) {
   const data = useMemo(() => {
     if (mode === "f1") {
       const participants = getParticipantsForPorra(db, "f1").filter(n => !BEER_EXCLUDED_USERS.has(n));
-      const completed = (races || []).filter(r => db.results?.[r.key]);
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
       if (completed.length < 1 || participants.length < 2) return null;
 
       const owes = {};

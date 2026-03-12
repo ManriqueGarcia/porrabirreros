@@ -1,8 +1,41 @@
 import { describe, it, expect } from "vitest";
 import {
   scoreForRace, computeGPWins, computeGlobalStandings,
-  describeBetAgainstResult, buildStats, topList,
+  describeBetAgainstResult, buildStats, topList, hasRaceResults,
 } from "../lib/scoring.mjs";
+
+// ─── hasRaceResults ───
+
+describe("hasRaceResults", () => {
+  it("null/undefined → false", () => {
+    expect(hasRaceResults(null)).toBe(false);
+    expect(hasRaceResults(undefined)).toBe(false);
+  });
+
+  it("empty object → false", () => {
+    expect(hasRaceResults({})).toBe(false);
+  });
+
+  it("empty strings in pole and podium → false", () => {
+    expect(hasRaceResults({ pole: "", podium: ["", "", ""], qAnswers: ["", "", ""] })).toBe(false);
+  });
+
+  it("only qAnswers filled → false (need pole or podium)", () => {
+    expect(hasRaceResults({ pole: "", podium: ["", "", ""], qAnswers: ["Sí", "No", "3"] })).toBe(false);
+  });
+
+  it("pole filled → true", () => {
+    expect(hasRaceResults({ pole: "VER", podium: ["", "", ""] })).toBe(true);
+  });
+
+  it("podium partially filled → true", () => {
+    expect(hasRaceResults({ pole: "", podium: ["VER", "", ""] })).toBe(true);
+  });
+
+  it("full results → true", () => {
+    expect(hasRaceResults({ pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A", "B", "C"] })).toBe(true);
+  });
+});
 
 // ─── scoreForRace ───
 
@@ -137,6 +170,29 @@ describe("scoreForRace", () => {
     expect(s.late).toBe(false);
   });
 
+  it("empty results object (all empty strings) → treated as no results", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A", "B", "C"], submittedAt: "2025-01-01" },
+      { pole: "", podium: ["", "", ""], qAnswers: ["", "", ""] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.pen).toBe(0);
+    expect(s.hits).toBe(0);
+    expect(s.missed).toBe(false);
+  });
+
+  it("no bet + empty results object → 0 pts, not missed", () => {
+    const db = mkDb(
+      null,
+      { pole: "", podium: ["", "", ""], qAnswers: ["", "", ""] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.missed).toBe(false);
+    expect(s.pen).toBe(0);
+  });
+
   it("incomplete bet (no pole, <3 podium) → -1 penalty", () => {
     const db = mkDb(
       { podium: ["HAM"], q: [], submittedAt: "2025-01-01" },
@@ -239,6 +295,15 @@ describe("computeGPWins", () => {
     const wins = computeGPWins(db, [{ key: "gp1" }], ["alice"]);
     expect(wins.alice).toBe(0);
   });
+
+  it("skips races with empty results object", () => {
+    const db = {
+      bets: { gp1: { alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01" } } },
+      results: { gp1: { pole: "", podium: ["", "", ""], qAnswers: ["", "", ""] } },
+    };
+    const wins = computeGPWins(db, [{ key: "gp1" }], ["alice"]);
+    expect(wins.alice).toBe(0);
+  });
 });
 
 // ─── computeGlobalStandings ───
@@ -297,6 +362,26 @@ describe("computeGlobalStandings", () => {
     const bobWithout = standingsWithout.find(s => s.name === "bob");
     expect(aliceWith.points).toBe(aliceWithout.points);
     expect(bobWith.points).toBe(bobWithout.points);
+  });
+
+  it("empty results object does not count as completed race", () => {
+    const db = {
+      bets: {
+        gp1: { alice: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01" } },
+        gp2: { alice: { pole: "HAM", podium: ["HAM", "SAI", "ALO"], q: [], submittedAt: "2025-01-02" } },
+      },
+      results: {
+        gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] },
+        gp2: { pole: "", podium: ["", "", ""], qAnswers: ["", "", ""] },
+      },
+    };
+    const standings = computeGlobalStandings(db, [{ key: "gp1" }, { key: "gp2" }], ["alice"]);
+    const dbWithoutGp2 = {
+      bets: { gp1: db.bets.gp1 },
+      results: { gp1: db.results.gp1 },
+    };
+    const standingsWithout = computeGlobalStandings(dbWithoutGp2, [{ key: "gp1" }], ["alice"]);
+    expect(standings[0].points).toBe(standingsWithout[0].points);
   });
 
   it("accumulates points across multiple races", () => {

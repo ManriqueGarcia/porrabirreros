@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from "react";
-import { scoreForRace } from "../scoring.js";
+import { scoreForRace, hasRaceResults } from "../scoring.js";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
@@ -11,7 +11,7 @@ export const PersonalHistory = memo(function PersonalHistory({ db, races, mode, 
     if (!selectedUser) return [];
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => db.results?.[r.key]).sort((a, b) => a.round - b.round);
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key])).sort((a, b) => a.round - b.round);
       let cumPts = 0, cumPos = 0;
       return completed.map((r, i) => {
         const s = scoreForRace(db, r.key, selectedUser);

@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from "react";
-import { scoreForRace } from "../scoring.js";
+import { scoreForRace, hasRaceResults } from "../scoring.js";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
@@ -40,7 +40,7 @@ export const Achievements = memo(function Achievements({ db, races, mode, curren
     if (!selectedUser) return null;
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => db.results?.[r.key]);
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
       let wins = 0, poles = 0, fullHouses = 0, betsCount = 0, exactPodiums = 0, beers = 0;
       let bestPositiveStreak = 0, curStreak = 0, bestClimb = 0;
       const sortedRaces = [...completed].sort((a, b) => a.round - b.round);
