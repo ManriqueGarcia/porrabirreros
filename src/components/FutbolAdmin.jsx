@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNow, nowISO, parseLocalDateTime, toLocalDateTimeInput, nextFridayAt2100, betsAreEqual } from "../utils.js";
 import { toast } from "../toast.jsx";
-import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
+import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState, computeDeadlineFromKickoffs } from "../futbol-utils.js";
 import { FUTBOL_BASE_TEAMS } from "../config.js";
 import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
@@ -27,7 +27,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       setJId(j.id);
       setJName(j.name||j.id);
       setDeadlineInput(toLocalDateTimeInput(j.deadline?new Date(j.deadline):nextFridayAt2100()));
-      const baseMatches=(j.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
+      const baseMatches=(j.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:"",kickoff:""})));
       setMatches(baseMatches);
       if(editingMode==="results"){
         const res=futbol.results?.[j.id];
@@ -67,12 +67,15 @@ export function FutbolAdmin({db,setDb,currentUser}){
     const id=(jId||jName||"").trim();
     return id || "";
   };
+  const autoDeadline=useMemo(()=>computeDeadlineFromKickoffs({matches}),[matches]);
   const saveJornada=()=>{
     const id=ensureId();
     if(!id) return toast.error("Define ID o nombre de jornada");
-    const parsedDeadline=parseLocalDateTime(deadlineInput)||nextFridayAt2100();
-    const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`}));
-    const jornadaData={id,name:jName||id,deadline:parsedDeadline?parsedDeadline.toISOString():null,matches:fixedMatches};
+    const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:"",kickoff:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`, ...(m.kickoff?{kickoff:new Date(m.kickoff).toISOString()}:{})}));
+    const computedDl=computeDeadlineFromKickoffs({matches:fixedMatches});
+    const manualDl=parseLocalDateTime(deadlineInput);
+    const finalDeadline=computedDl||manualDl||nextFridayAt2100();
+    const jornadaData={id,name:jName||id,deadline:finalDeadline?finalDeadline.toISOString():null,matches:fixedMatches};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const jornadasMap={...(futbolPrev.jornadas||{})};
@@ -221,12 +224,15 @@ export function FutbolAdmin({db,setDb,currentUser}){
       </div>
       <div className="border border-white/10 rounded p-3 space-y-2">
         <h3 className="font-semibold">Partidos (4)</h3>
+        {autoDeadline && <div className="text-xs text-emerald-300 mb-1">Cierre auto-calculado: {autoDeadline.toLocaleString("es-ES",{timeZone:"Europe/Madrid"})} (1 min antes del primer partido)</div>}
         <div className="grid gap-3 md:grid-cols-2">
           {matches.map((m,idx)=>(
             <div key={idx} className="border border-white/10 rounded p-2 bg-neutral-900 space-y-2">
               <div className="text-xs text-slate-300">Partido {idx+1}</div>
               <input className="select border rounded px-3 py-2" placeholder="Local" value={m.home} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,home:e.target.value}:p))} />
               <input className="select border rounded px-3 py-2" placeholder="Visitante" value={m.away} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,away:e.target.value}:p))} />
+              <input type="datetime-local" className="select border rounded px-3 py-2 text-xs" placeholder="Hora inicio" value={m.kickoff?toLocalDateTimeInput(new Date(m.kickoff)):""} onChange={e=>setMatches(prev=>prev.map((p,i)=>i===idx?{...p,kickoff:e.target.value}:p))} />
+              <div className="text-[10px] text-slate-500">Hora inicio (para cierre automático)</div>
             </div>
           ))}
         </div>

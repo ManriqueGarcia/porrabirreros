@@ -24,7 +24,7 @@ function AIAssistant({open,onClose,races,mode="f1"}){
   const welcomeText=isFutbol
     ?"¡Biip boop! Soy ManriBot ⚽, tu experto futbolero con más datos que cromos. Pregúntame sobre cualquier cosa del mundo del fútbol: historia, equipos, jugadores, tácticas..."
     :"¡Biip boop! Soy ManriBot 🏎️, tu enciclopedia F1 con más datos que memoria. Pregúntame lo que quieras: resultados, campeonatos, pilotos, circuitos...";
-  const subtitleText=isFutbol?"Powered by Gemma 3 27B · Todo sobre fútbol":"Datos desde 1950 hasta hoy · Jolpica/Ergast API";
+  const subtitleText=isFutbol?"Powered by Gemma 4 · Todo sobre fútbol":"Datos desde 1950 hasta hoy · Jolpica/Ergast API";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:justify-end p-0 md:p-6" role="dialog" aria-modal="true" aria-labelledby="manribot-title">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>

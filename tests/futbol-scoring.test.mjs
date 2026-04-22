@@ -3,6 +3,7 @@ import {
   futbolSign, futbolMatchPoints, scoreFutbolJornada,
   computeFutbolStandings, computeFutbolJornadaWins,
   listFutbolJornadas, defaultFutbolState,
+  computeDeadlineFromKickoffs, getEffectiveDeadline,
 } from "../lib/scoring.mjs";
 
 // ─── futbolSign ───
@@ -348,6 +349,66 @@ describe("listFutbolJornadas", () => {
     };
     const list = listFutbolJornadas(futbol);
     expect(list).toHaveLength(2);
+  });
+});
+
+// ─── computeDeadlineFromKickoffs ───
+
+describe("computeDeadlineFromKickoffs", () => {
+  it("returns null when no matches", () => {
+    expect(computeDeadlineFromKickoffs(null)).toBeNull();
+    expect(computeDeadlineFromKickoffs({})).toBeNull();
+    expect(computeDeadlineFromKickoffs({ matches: [] })).toBeNull();
+  });
+
+  it("returns null when no matches have kickoff", () => {
+    const j = { matches: [{ home: "A", away: "B" }, { home: "C", away: "D" }] };
+    expect(computeDeadlineFromKickoffs(j)).toBeNull();
+  });
+
+  it("returns 1 minute before earliest kickoff", () => {
+    const j = {
+      matches: [
+        { home: "A", away: "B", kickoff: "2026-04-25T21:00:00Z" },
+        { home: "C", away: "D", kickoff: "2026-04-25T18:30:00Z" },
+        { home: "E", away: "F", kickoff: "2026-04-26T16:00:00Z" },
+      ],
+    };
+    const dl = computeDeadlineFromKickoffs(j);
+    expect(dl).toBeInstanceOf(Date);
+    expect(dl.toISOString()).toBe("2026-04-25T18:29:00.000Z");
+  });
+
+  it("ignores matches without kickoff", () => {
+    const j = {
+      matches: [
+        { home: "A", away: "B" },
+        { home: "C", away: "D", kickoff: "2026-04-25T20:00:00Z" },
+      ],
+    };
+    const dl = computeDeadlineFromKickoffs(j);
+    expect(dl.toISOString()).toBe("2026-04-25T19:59:00.000Z");
+  });
+});
+
+// ─── getEffectiveDeadline ───
+
+describe("getEffectiveDeadline", () => {
+  it("returns explicit deadline when present", () => {
+    const j = { deadline: "2026-04-25T21:00:00Z", matches: [{ home: "A", away: "B", kickoff: "2026-04-25T18:00:00Z" }] };
+    const dl = getEffectiveDeadline(j);
+    expect(dl.toISOString()).toBe("2026-04-25T21:00:00.000Z");
+  });
+
+  it("falls back to kickoff-based deadline when no explicit deadline", () => {
+    const j = { matches: [{ home: "A", away: "B", kickoff: "2026-04-25T18:00:00Z" }] };
+    const dl = getEffectiveDeadline(j);
+    expect(dl.toISOString()).toBe("2026-04-25T17:59:00.000Z");
+  });
+
+  it("returns null when neither deadline nor kickoffs", () => {
+    const j = { matches: [{ home: "A", away: "B" }] };
+    expect(getEffectiveDeadline(j)).toBeNull();
   });
 });
 

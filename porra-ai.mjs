@@ -183,7 +183,7 @@ Puedes responder sobre:
 Si no tienes datos exactos sobre algo muy reciente, dilo honestamente. Usa emojis de fútbol (⚽🏆🥅) para hacer las respuestas más divertidas.
 ${PROMPT_GUARD}`;
 
-const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemma-3-27b-it"];
+const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemma-4-31b-it"];
 
 function sanitizeInput(q) {
   return q.replace(/<<<|>>>/g, "").replace(/\x00/g, "").slice(0, 500);

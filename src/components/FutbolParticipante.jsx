@@ -4,7 +4,7 @@ import { MADRID_TZ } from "../config.js";
 import { saveBetFutbol } from "../api.js";
 import { toast } from "../toast.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
-import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState } from "../futbol-utils.js";
+import { scoreFutbolJornada, listFutbolJornadas, computeFutbolStandings, defaultFutbolState, getEffectiveDeadline } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
 import { FutbolBetForm } from "./FutbolBetForm.jsx";
 import { CountdownBadge } from "./CountdownBadge.jsx";
@@ -17,12 +17,34 @@ export function FutbolParticipante({user,db,setDb}){
   const jornadas=useMemo(()=>listFutbolJornadas(futbol),[futbol]);
   const [selected,setSelected]=useState(()=>{
     const nowMs=Date.now();
-    const upcoming=jornadas.find(j=>j.deadline && new Date(j.deadline).getTime()>nowMs);
+    const closedWithoutResults=jornadas.find(j=>{
+      const dl=getEffectiveDeadline(j);
+      if(!dl || dl.getTime()>nowMs) return false;
+      const res=futbol.results?.[j.id];
+      const hasAllResults=!!(res && res.matches?.length>0 && res.matches.every(m=>m.home!=null && m.away!=null));
+      return !hasAllResults;
+    });
+    if(closedWithoutResults) return closedWithoutResults.id;
+    const upcoming=jornadas.find(j=>{const dl=getEffectiveDeadline(j); return dl && dl.getTime()>nowMs;});
     return upcoming?.id || jornadas[jornadas.length-1]?.id || "";
   });
-  useEffect(()=>{ if((!selected || !jornadas.find(j=>j.id===selected)) && jornadas.length) { const nowMs=Date.now(); const upcoming=jornadas.find(j=>j.deadline && new Date(j.deadline).getTime()>nowMs); setSelected(upcoming?.id || jornadas[jornadas.length-1]?.id); } },[selected,jornadas]);
+  useEffect(()=>{
+    if((!selected || !jornadas.find(j=>j.id===selected)) && jornadas.length){
+      const nowMs=Date.now();
+      const closedWithoutResults=jornadas.find(j=>{
+        const dl=getEffectiveDeadline(j);
+        if(!dl || dl.getTime()>nowMs) return false;
+        const res=futbol.results?.[j.id];
+        const hasAllResults=!!(res && res.matches?.length>0 && res.matches.every(m=>m.home!=null && m.away!=null));
+        return !hasAllResults;
+      });
+      if(closedWithoutResults){ setSelected(closedWithoutResults.id); return; }
+      const upcoming=jornadas.find(j=>{const dl=getEffectiveDeadline(j); return dl && dl.getTime()>nowMs;});
+      setSelected(upcoming?.id || jornadas[jornadas.length-1]?.id);
+    }
+  },[selected,jornadas]);
   const jornada=jornadas.find(j=>j.id===selected);
-  const deadline=jornada?.deadline?new Date(jornada.deadline):null;
+  const deadline=jornada?getEffectiveDeadline(jornada):null;
   const manualWindow=futbol.betsWindow?.[selected];
   const manualReveal=futbol.betsReveal?.[selected];
   const isBeforeDeadline=deadline ? now<deadline : true;

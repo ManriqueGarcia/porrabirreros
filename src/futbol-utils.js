@@ -87,6 +87,18 @@ export function computeFutbolStandings(dbFutbol,participants,jornadas){
   }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.signs-a.signs||a.penCount-b.penCount||a.goalDiff-b.goalDiff||a.avgSubmit-b.avgSubmit);
 }
 
+export function computeDeadlineFromKickoffs(jornada){
+  if(!jornada?.matches?.length) return null;
+  const kickoffs=(jornada.matches||[]).map(m=>m.kickoff?new Date(m.kickoff).getTime():NaN).filter(t=>!Number.isNaN(t));
+  if(!kickoffs.length) return null;
+  return new Date(Math.min(...kickoffs)-60*1000);
+}
+
+export function getEffectiveDeadline(jornada){
+  if(jornada?.deadline) return new Date(jornada.deadline);
+  return computeDeadlineFromKickoffs(jornada);
+}
+
 export function listFutbolJornadas(futbol){
   const entries=Object.values(futbol?.jornadas||{});
   const order=futbol?.order||[];

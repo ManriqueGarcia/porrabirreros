@@ -442,11 +442,21 @@ async function resolveF1Deadline(pkPrefix, raceKey, clientDeadline, getItemFn, p
   return { deadline: null };
 }
 
+function computeDeadlineFromKickoffs(jornadaConfig) {
+  const matches = jornadaConfig?.matches;
+  if (!matches?.length) return null;
+  const kickoffs = matches.map(m => m.kickoff ? new Date(m.kickoff).getTime() : NaN).filter(t => !Number.isNaN(t));
+  if (!kickoffs.length) return null;
+  return new Date(Math.min(...kickoffs) - 60_000);
+}
+
 async function resolveFutbolDeadline(pkPrefix, jornadaId, getItemFn) {
   const windowData = await getItemFn(pkPrefix, jornadaId, "WINDOW");
   if (windowData?.forceClosed) return { blocked: true };
   const jornadaConfig = await getItemFn(pkPrefix, jornadaId, "CONFIG");
-  return { deadline: jornadaConfig?.deadline ? new Date(jornadaConfig.deadline) : null };
+  if (jornadaConfig?.deadline) return { deadline: new Date(jornadaConfig.deadline) };
+  const kickoffDeadline = computeDeadlineFromKickoffs(jornadaConfig);
+  return { deadline: kickoffDeadline };
 }
 
 async function handleSaveBetF1(raceKey, reqUser, body) {
