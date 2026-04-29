@@ -51,6 +51,10 @@ describe("isRaceCancelled", () => {
     expect(isRaceCancelled({ cancelled: true }, {})).toBe(true);
     expect(isRaceCancelled({}, {})).toBe(false);
   });
+  it("detecta por key de GP (respaldo si el calendario en caché no trae cancelled)", () => {
+    expect(isRaceCancelled(null, { key: "bahrain", grand_prix: "Bahrain GP" })).toBe(true);
+    expect(isRaceCancelled(null, { key: "monaco" })).toBe(false);
+  });
 });
 
 // ─── scoreForRace ───

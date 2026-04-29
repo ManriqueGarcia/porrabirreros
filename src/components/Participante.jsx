@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNow, nowISO, shareBet, betsAreEqual, formatDateTime, formatTime } from "../utils.js";
 import { CURRENT_SEASON_YEAR, MADRID_TZ, REAL_HISTORICAL_2025_KEYS } from "../config.js";
+import { isKnownCancelledF1Key } from "../f1-cancelled-keys.js";
 import { loadHistorical, saveBetF1 } from "../api.js";
 import { toast } from "../toast.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
-import { scoreForRace, hasRaceResults } from "../scoring.js";
+import { scoreForRace, hasRaceResults, isRaceCancelled } from "../scoring.js";
 import { Avatar } from "./Avatar.jsx";
 import { CircuitCard } from "./CircuitCard.jsx";
 import { BetForm } from "./BetForm.jsx";
@@ -23,8 +24,8 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       const valid=races.some(r=>r.key===selected);
       if(!selected||!valid){
         const nowMs=Date.now();
-        const upcoming=races.find(r=>r.cutoff && r.cutoff.getTime()>nowMs);
-        setSelected(upcoming?.key || races[races.length-1].key);
+        const upcoming=races.find(r=>!r.cancelled && r.cutoff && r.cutoff.getTime()>nowMs);
+        setSelected(upcoming?.key || races.filter(r=>!r.cancelled).pop()?.key || races[races.length-1].key);
       }
     }
   },[races,selected]);
@@ -46,8 +47,10 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const isBeforeCutoff=race && now<race.cutoff;
   const isLate=race && !isBeforeCutoff;
   const raceResult=race ? db.results?.[race.key] : null;
-  const hasResult=!!(raceResult && raceResult.pole && raceResult.podium?.filter(p=>p).length===3);
-  const canEdit=race ? (!manualWindow?.forceClosed && !hasResult) : false;
+  /** Incluye isKnownCancelledF1Key: no depende solo de scoring si config.local sustituye config en el build. */
+  const raceOff=race ? (isRaceCancelled(raceResult, race) || isKnownCancelledF1Key(race.key)) : false;
+  const hasResult=hasRaceResults(raceResult, race);
+  const canEdit=race ? (!manualWindow?.forceClosed && !hasResult && !raceOff) : false;
   const isAdmin=!!db.users?.[user]?.isAdmin;
   const canViewFull=race && (manualReveal?.forceShow || now>race.showBetsAt);
   const showStatusOnly=isAdmin && race && !canViewFull;
@@ -57,6 +60,10 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const [savingF1, setSavingF1] = useState(false);
   const savingF1Ref = useRef(false);
   const handleBetSubmit=useCallback(async(b)=>{
+    if (race && (isRaceCancelled(raceResult, race) || isKnownCancelledF1Key(race.key))) {
+      toast.error("Gran Premio cancelado: no se admiten apuestas ni penalizaciones.");
+      return;
+    }
     const late=new Date()>=race?.cutoff;
     const timestamp=nowISO();
     const rk=race?.key; if(!rk || savingF1Ref.current) return;
@@ -85,8 +92,8 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
     });
     if(late){toast.warn("Apuesta registrada (fuera de plazo: penalización -2 pts)");}else{toast.success("Apuesta guardada correctamente");fireConfetti();}
     setSavingF1(false); savingF1Ref.current = false;
-  },[race?.key,race?.cutoff,user,setDb]);
-  const betsStatus=race ? (hasResult?"Cerrado (resultados publicados)":manualWindow?.forceClosed?"Cerrado por admin":isLate?"Fuera de plazo (penalización -2 pts)":manualWindow?.forceOpen?"Abierto por admin":"Abierto") : "—";
+  },[race?.key,race?.cutoff,raceResult,race,user,setDb]);
+  const betsStatus=race ? (raceOff?"Cancelado (no puntúa)":hasResult?"Cerrado (resultados publicados)":manualWindow?.forceClosed?"Cerrado por admin":isLate?"Fuera de plazo (penalización -2 pts)":manualWindow?.forceOpen?"Abierto por admin":"Abierto") : "—";
   const betCount=useMemo(()=>{
     if(!race) return {done:0,total:0};
     const betsForRace=db.bets?.[race.key]||{};
@@ -97,12 +104,28 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const layoutCols=showOthersPanel?"md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]":"";
   return (<div className={`grid gap-4 ${layoutCols}`}>
     <div className="card card-racing p-4 md:p-5 min-w-0">
+      {race && raceOff && (
+        <div className="mb-4 p-4 rounded-2xl border-2 border-amber-400/45 bg-gradient-to-br from-amber-950/90 via-neutral-950/95 to-neutral-900 shadow-[0_0_24px_-4px_rgba(245,158,11,0.35)]" role="status" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="text-2xl" aria-hidden>⛔</span>
+            <span className="text-lg font-black tracking-tight text-amber-100">Gran Premio cancelado</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/25 text-amber-200 border border-amber-400/40">No puntúa</span>
+          </div>
+          <p className="text-sm text-amber-100/90 leading-relaxed">
+            <strong className="text-white">{race.grand_prix}</strong> no se disputa: no hay apuestas, preguntas ni puntos para esta carrera. Elige otro GP en el desplegable.
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">🏁 Tu apuesta <span className="text-xs opacity-40">· que te inviten a birras</span></h2>
+          <h2 className="section-title flex flex-wrap items-center gap-2">
+            🏁 Tu apuesta
+            {raceOff && <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-500/35">GP cancelado</span>}
+            <span className="text-xs opacity-40 font-normal">· que te inviten a birras</span>
+          </h2>
         {race && (<button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white/90 transition-all" onClick={()=>setShowOthers(prev=>!prev)}>{showOthersPanel?"Ocultar":"👀 Ver otras apuestas"}</button>)}
       </div>
-      <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)}>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}</option>)}</select>
-      {race && betCount.total>0 && !hasResult && (
+      <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={e=>setSelected(e.target.value)} aria-label="Elegir Gran Premio">{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix} — {r.date_local}{(r.cancelled||isKnownCancelledF1Key(r.key))?" · CANCELADO":""}</option>)}</select>
+      {race && !raceOff && betCount.total>0 && !hasResult && (
         <div className="flex items-center gap-2 mb-3 text-xs">
           <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500" style={{width:`${(betCount.done/betCount.total)*100}%`,background:betCount.done===betCount.total?"#22c55e":"linear-gradient(90deg,#f59e0b,#e10600)"}}></div>
@@ -112,7 +135,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           </span>
         </div>
       )}
-      {race && (<>
+      {race && !raceOff && (<>
         <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/10 via-sky-900/5 to-transparent border border-sky-500/20 p-4 text-center group hover:border-sky-400/35 transition-all">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400/60 to-transparent"></div>
@@ -153,7 +176,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           </div>
         </div>
         {(()=>{
-          const noBet=!bet?.submittedAt && canEdit && race.cutoff && race.cutoff.getTime()>Date.now();
+          const noBet=!raceOff && !bet?.submittedAt && canEdit && race.cutoff && race.cutoff.getTime()>Date.now();
           const hoursLeft=race.cutoff?Math.max(0,(race.cutoff.getTime()-Date.now())/3600000):999;
           const urgent=noBet && hoursLeft<24;
           return (
@@ -184,7 +207,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           );
         })()}
       </>)}
-      {race && owner===user && !db.questionsStatus?.[race.key]?.published && (
+      {race && !raceOff && owner===user && !db.questionsStatus?.[race.key]?.published && (
         <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-red-500/[.06] border border-amber-400/25 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400/40 via-red-400/30 to-transparent"></div>
           <div className="flex items-start gap-2.5">
@@ -197,21 +220,21 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
           </div>
         </div>
       )}
-      {race && owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked) && (
+      {race && !raceOff && owner===user && authorDeadline && now<authorDeadline && !(db.questionsStatus?.[race.key]?.locked) && (
         <div className="mb-3 space-y-2 bg-neutral-900 border border-white/10 rounded p-3">
           <div className="text-xs text-slate-300">✏️ Editor de preguntas (hasta 24h antes de quali)</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">{[0,1,2].map(i=>(<input key={i} className="select border rounded px-3 py-2 w-full" placeholder={"Pregunta "+(i+1)} value={(db.questions?.[race.key]?.[i]||"")} onChange={e=>{const curr=db.questions?.[race.key]||["","",""]; const next=[...curr]; next[i]=e.target.value; setDb(prev=>({...prev, questions:{...(prev.questions||{}), [race.key]: next}})); }}/>))}</div>
           <div className="flex gap-2">{!db.questionsStatus?.[race.key]?.published ? (<button className="px-3 py-2 rounded bg-emerald-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{published:true, author:user, publishedAt:new Date().toISOString()}}})); toast.success("Publicado"); }}>Publicar</button>):(<button className="px-3 py-2 rounded bg-amber-600 text-white" onClick={()=>{ const list=(db.questions?.[race.key]||["","",""]); if(list.some(q=>!q||!q.trim())) return toast.error("Rellena las 3 preguntas"); setDb(prev=>({...prev, questionsStatus:{...(prev.questionsStatus||{}), [race.key]:{...prev.questionsStatus[race.key], updatedAt:new Date().toISOString()}}})); toast.success("Actualizado"); }}>Actualizar</button>)}</div>
         </div>
       )}
-      {race && isLate && canEdit && (
+      {race && !raceOff && isLate && canEdit && (
         <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
           <div className="font-semibold text-amber-200">⚠️ Apuesta fuera de plazo</div>
           <div className="text-sm text-amber-300/80 mt-1">El plazo de apuestas ha cerrado. Puedes apostar igualmente, pero se aplicará una <b>penalización de -2 puntos</b>. No apostar supone <b>-3 puntos</b>.</div>
         </div>
       )}
-      {race && <BetForm key={race.key} bet={bet} disabled={!canEdit||savingF1} canEdit={canEdit&&!savingF1} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={handleBetSubmit}/>}
-      {race && bet?.submittedAt && <button className="mt-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
+      {race && !raceOff && <BetForm key={race.key} bet={bet} disabled={!canEdit||savingF1} canEdit={canEdit&&!savingF1} late={isLate} questions={((db.questionsStatus?.[race.key]?.published||db.questionsStatus?.[race.key]?.force)?(questions||["","",""]):["","",""])} drivers={driverList} onSubmit={handleBetSubmit}/>}
+      {race && !raceOff && bet?.submittedAt && <button className="mt-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
         const qs=questions||["","",""];
         const lines=[`🏎️ Porra Birreros — ${race.grand_prix}`,`📋 Apuesta de ${user}:`,bet.pole?`🏁 Pole: ${bet.pole}`:"",bet.podium?.filter(Boolean).length?`🥇🥈🥉 Podio: ${bet.podium.filter(Boolean).join(", ")}`:""];
         if(bet.q?.some(Boolean)){
@@ -296,7 +319,7 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       {race && !showStatusOnly && !canViewFull && <p className="text-sm text-slate-300">Se verán 1 minuto después del inicio de la quali (o si el admin las publica antes).</p>}
       {race && canViewFull && (
         <ul className="space-y-2">
-          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-center gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="f1"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div>{hasResult && bet.trashtalk && <div className="mt-1 text-xs italic text-white/40">💬 "{bet.trashtalk}"</div>}</div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
+          {others.map(({name,bet})=>(<li key={name} className="border border-white/10 rounded p-3 bg-neutral-900 flex items-start gap-3"><Avatar name={name} avatar={db.meta?.avatars?.[name]} avatarFutbol={db.meta?.avatarsFutbol?.[name]} size="sm" mode="f1"/><div className="flex-1 min-w-0"><div className="font-medium">{name}</div>{bet?<div className="text-sm"><div><b>Pole:</b> {bet.pole||"—"}</div><div><b>Podio:</b> {(bet.podium||["","",""]).join(" · ")}</div><div><b>P.Adic.:</b> {(bet.q||["","",""]).join(" · ")}</div>{bet.trashtalk?.trim() && <div className="mt-2 pt-2 border-t border-amber-500/20 text-xs text-amber-200/95 leading-snug">💬 <span className="italic">«{bet.trashtalk.trim()}»</span></div>}</div>:<div className="text-xs text-slate-400">Sin apuesta</div>}</div></li>))}
         </ul>
       )}
     </div>)}

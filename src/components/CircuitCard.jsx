@@ -8,7 +8,7 @@ const CircuitCard = React.memo(function CircuitCard({ race, circuits, compact })
   if (compact)
     return (
       <div className="mt-4 w-full p-3 rounded-xl bg-white/[.03] border border-red-500/10">
-        <h3 className="text-xs font-bold text-white/80 mb-1 tracking-wide">🏁 {c.name || race.grand_prix}</h3>
+        <h3 className="text-xs font-bold text-white/80 mb-1 tracking-wide flex flex-wrap items-center gap-1.5">🏁 {c.name || race.grand_prix}{race.cancelled && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-amber-300/90 border border-amber-500/25">Cancelado</span>}</h3>
         {c.city && <div className="text-[10px] text-white/40 mb-2">{c.city}</div>}
         <div className="flex gap-3">
           <div className="w-20 h-14 flex-shrink-0 rounded-lg bg-black/40 flex items-center justify-center overflow-hidden border border-white/5">
@@ -44,7 +44,7 @@ const CircuitCard = React.memo(function CircuitCard({ race, circuits, compact })
   return (
     <div className="mb-4 p-4 rounded-xl bg-white/[.03] border border-red-500/10 relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/25 to-transparent"></div>
-      <h3 className="text-sm font-bold text-white/90 mb-1 flex items-center gap-2">🏁 {c.name || race.grand_prix}</h3>
+      <h3 className="text-sm font-bold text-white/90 mb-1 flex flex-wrap items-center gap-2">🏁 {c.name || race.grand_prix}{race.cancelled && <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-200 border border-amber-500/30 font-semibold">Cancelado</span>}</h3>
       {c.city && <div className="text-[11px] text-white/30 mb-3">{c.city}</div>}
       <div className="flex flex-col sm:flex-row gap-4 items-start">
         <div className="w-full sm:w-48 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center border border-white/5">

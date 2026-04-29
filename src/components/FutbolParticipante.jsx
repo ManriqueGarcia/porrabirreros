@@ -277,7 +277,7 @@ export function FutbolParticipante({user,db,setDb}){
                         </div>
                       ))}
                     </div>
-                    {hasResult && other?.trashtalk && <div className="mt-1.5 text-xs italic text-white/40 flex items-start gap-1">💬 "{other.trashtalk}"</div>}
+                    {other?.trashtalk?.trim() && <div className="mt-2 pt-2 border-t border-amber-500/20 text-xs text-amber-200/95 leading-snug">💬 <span className="italic">«{other.trashtalk.trim()}»</span></div>}
                   </>) : (<div className="text-xs text-slate-400 text-center py-2">Sin apuesta</div>)}
                 </div>
               ))}

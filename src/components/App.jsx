@@ -447,6 +447,7 @@ function GroupApp({ groupId }) {
     setDb(prev => {
       const next = { ...prev, questionOwner: { ...(prev.questionOwner || {}) } };
       races.forEach(r => {
+        if (r.cancelled) return;
         if (!next.questionOwner[r.key]) {
           const idx = (r.round - 1) % QUESTION_AUTHORS_ORDER.length;
           const author = QUESTION_AUTHORS_ORDER[idx];

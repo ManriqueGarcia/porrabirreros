@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from "react";
-import { scoreForRace, hasRaceResults } from "../scoring.js";
+import { scoreForRace, hasRaceResults, isRaceCancelled } from "../scoring.js";
 import { scoreFutbolJornada, listFutbolJornadas, defaultFutbolState } from "../futbol-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
@@ -11,7 +11,9 @@ export const PersonalHistory = memo(function PersonalHistory({ db, races, mode, 
     if (!selectedUser) return [];
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key], r)).sort((a, b) => a.round - b.round);
+      const completed = (races || []).filter((r) =>
+        hasRaceResults(db.results?.[r.key], r) || isRaceCancelled(db.results?.[r.key], r)
+      ).sort((a, b) => a.round - b.round);
       let cumPts = 0, cumPos = 0;
       return completed.map((r, i) => {
         const s = scoreForRace(db, r.key, selectedUser, r);
@@ -29,9 +31,10 @@ export const PersonalHistory = memo(function PersonalHistory({ db, races, mode, 
 
         return {
           id: r.key,
-          label: r.grand_prix || r.key,
+          label: s.cancelled ? `${r.grand_prix || r.key} · cancelado` : (r.grand_prix || r.key),
           round: r.round,
           points: s.points,
+          gpCancelled: !!s.cancelled,
           cumPts,
           pos,
           cumRank,
@@ -99,15 +102,18 @@ export const PersonalHistory = memo(function PersonalHistory({ db, races, mode, 
           <div className="absolute left-2.5 top-2 bottom-2 w-px bg-white/10" />
           {timeline.map((ev, i) => {
             const isPositive = ev.points > 0;
-            const dotColor = ev.missed ? "bg-red-500" : ev.fullHouse ? "bg-amber-400" : isPositive ? "bg-emerald-500" : ev.points === 0 ? "bg-white/30" : "bg-red-400";
+            const dotColor = ev.gpCancelled ? "bg-amber-400" : ev.missed ? "bg-red-500" : ev.fullHouse ? "bg-amber-400" : isPositive ? "bg-emerald-500" : ev.points === 0 ? "bg-white/30" : "bg-red-400";
             return (
               <div key={ev.id} className="relative pb-4">
                 <div className={`absolute left-[-18px] top-1.5 w-2.5 h-2.5 rounded-full ${dotColor} ring-2 ring-neutral-900`} />
-                <div className="rounded-lg bg-white/[.02] border border-white/[.06] p-2.5">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-white/80">{ev.label}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold ${isPositive ? "text-emerald-400" : ev.points < 0 ? "text-red-400" : "text-white/40"}`}>
+                <div className={`rounded-lg border p-2.5 ${ev.gpCancelled ? "bg-amber-950/25 border-amber-500/25" : "bg-white/[.02] border-white/[.06]"}`}>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="min-w-0 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-bold text-white/80">{ev.label}</span>
+                      {ev.gpCancelled && <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/35">GP cancelado</span>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-bold ${ev.gpCancelled ? "text-white/45" : isPositive ? "text-emerald-400" : ev.points < 0 ? "text-red-400" : "text-white/40"}`}>
                         {ev.points > 0 ? "+" : ""}{ev.points} pts
                       </span>
                       <span className="text-[10px] text-white/25">#{ev.pos}</span>
@@ -116,9 +122,10 @@ export const PersonalHistory = memo(function PersonalHistory({ db, races, mode, 
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-white/35">
                     <span>Acumulado: {ev.cumPts} pts</span>
                     <span>Ranking: #{ev.cumRank}</span>
-                    {mode === "f1" && ev.gotPole && <span className="text-emerald-400/70">Pole</span>}
-                    {mode === "f1" && ev.gotAllPodium && <span className="text-emerald-400/70">Podio exacto</span>}
-                    {mode === "f1" && ev.fullHouse && <span className="text-amber-400/80">PLENO</span>}
+                    {mode === "f1" && ev.gpCancelled && <span className="text-amber-400/60">Sin puntuación (carrera anulada)</span>}
+                    {mode === "f1" && !ev.gpCancelled && ev.gotPole && <span className="text-emerald-400/70">Pole</span>}
+                    {mode === "f1" && !ev.gpCancelled && ev.gotAllPodium && <span className="text-emerald-400/70">Podio exacto</span>}
+                    {mode === "f1" && !ev.gpCancelled && ev.fullHouse && <span className="text-amber-400/80">PLENO</span>}
                     {mode === "futbol" && ev.exact > 0 && <span className="text-emerald-400/70">{ev.exact} exacto{ev.exact > 1 ? "s" : ""}</span>}
                     {mode === "futbol" && <span>{ev.signs} signo{ev.signs !== 1 ? "s" : ""}</span>}
                     {ev.missed && <span className="text-red-400/70">No apostó</span>}

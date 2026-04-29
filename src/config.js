@@ -1,4 +1,4 @@
-export const CACHE_BUST = "v20260301";
+export const CACHE_BUST = "v20260430";
 
 export const CONFIG = {
   participants: ["Jugador1", "Jugador2", "Jugador3", "Jugador4", "Jugador5"],
@@ -56,3 +56,5 @@ export const FALLBACK_COLORS = [
 
 export const REAL_HISTORICAL_2025_KEYS = ["las_vegas", "qatar", "abu_dhabi"];
 export const REAL_HISTORICAL_2025_ROUNDS = [22, 23, 24];
+
+export { CANCELLED_F1_RACE_KEYS } from "./f1-cancelled-keys.js";

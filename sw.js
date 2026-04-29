@@ -1,4 +1,4 @@
-const CACHE_NAME = "porra-v3";
+const CACHE_NAME = "porra-v4";
 const STATIC_ASSETS = ["/", "/manifest.json"];
 
 self.addEventListener("install", (e) => {

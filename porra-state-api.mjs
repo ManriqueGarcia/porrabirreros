@@ -9,6 +9,7 @@ import {
   QueryCommand, ScanCommand, BatchWriteCommand, UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { createHash } from "crypto";
+import { isCancelledF1RaceKey } from "./lib/f1-cancelled-races.mjs";
 
 const TABLE = process.env.TABLE_NAME || "PorraBirreros";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
@@ -70,6 +71,22 @@ function isValidUserName(name) {
   return !/[|#]/.test(name);
 }
 
+/** Bravuconada opcional; mismo límite que el cliente (120). */
+function sanitizeTrashtalk(bet) {
+  const raw = bet?.trashtalk;
+  if (raw == null || raw === "") return "";
+  if (typeof raw !== "string") return "";
+  return raw.trim().slice(0, 120);
+}
+
+function normalizeBetTrashtalk(bet) {
+  if (!bet || typeof bet !== "object") return bet;
+  const out = { ...bet };
+  const tt = sanitizeTrashtalk(out);
+  if (tt) out.trashtalk = tt; else delete out.trashtalk;
+  return out;
+}
+
 function validateF1Bet(bet) {
   if (typeof bet.pole !== "undefined" && typeof bet.pole !== "string") return "pole debe ser string";
   if (bet.pole && bet.pole.length > 100) return "pole demasiado largo";
@@ -77,6 +94,8 @@ function validateF1Bet(bet) {
   if (bet.podium && bet.podium.some(d => typeof d !== "string" || d.length > 100)) return "valor de podium inválido";
   if (bet.q && (!Array.isArray(bet.q) || bet.q.length > 10)) return "preguntas inválidas";
   if (bet.q && bet.q.some(a => typeof a !== "string" || a.length > 500)) return "respuesta demasiado larga";
+  if (bet.trashtalk != null && bet.trashtalk !== "" && typeof bet.trashtalk !== "string") return "trashtalk debe ser string";
+  if (typeof bet.trashtalk === "string" && bet.trashtalk.length > 120) return "trashtalk demasiado largo";
   return null;
 }
 
@@ -111,6 +130,8 @@ function validateFutbolBet(bet) {
     if (!Number.isInteger(h) || h < 0 || h > 99) return "marcador fuera de rango (0-99)";
     if (!Number.isInteger(a) || a < 0 || a > 99) return "marcador fuera de rango (0-99)";
   }
+  if (bet.trashtalk != null && bet.trashtalk !== "" && typeof bet.trashtalk !== "string") return "trashtalk debe ser string";
+  if (typeof bet.trashtalk === "string" && bet.trashtalk.length > 120) return "trashtalk demasiado largo";
   return null;
 }
 
@@ -462,6 +483,7 @@ async function resolveFutbolDeadline(pkPrefix, jornadaId, getItemFn) {
 async function handleSaveBetF1(raceKey, reqUser, body) {
   if (!raceKey || !reqUser) return badReq("Faltan raceKey o user");
   if (!isValidId(raceKey)) return badReq("raceKey inválido");
+  if (isCancelledF1RaceKey(raceKey)) return badReq("Gran Premio cancelado — no se admiten apuestas");
   const bet = body.bet || body;
   if (!bet.pole && (!bet.podium || !Array.isArray(bet.podium))) return badReq("Bet data incompleta");
   const f1Err = validateF1Bet(bet);
@@ -475,10 +497,12 @@ async function handleSaveBetF1(raceKey, reqUser, body) {
   const serverNow = new Date();
   const late = dl.deadline ? serverNow >= dl.deadline : false;
   const ts = serverNow.toISOString();
+  const tt = sanitizeTrashtalk(bet);
   const betData = {
     pole: bet.pole || "", podium: bet.podium || ["", "", ""],
     q: bet.q || ["", "", ""], submittedAt: ts, late,
   };
+  if (tt) betData.trashtalk = tt;
 
   await putItem(`F1#${raceKey}`, `BET#${reqUser}`, betData);
   await appendToHistory(`F1#${raceKey}`, `HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late });
@@ -500,7 +524,9 @@ async function handleSaveBetFutbol(jornadaId, reqUser, body) {
   const serverNow = new Date();
   const late = dl.deadline ? serverNow >= dl.deadline : false;
   const ts = serverNow.toISOString();
+  const tt = sanitizeTrashtalk(bet);
   const betData = { matches: bet.matches || [], submittedAt: ts, late };
+  if (tt) betData.trashtalk = tt;
 
   await putItem(`FUT#${jornadaId}`, `BET#${reqUser}`, betData);
   await appendToHistory(`FUT#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
@@ -512,6 +538,7 @@ async function handleSaveResultF1(raceKey, reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede guardar resultados");
   if (!raceKey) return badReq("Falta raceKey");
   if (!isValidId(raceKey)) return badReq("raceKey inválido");
+  if (isCancelledF1RaceKey(raceKey)) return badReq("Gran Premio cancelado — no se publican resultados");
   const result = body.result || body;
   const resErr = validateF1Result(result);
   if (resErr) return badReq(resErr);
@@ -576,6 +603,9 @@ async function handleAdminF1(raceKey, reqUser, body) {
   const { type, data } = body;
   if (!type) return badReq("Falta type");
   if (!isValidId(raceKey)) return badReq("raceKey inválido");
+  if (type !== "questions" && isCancelledF1RaceKey(raceKey)) {
+    return badReq("Gran Premio cancelado — no se puede modificar desde la API");
+  }
 
   switch (type) {
     case "window":
@@ -593,7 +623,7 @@ async function handleAdminF1(raceKey, reqUser, body) {
       if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
       const admF1Err = validateF1Bet(bet || {});
       if (admF1Err) return badReq(admF1Err);
-      await putItem(`F1#${raceKey}`, `BET#${userName}`, bet);
+      await putItem(`F1#${raceKey}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
       break;
     }
     case "questions":
@@ -632,7 +662,7 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
       if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
       const admFutErr = validateFutbolBet(bet || {});
       if (admFutErr) return badReq(admFutErr);
-      await putItem(`FUT#${jornadaId}`, `BET#${userName}`, bet);
+      await putItem(`FUT#${jornadaId}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
       break;
     }
     case "delete":
@@ -1159,7 +1189,9 @@ export const handler = async (event) => {
       const serverNow = new Date();
       const late = dl.deadline ? serverNow >= dl.deadline : false;
       const ts = serverNow.toISOString();
+      const tt = sanitizeTrashtalk(bet);
       const betData = { pole: bet.pole || "", podium: bet.podium || ["","",""], q: bet.q || ["","",""], submittedAt: ts, late };
+      if (tt) betData.trashtalk = tt;
       await gPutItem(gid, `F1#${rk}`, `BET#${reqUser}`, betData);
       await appendToHistory(`G#${gid}`, `F1#${rk}|HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late });
       return res(200, { ok: true, submittedAt: ts, late });
@@ -1181,7 +1213,9 @@ export const handler = async (event) => {
       const serverNow = new Date();
       const late = dl.deadline ? serverNow >= dl.deadline : false;
       const ts = serverNow.toISOString();
+      const tt = sanitizeTrashtalk(bet);
       const betData = { matches: bet.matches || [], submittedAt: ts, late };
+      if (tt) betData.trashtalk = tt;
       await gPutItem(gid, `FUT#${jId}`, `BET#${reqUser}`, betData);
       await appendToHistory(`G#${gid}`, `FUT#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
       return res(200, { ok: true, submittedAt: ts, late });
@@ -1298,7 +1332,7 @@ export const handler = async (event) => {
           if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
           const gAdmF1Err = validateF1Bet(bet || {});
           if (gAdmF1Err) return badReq(gAdmF1Err);
-          await gPutItem(gid, `F1#${raceKey}`, `BET#${userName}`, bet);
+          await gPutItem(gid, `F1#${raceKey}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
           break;
         }
         case "questions": {
@@ -1334,7 +1368,7 @@ export const handler = async (event) => {
           if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
           const gAdmFutErr = validateFutbolBet(bet || {});
           if (gAdmFutErr) return badReq(gAdmFutErr);
-          await gPutItem(gid, `FUT#${jornadaId}`, `BET#${userName}`, bet);
+          await gPutItem(gid, `FUT#${jornadaId}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
           break;
         }
         case "delete": {

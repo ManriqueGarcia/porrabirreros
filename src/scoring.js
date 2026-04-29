@@ -1,5 +1,12 @@
+import { CANCELLED_F1_RACE_KEYS } from "./f1-cancelled-keys.js";
+
 export function isRaceCancelled(res, raceFromCalendar) {
-  return !!(raceFromCalendar?.cancelled || res?.cancelled);
+  const key = raceFromCalendar?.key;
+  return !!(
+    raceFromCalendar?.cancelled
+    || res?.cancelled
+    || (key && CANCELLED_F1_RACE_KEYS.has(key))
+  );
 }
 
 export function hasRaceResults(res, raceFromCalendar) {
