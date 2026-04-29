@@ -1,10 +1,22 @@
-export function hasRaceResults(res) {
+export function isRaceCancelled(res, raceFromCalendar) {
+  return !!(raceFromCalendar?.cancelled || res?.cancelled);
+}
+
+export function hasRaceResults(res, raceFromCalendar) {
+  if (isRaceCancelled(res, raceFromCalendar)) return false;
   return !!(res && (res.pole || res.podium?.some(Boolean)));
 }
 
-export function scoreForRace(db, raceKey, name) {
+export function scoreForRace(db, raceKey, name, raceFromCalendar) {
   const bet = db.bets?.[raceKey]?.[name]; const res = db.results?.[raceKey];
-  const realResults = hasRaceResults(res);
+  if (isRaceCancelled(res, raceFromCalendar)) {
+    return {
+      points: 0, hits: 0, exact: 0, pen: 0,
+      gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false,
+      submittedAt: bet?.submittedAt || null, missed: false, late: false, cancelled: true,
+    };
+  }
+  const realResults = hasRaceResults(res, raceFromCalendar);
   const noBet = !bet;
   if (noBet) {
     return { points: realResults ? -3 : 0, hits: 0, exact: 0, pen: realResults ? 1 : 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: realResults, late: false };
@@ -35,10 +47,10 @@ export function computeGPWins(db, races, participants) {
   participants.forEach(n => { wins[n] = 0; });
   (races || []).forEach(race => {
     const res = db.results?.[race.key];
-    if (!hasRaceResults(res)) return;
+    if (!hasRaceResults(res, race)) return;
     let best = -Infinity; let winners = [];
     participants.forEach(name => {
-      const s = scoreForRace(db, race.key, name);
+      const s = scoreForRace(db, race.key, name, race);
       if (s.points > best) { best = s.points; winners = [name]; }
       else if (s.points === best) winners.push(name);
     });
@@ -50,6 +62,7 @@ export function computeGPWins(db, races, participants) {
 export function computeAvgSubmitTime(db, races, name) {
   let total = 0, count = 0;
   (races || []).forEach(race => {
+    if (isRaceCancelled(db.results?.[race.key], race)) return;
     const bet = db.bets?.[race.key]?.[name];
     if (bet?.submittedAt) { total += new Date(bet.submittedAt).getTime(); count++; }
   });
@@ -58,11 +71,10 @@ export function computeAvgSubmitTime(db, races, name) {
 
 export function computeGlobalStandings(db, races, participantsOverride) {
   const participants = participantsOverride || Object.keys(db.participants || {});
-  const keys = (races || []).map(r => r.key);
   const gpWins = computeGPWins(db, races, participants);
   return participants.map(name => {
-    const acc = keys.reduce((a, k) => {
-      const s = scoreForRace(db, k, name);
+    const acc = (races || []).reduce((a, race) => {
+      const s = scoreForRace(db, race.key, name, race);
       a.points += s.points; a.hits += s.hits; a.exact += s.exact; a.pen += s.pen; return a;
     }, { points: 0, hits: 0, exact: 0, pen: 0 });
     return { ...acc, name, wins: gpWins[name] || 0, avgSubmit: computeAvgSubmitTime(db, races, name) };
@@ -88,9 +100,9 @@ export function buildStats(db, races, participantsOverride) {
         if (b.podium[2]) votes.p3[b.podium[2]] = (votes.p3[b.podium[2]] || 0) + 1;
       }
     });
-    if (!hasRaceResults(db.results?.[race.key])) return;
+    if (!hasRaceResults(db.results?.[race.key], race)) return;
     const standings = participants.map(name => {
-      const s = scoreForRace(db, race.key, name);
+      const s = scoreForRace(db, race.key, name, race);
       hitsTotals[name] = (hitsTotals[name] || 0) + s.hits;
       return { ...s, name };
     });
@@ -112,7 +124,10 @@ export function buildStats(db, races, participantsOverride) {
   };
 }
 
-export function describeBetAgainstResult(bet, res, manualAdj = 0) {
+export function describeBetAgainstResult(bet, res, manualAdj = 0, raceFromCalendar) {
+  if (isRaceCancelled(res, raceFromCalendar)) {
+    return { points: 0, items: [{ label: "Gran Premio cancelado — no puntúa", delta: 0 }] };
+  }
   if (!bet) return { points: res ? -3 : 0, items: [{ label: "No participó en la apuesta", delta: res ? -3 : 0 }] };
   let pts = 0;
   const items = [];

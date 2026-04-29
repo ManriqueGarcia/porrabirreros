@@ -40,13 +40,13 @@ export const Achievements = memo(function Achievements({ db, races, mode, curren
     if (!selectedUser) return null;
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key], r));
       let wins = 0, poles = 0, fullHouses = 0, betsCount = 0, exactPodiums = 0, beers = 0;
       let bestPositiveStreak = 0, curStreak = 0, bestClimb = 0;
       const sortedRaces = [...completed].sort((a, b) => a.round - b.round);
 
       sortedRaces.forEach((r, ri) => {
-        const s = scoreForRace(db, r.key, selectedUser);
+        const s = scoreForRace(db, r.key, selectedUser, r);
         if (db.bets?.[r.key]?.[selectedUser]?.submittedAt) betsCount++;
         if (s.gotPole) poles++;
         if (s.fullHouse) fullHouses++;
@@ -54,7 +54,7 @@ export const Achievements = memo(function Achievements({ db, races, mode, curren
         if (s.points > 0) { curStreak++; bestPositiveStreak = Math.max(bestPositiveStreak, curStreak); }
         else curStreak = 0;
 
-        const scores = participants.map(n => ({ name: n, points: scoreForRace(db, r.key, n).points }))
+        const scores = participants.map(n => ({ name: n, points: scoreForRace(db, r.key, n, r).points }))
           .sort((a, b) => b.points - a.points);
         const myPos = scores.findIndex(x => x.name === selectedUser) + 1;
         const isWinner = scores.length > 1 && scores[0].name === selectedUser && scores[0].points > (scores[1]?.points ?? -Infinity);
@@ -62,7 +62,7 @@ export const Achievements = memo(function Achievements({ db, races, mode, curren
 
         if (ri > 0) {
           const prevRace = sortedRaces[ri - 1];
-          const prevScores = participants.map(n => ({ name: n, points: scoreForRace(db, prevRace.key, n).points }))
+          const prevScores = participants.map(n => ({ name: n, points: scoreForRace(db, prevRace.key, n, prevRace).points }))
             .sort((a, b) => b.points - a.points);
           const prevPos = prevScores.findIndex(x => x.name === selectedUser) + 1;
           const climb = prevPos - myPos;

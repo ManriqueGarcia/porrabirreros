@@ -5,7 +5,7 @@ import { scoreForRace, computeGPWins, computeAvgSubmitTime, hasRaceResults } fro
 const PositionEvolutionChart = memo(function PositionEvolutionChart({db,races,scope,participants}){
   const chartData=useMemo(()=>{
     if(participants.length<2) return null;
-    const withRes=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
+    const withRes=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r));
     let target;
     if(scope==="all"){ target=withRes; }
     else{
@@ -19,11 +19,10 @@ const PositionEvolutionChart = memo(function PositionEvolutionChart({db,races,sc
     const startEntry={race:{round:0,grand_prix:"Inicio"},positions:startPos,label:"🏁"};
     const evol=[startEntry];
     target.forEach((_race,ri)=>{
-      const keysUpTo=target.slice(0,ri+1).map(r=>r.key);
       const racesUpTo=target.slice(0,ri+1);
       const gw=computeGPWins(db,racesUpTo,participants);
       const st=participants.map(name=>{
-        const acc=keysUpTo.reduce((a,k)=>{const s=scoreForRace(db,k,name);a.points+=s.points;a.hits+=s.hits;a.exact+=s.exact;a.pen+=s.pen;return a;},{points:Number(bp[name]||0),hits:0,exact:0,pen:0});
+        const acc=racesUpTo.reduce((a,race)=>{const s=scoreForRace(db,race.key,name,race);a.points+=s.points;a.hits+=s.hits;a.exact+=s.exact;a.pen+=s.pen;return a;},{points:Number(bp[name]||0),hits:0,exact:0,pen:0});
         return{name,...acc,wins:gw[name]||0,avgSubmit:computeAvgSubmitTime(db,racesUpTo,name)};
       }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
       const pos={};st.forEach((s,i)=>{pos[s.name]=i+1;});

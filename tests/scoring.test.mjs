@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   scoreForRace, computeGPWins, computeGlobalStandings,
-  describeBetAgainstResult, buildStats, topList, hasRaceResults,
+  describeBetAgainstResult, buildStats, topList, hasRaceResults, isRaceCancelled,
 } from "../lib/scoring.mjs";
 
 // ─── hasRaceResults ───
@@ -34,6 +34,22 @@ describe("hasRaceResults", () => {
 
   it("full results → true", () => {
     expect(hasRaceResults({ pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A", "B", "C"] })).toBe(true);
+  });
+
+  it("cancelled on result → false (no cuenta como disputada)", () => {
+    expect(hasRaceResults({ cancelled: true, pole: "VER", podium: ["VER", "NOR", "LEC"] })).toBe(false);
+  });
+
+  it("cancelled en calendario → false aunque haya resultados guardados", () => {
+    expect(hasRaceResults({ pole: "VER", podium: ["VER", "NOR", "LEC"] }, { cancelled: true })).toBe(false);
+  });
+});
+
+describe("isRaceCancelled", () => {
+  it("detecta flag en calendario o en resultado", () => {
+    expect(isRaceCancelled(null, { cancelled: true })).toBe(true);
+    expect(isRaceCancelled({ cancelled: true }, {})).toBe(true);
+    expect(isRaceCancelled({}, {})).toBe(false);
   });
 });
 
@@ -134,6 +150,24 @@ describe("scoreForRace", () => {
     const s = scoreForRace(db, "gp1", "user1");
     expect(s.points).toBe(0);
     expect(s.missed).toBe(false);
+  });
+
+  it("cancelado (calendario): 0 pts, sin -3 por no apostar", () => {
+    const db = mkDb(null, { pole: "VER", podium: ["VER", "NOR", "LEC"] });
+    const s = scoreForRace(db, "gp1", "user1", { cancelled: true });
+    expect(s.points).toBe(0);
+    expect(s.missed).toBe(false);
+    expect(s.cancelled).toBe(true);
+  });
+
+  it("cancelado en resultado: ignora pole/podium aunque estén guardados", () => {
+    const db = mkDb(
+      { pole: "VER", podium: ["VER", "NOR", "LEC"], q: ["A", "B", "C"], submittedAt: "2025-01-01" },
+      { cancelled: true, pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: ["A", "B", "C"] },
+    );
+    const s = scoreForRace(db, "gp1", "user1");
+    expect(s.points).toBe(0);
+    expect(s.cancelled).toBe(true);
   });
 
   it("bet exists but no results → 0 pts, no penalties", () => {
@@ -404,6 +438,14 @@ describe("computeGlobalStandings", () => {
 // ─── describeBetAgainstResult ───
 
 describe("describeBetAgainstResult", () => {
+  it("cancelado → 0 pts, mensaje neutral", () => {
+    const r = describeBetAgainstResult(null, { pole: "VER" }, 0, { cancelled: true });
+    expect(r.points).toBe(0);
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].delta).toBe(0);
+    expect(r.items[0].label).toMatch(/cancelad/i);
+  });
+
   it("no bet → -3 if results exist", () => {
     const r = describeBetAgainstResult(null, { pole: "VER", podium: ["VER", "NOR", "LEC"] });
     expect(r.points).toBe(-3);

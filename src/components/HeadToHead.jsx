@@ -13,14 +13,14 @@ export const HeadToHead = memo(function HeadToHead({ db, races, mode, currentUse
     if (!rival || !me || rival === me) return null;
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key], r));
       if (!completed.length) return null;
       let myPts = 0, rivalPts = 0, myWins = 0, rivalWins = 0, ties = 0;
       let myHits = 0, rivalHits = 0, myExact = 0, rivalExact = 0;
       const perEvent = [];
       completed.forEach(r => {
-        const sm = scoreForRace(db, r.key, me);
-        const sr = scoreForRace(db, r.key, rival);
+        const sm = scoreForRace(db, r.key, me, r);
+        const sr = scoreForRace(db, r.key, rival, r);
         myPts += sm.points; rivalPts += sr.points;
         myHits += sm.hits; rivalHits += sr.hits;
         myExact += sm.exact; rivalExact += sr.exact;

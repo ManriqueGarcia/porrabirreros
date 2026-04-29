@@ -38,6 +38,7 @@
   {
     "round": 4,
     "key": "bahrain",
+    "cancelled": true,
     "grand_prix": "Bahrain Grand Prix",
     "country": "Bahrain (Sakhir)",
     "date_local": "2026-04-12",
@@ -50,6 +51,7 @@
   {
     "round": 5,
     "key": "saudi_arabia",
+    "cancelled": true,
     "grand_prix": "Saudi Arabian Grand Prix",
     "country": "Saudi Arabia (Jeddah)",
     "date_local": "2026-04-19",

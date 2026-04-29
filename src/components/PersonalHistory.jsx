@@ -11,17 +11,17 @@ export const PersonalHistory = memo(function PersonalHistory({ db, races, mode, 
     if (!selectedUser) return [];
 
     if (mode === "f1") {
-      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key])).sort((a, b) => a.round - b.round);
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key], r)).sort((a, b) => a.round - b.round);
       let cumPts = 0, cumPos = 0;
       return completed.map((r, i) => {
-        const s = scoreForRace(db, r.key, selectedUser);
+        const s = scoreForRace(db, r.key, selectedUser, r);
         cumPts += s.points;
         const bet = db.bets?.[r.key]?.[selectedUser];
-        const allScores = participants.map(n => ({ name: n, points: scoreForRace(db, r.key, n).points }))
+        const allScores = participants.map(n => ({ name: n, points: scoreForRace(db, r.key, n, r).points }))
           .sort((a, b) => b.points - a.points);
         const pos = allScores.findIndex(x => x.name === selectedUser) + 1;
         const cumStandings = participants.map(n => {
-          const p = completed.slice(0, i + 1).reduce((s, cr) => s + scoreForRace(db, cr.key, n).points, 0);
+          const p = completed.slice(0, i + 1).reduce((s, cr) => s + scoreForRace(db, cr.key, n, cr).points, 0);
           return { name: n, points: p };
         }).sort((a, b) => b.points - a.points);
         const cumRank = cumStandings.findIndex(x => x.name === selectedUser) + 1;

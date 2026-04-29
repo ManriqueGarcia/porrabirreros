@@ -8,7 +8,7 @@ export const Birrometro = memo(function Birrometro({ db, races, mode }) {
   const data = useMemo(() => {
     if (mode === "f1") {
       const participants = getParticipantsForPorra(db, "f1").filter(n => !BEER_EXCLUDED_USERS.has(n));
-      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key], r));
       if (completed.length < 1 || participants.length < 2) return null;
 
       const owes = {};
@@ -16,7 +16,7 @@ export const Birrometro = memo(function Birrometro({ db, races, mode }) {
       participants.forEach(n => { owes[n] = 0; owed[n] = 0; });
 
       completed.forEach(r => {
-        const scores = participants.map(n => ({ name: n, points: scoreForRace(db, r.key, n).points }));
+        const scores = participants.map(n => ({ name: n, points: scoreForRace(db, r.key, n, r).points }));
         scores.sort((a, b) => b.points - a.points);
         const allTied = scores.every(s => s.points === scores[0].points);
         if (!allTied) {

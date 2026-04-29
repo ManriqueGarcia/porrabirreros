@@ -21,7 +21,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const trend=useMemo(()=>{
     if(mode==="f1"){
       if(!races?.length) return null;
-      const completedRaces=races.filter(r=>hasRaceResults(db.results?.[r.key]));
+      const completedRaces=races.filter(r=>hasRaceResults(db.results?.[r.key],r));
       if(completedRaces.length<2) return null;
       const allButLast=completedRaces.slice(0,-1);
       const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants);
@@ -67,7 +67,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     return next?next.key:(races||[]).length?races[races.length-1].key:"unknown";
   },[races,mode,db.futbol]);
   const hasResults=useMemo(()=>{
-    if(mode==="f1") return (races||[]).some(r=>hasRaceResults(db.results?.[r.key]));
+    if(mode==="f1") return (races||[]).some(r=>hasRaceResults(db.results?.[r.key],r));
     const futbol=db.futbol||defaultFutbolState();
     const jornadas=listFutbolJornadas(futbol);
     return jornadas.some(j=>futbol.results?.[j.id]);

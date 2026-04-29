@@ -16,8 +16,8 @@ function Stats({db,races,currentUser}){
   const beerHistory=useMemo(()=>{
     const eligible=f1Participants.filter(n=>!BEER_EXCLUDED_USERS.has(n));
     if(eligible.length<2) return [];
-    return (races||[]).filter(r=>hasRaceResults(db.results?.[r.key])).map(race=>{
-      const scores=eligible.map(name=>({name,...scoreForRace(db,race.key,name)}));
+    return (races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r)).map(race=>{
+      const scores=eligible.map(name=>({name,...scoreForRace(db,race.key,name,race)}));
       scores.sort((a,b)=>b.points-a.points||a.pen-b.pen);
       const allTied=scores.every(s=>s.points===scores[0].points);
       return {race:race.grand_prix,round:race.round,winner:allTied?"Empate":scores[0].name,points:scores[0].points,allTied};
@@ -29,18 +29,18 @@ function Stats({db,races,currentUser}){
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   },[beerHistory]);
   const trendData=useMemo(()=>{
-    const completedRaces=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
+    const completedRaces=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r));
     if(!completedRaces.length||f1Participants.length<2) return null;
     return {
       races:completedRaces.map(r=>({key:r.key,label:r.grand_prix?.substring(0,3)||r.round,round:r.round})),
-      participants:f1Participants.map(name=>({name,scores:completedRaces.map(r=>scoreForRace(db,r.key,name).points)}))
+      participants:f1Participants.map(name=>({name,scores:completedRaces.map(r=>scoreForRace(db,r.key,name,r).points)}))
     };
   },[db,races,f1Participants]);
   const luckIndex=useMemo(()=>{
-    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
+    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r));
     if(completed.length<2||f1Participants.length<2) return null;
     return f1Participants.map(name=>{
-      const raceScores=completed.map(r=>scoreForRace(db,r.key,name));
+      const raceScores=completed.map(r=>scoreForRace(db,r.key,name,r));
       const totalPts=raceScores.reduce((s,r)=>s+r.points,0);
       const totalHits=raceScores.reduce((s,r)=>s+r.hits,0);
       const maxPossibleHits=completed.length*7;
@@ -67,11 +67,11 @@ function Stats({db,races,currentUser}){
     }).sort((a,b)=>b.luckScore-a.luckScore);
   },[db,races]);
   const f1Rivalries=useMemo(()=>{
-    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key]));
+    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r));
     if(completed.length<2||f1Participants.length<3) return [];
     const totals={};
     f1Participants.forEach(name=>{
-      totals[name]=completed.reduce((sum,r)=>sum+scoreForRace(db,r.key,name).points,0);
+      totals[name]=completed.reduce((sum,r)=>sum+scoreForRace(db,r.key,name,r).points,0);
     });
     const pairs=[];
     for(let i=0;i<f1Participants.length;i++){
@@ -79,7 +79,7 @@ function Stats({db,races,currentUser}){
         const a=f1Participants[i],b=f1Participants[j];
         let aWins=0,bWins=0,ties=0,sameChoices=0,totalChoices=0;
         completed.forEach(r=>{
-          const sa=scoreForRace(db,r.key,a),sb=scoreForRace(db,r.key,b);
+          const sa=scoreForRace(db,r.key,a,r),sb=scoreForRace(db,r.key,b,r);
           if(sa.points>sb.points)aWins++;else if(sb.points>sa.points)bWins++;else ties++;
           const ba=db.bets?.[r.key]?.[a],bb=db.bets?.[r.key]?.[b];
           if(ba?.submittedAt&&bb?.submittedAt){
@@ -120,15 +120,15 @@ function Stats({db,races,currentUser}){
   },[db.meta?.drivers,db.results,db.bets,races]);
   const [whatIfRaceKey,setWhatIfRaceKey]=useState("");
   const [whatIfResult,setWhatIfResult]=useState(null);
-  const completedRaces=useMemo(()=>(races||[]).filter(r=>hasRaceResults(db.results?.[r.key])),[races,db]);
+  const completedRaces=useMemo(()=>(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r)),[races,db]);
   useEffect(()=>{
-    if(whatIfRaceKey&&hasRaceResults(db.results?.[whatIfRaceKey])){
+    if(whatIfRaceKey&&hasRaceResults(db.results?.[whatIfRaceKey],(races||[]).find(r=>r.key===whatIfRaceKey))){
       const r=db.results[whatIfRaceKey];
       setWhatIfResult({pole:r.pole||"",podium:[...(r.podium||["","",""])],qAnswers:[...(r.qAnswers||["","",""])]});
     }else{
       setWhatIfResult(null);
     }
-  },[whatIfRaceKey,db.results]);
+  },[whatIfRaceKey,db.results,races]);
   const whatIfStandings=useMemo(()=>{
     if(!whatIfRaceKey||!whatIfResult) return null;
     if(f1Participants.length<2) return null;
@@ -225,8 +225,8 @@ function Stats({db,races,currentUser}){
         const sorted=[...completedRaces].sort((a,b)=>a.round-b.round);
         const streaks=f1Participants.map(name=>{
           const perRace=sorted.map(r=>{
-            const s=scoreForRace(db,r.key,name);
-            const scores=f1Participants.map(n=>scoreForRace(db,r.key,n));
+            const s=scoreForRace(db,r.key,name,r);
+            const scores=f1Participants.map(n=>scoreForRace(db,r.key,n,r));
             const best=Math.max(...scores.map(x=>x.points));
             const winners=scores.filter(x=>x.points===best);
             const won=winners.length===1&&s.points===best;

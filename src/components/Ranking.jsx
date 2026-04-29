@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { scoreForRace, computeGPWins, computeAvgSubmitTime, describeBetAgainstResult, hasRaceResults } from "../scoring.js";
+import { scoreForRace, computeGPWins, computeAvgSubmitTime, describeBetAgainstResult, hasRaceResults, isRaceCancelled } from "../scoring.js";
 import { exportCSV, exportPDF } from "../utils.js";
 import { toast } from "../toast.jsx";
 import { Avatar } from "./Avatar.jsx";
@@ -27,18 +27,18 @@ function Ranking({db,races,setDb,currentUser}){
   },[db.standings]);
   const computedData=useMemo(()=>{
     if(scope==="all"){
-      const keys=(races||[]).map(r=>r.key);
       const gpWins=computeGPWins(db, races, participants);
       return participants.map(n=>{
-        const acc=keys.reduce((a,k)=>{
-          const s=scoreForRace(db,k,n);
+        const acc=(races||[]).reduce((a,race)=>{
+          const s=scoreForRace(db,race.key,n,race);
           a.points+=s.points; a.hits+=s.hits; a.exact+=s.exact; a.pen+=s.pen; return a;
         },{points:Number(basePoints[n]||0),hits:0,exact:0,pen:0});
         return {name:n,...acc, wins:gpWins[n]||0, avgSubmit:computeAvgSubmitTime(db,races,n)};
       }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
     } else {
       const k=scope;
-      return participants.map(n=>{const s=scoreForRace(db,k,n); return {name:n,points:s.points,hits:s.hits,exact:s.exact,pen:s.pen,wins:0};})
+      const raceMeta=(races||[]).find(r=>r.key===k);
+      return participants.map(n=>{const s=scoreForRace(db,k,n,raceMeta); return {name:n,points:s.points,hits:s.hits,exact:s.exact,pen:s.pen,wins:0};})
         .sort((A,B)=>B.points-A.points||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen);
     }
   },[db,races,scope,participants,basePoints]);
@@ -46,12 +46,12 @@ function Ranking({db,races,setDb,currentUser}){
   const data=manualActive?manualStandings.map((item,idx)=>({name:item.name,points:item.points,wins:"—",hits:"—",exact:"—",pen:"—",manualRank:item.rank??(idx+1)})):computedData;
   const latestRaceSummary=useMemo(()=>{
     const parts=participants;
-    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key])).sort((a,b)=>b.round-a.round);
+    const completed=(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r)).sort((a,b)=>b.round-a.round);
     if(!completed.length||parts.length<2) return null;
     const race=completed[0];
     const res=db.results[race.key];
     const scores=parts.map(name=>{
-      const s=scoreForRace(db,race.key,name);
+      const s=scoreForRace(db,race.key,name,race);
       return {name,...s};
     }).sort((a,b)=>b.points-a.points);
     const winner=scores[0];
@@ -119,18 +119,17 @@ function Ranking({db,races,setDb,currentUser}){
     });
   };
   const podiumIcon=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1;
-  const completedRaces=useMemo(()=>(races||[]).filter(r=>hasRaceResults(db.results?.[r.key])),[races,db.results]);
+  const completedRaces=useMemo(()=>(races||[]).filter(r=>hasRaceResults(db.results?.[r.key],r)),[races,db.results]);
   const hasCompletedRaces=completedRaces.length>0;
   const prevPositions=useMemo(()=>{
     if(scope!=="all"||completedRaces.length<2||manualActive) return null;
     const sorted=[...completedRaces].sort((a,b)=>b.round-a.round);
     const latestKey=sorted[0].key;
-    const prevKeys=(races||[]).map(r=>r.key).filter(k=>k!==latestKey);
     const prevRaces=(races||[]).filter(r=>r.key!==latestKey);
     const gpWins=computeGPWins(db,prevRaces,participants);
     const prevStandings=participants.map(n=>{
-      const acc=prevKeys.reduce((a,k)=>{
-        const s=scoreForRace(db,k,n);
+      const acc=prevRaces.reduce((a,race)=>{
+        const s=scoreForRace(db,race.key,n,race);
         a.points+=s.points; a.hits+=s.hits; a.exact+=s.exact; a.pen+=s.pen; return a;
       },{points:Number(basePoints[n]||0),hits:0,exact:0,pen:0});
       return {name:n,...acc,wins:gpWins[n]||0,avgSubmit:computeAvgSubmitTime(db,prevRaces,n)};
@@ -138,7 +137,7 @@ function Ranking({db,races,setDb,currentUser}){
     const map={}; prevStandings.forEach((s,i)=>{map[s.name]=i+1;}); return map;
   },[scope,completedRaces,manualActive,races,db,participants,basePoints]);
   return (<div className="space-y-4">
-    <div className="card card-racing p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title text-lg">🏎️ Ranking F1 <span className="text-sm opacity-60">🍺</span></h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">🏆 Global ({completedRaces.length} carrera{completedRaces.length!==1?"s":""})</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}{hasRaceResults(db.results?.[r.key])?" ✓":""}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10"></th><th className="text-left">Piloto</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;const allTied=data.length>1&&data.every(d=>d.points===data[0].points);const isFirst=hasCompletedRaces&&i===0&&data.length>1&&!allTied;const canReceiveBeer=!BEER_EXCLUDED_USERS.has(r.name);const pCls=i===0&&!allTied&&hasCompletedRaces?"podium-1":i===1&&!allTied&&hasCompletedRaces?"podium-2":i===2&&!allTied&&hasCompletedRaces?"podium-3":"";return(<tr key={r.name} className={pCls} style={i<3&&!allTied&&hasCompletedRaces?{animationDelay:`${i*0.08}s`}:{}}><td className="text-white/50">{allTied||!hasCompletedRaces?"—":podiumIcon(i)}</td><td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} avatarFutbol={db.meta?.avatarsFutbol?.[r.name]} size="sm" mode="f1"/><div><span className={`font-semibold ${i===0&&!allTied&&hasCompletedRaces?"text-white":""}`}>{r.name}</span>{scope==="all"&&!manualActive&&completedRaces.length>=2&&prevPositions&&(()=>{const prev=prevPositions[r.name];if(prev==null)return null;const curr=i+1;const diff=prev-curr;if(diff>0)return <span className="text-emerald-400/90 text-[10px] ml-1.5 font-bold" style={{animation:"popIn 0.25s ease-out"}}>▲{diff}</span>;if(diff<0)return <span className="text-red-400/90 text-[10px] ml-1.5 font-bold" style={{animation:"popIn 0.25s ease-out"}}>▼{Math.abs(diff)}</span>;return <span className="text-amber-400/70 text-[10px] ml-1.5 font-bold" style={{animation:"popIn 0.25s ease-out"}}>=</span>;})()}{isFirst&&canReceiveBeer&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/15">🍺 le invitan</span>}{hasCompletedRaces&&allTied&&i===0&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 todos invitamos</span>}<div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:``}Pod:${r.exact} Aciert:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right pts-cell">{r.points}</td>{scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/45 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/30 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-3 flex flex-wrap items-center gap-2">Clasificación importada.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/35 mt-3">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/50 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}
+    <div className="card card-racing p-4 md:p-5"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4"><h2 className="section-title text-lg">🏎️ Ranking F1 <span className="text-sm opacity-60">🍺</span></h2><select className="select select-strong border rounded-xl px-3 py-2" value={scope} onChange={e=>setScope(e.target.value)}><option value="all">🏆 Global ({completedRaces.length} carrera{completedRaces.length!==1?"s":""})</option>{(races||[]).map(r=><option key={r.key} value={r.key}>{r.round}. {r.grand_prix}{hasRaceResults(db.results?.[r.key],r)?" ✓":""}</option>)}</select></div><div className="overflow-x-auto rounded-xl border border-white/5"><table className="text-sm w-full"><thead><tr><th className="text-left w-10"></th><th className="text-left">Piloto</th><th className="text-right">PTS</th>{scope==="all"&&<th className="text-right hidden sm:table-cell">Vict.</th>}<th className="text-right hidden sm:table-cell">Pod.</th><th className="text-right hidden sm:table-cell">Aciert.</th><th className="text-right hidden sm:table-cell">Pen.</th></tr></thead><tbody>{data.map((r,i)=>{const pos=manualActive?(r.manualRank||i+1):i+1;const allTied=data.length>1&&data.every(d=>d.points===data[0].points);const isFirst=hasCompletedRaces&&i===0&&data.length>1&&!allTied;const canReceiveBeer=!BEER_EXCLUDED_USERS.has(r.name);const pCls=i===0&&!allTied&&hasCompletedRaces?"podium-1":i===1&&!allTied&&hasCompletedRaces?"podium-2":i===2&&!allTied&&hasCompletedRaces?"podium-3":"";return(<tr key={r.name} className={pCls} style={i<3&&!allTied&&hasCompletedRaces?{animationDelay:`${i*0.08}s`}:{}}><td className="text-white/50">{allTied||!hasCompletedRaces?"—":podiumIcon(i)}</td><td><div className="flex items-center gap-2.5"><Avatar name={r.name} avatar={db.meta?.avatars?.[r.name]} avatarFutbol={db.meta?.avatarsFutbol?.[r.name]} size="sm" mode="f1"/><div><span className={`font-semibold ${i===0&&!allTied&&hasCompletedRaces?"text-white":""}`}>{r.name}</span>{scope==="all"&&!manualActive&&completedRaces.length>=2&&prevPositions&&(()=>{const prev=prevPositions[r.name];if(prev==null)return null;const curr=i+1;const diff=prev-curr;if(diff>0)return <span className="text-emerald-400/90 text-[10px] ml-1.5 font-bold" style={{animation:"popIn 0.25s ease-out"}}>▲{diff}</span>;if(diff<0)return <span className="text-red-400/90 text-[10px] ml-1.5 font-bold" style={{animation:"popIn 0.25s ease-out"}}>▼{Math.abs(diff)}</span>;return <span className="text-amber-400/70 text-[10px] ml-1.5 font-bold" style={{animation:"popIn 0.25s ease-out"}}>=</span>;})()}{isFirst&&canReceiveBeer&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/15">🍺 le invitan</span>}{hasCompletedRaces&&allTied&&i===0&&<span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/15">🍺 todos invitamos</span>}<div className="sm:hidden text-[11px] text-white/35 mt-0.5">{scope==="all"?`Vict:${r.wins} `:``}Pod:${r.exact} Aciert:${r.hits} Pen:${r.pen}</div></div></div></td><td className="text-right pts-cell">{r.points}</td>{scope==="all"&&<td className="text-right text-white/45 hidden sm:table-cell">{r.wins}</td>}<td className="text-right text-white/45 hidden sm:table-cell">{r.exact}</td><td className="text-right text-white/45 hidden sm:table-cell">{r.hits}</td><td className="text-right text-white/30 hidden sm:table-cell">{r.pen}</td></tr>)})}</tbody></table></div>{manualActive?<div className="text-xs text-amber-300 mt-3 flex flex-wrap items-center gap-2">Clasificación importada.<button className="px-2 py-1 rounded bg-slate-800 text-white" onClick={resetManual}>Usar automática</button></div>:<p className="text-[11px] text-white/35 mt-3">Desempates: puntos → victorias → podios exactos → aciertos → menos pen. → apuesta más temprana.</p>}{!manualActive && baseEntries.length>0 && <p className="text-[11px] text-emerald-300/50 mt-1">Incluye puntos base: {baseEntries.map(([n,v])=>`${n} ${v}`).join(" · ")}</p>}
     <button className="mt-3 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
       exportCSV("ranking_f1.csv",["Pos","Nombre","Puntos","Victorias","Podios","Aciertos","Pen."],data.map((r,i)=>[i+1,r.name,r.points,r.wins,r.exact,r.hits,r.pen]));
     }}>📥 Exportar CSV</button><button className="mt-3 ml-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
@@ -238,11 +237,17 @@ function Ranking({db,races,setDb,currentUser}){
 }
 function RaceBreakdown({db,races,raceKey,rows}){
   if(!raceKey || raceKey==="all"){
-    const latest=(races||[]).find(r=>hasRaceResults(db.results?.[r.key]));
+    const latest=(races||[]).find(r=>hasRaceResults(db.results?.[r.key],r));
     return <div className="card p-4 md:p-5"><h3 className="section-title">Detalle puntos</h3><p className="text-sm text-white/40 mt-2">{latest?"Selecciona un GP en el selector de arriba para ver su desglose.":"No hay resultados publicados aún."}</p></div>;
   }
   const race=(races||[]).find(r=>r.key===raceKey);
   const res=db.results?.[raceKey];
+  if(isRaceCancelled(res,race)) return (
+    <div className="card card-racing p-4 md:p-5">
+      <h3 className="section-title">Detalle — {race?.grand_prix||raceKey}</h3>
+      <p className="text-sm text-amber-300/90 mt-2">Gran Premio cancelado: no suma ni resta puntos.</p>
+    </div>
+  );
   if(!res) return <div className="card p-4 md:p-5"><h3 className="section-title">Detalle puntos — {race?.grand_prix||raceKey}</h3><p className="text-sm text-slate-300">Añade resultados oficiales para ver el desglose.</p></div>;
   const podium=res.podium||["","",""]; const questions=res.qAnswers||["","",""];
   return (
@@ -256,7 +261,7 @@ function RaceBreakdown({db,races,raceKey,rows}){
         {rows.map(row=>{
           const bet=db.bets?.[raceKey]?.[row.name];
           const manualAdj=db.scoreAdjustments?.[raceKey]?.[row.name]||0;
-          const detail=describeBetAgainstResult(bet,res,manualAdj);
+          const detail=describeBetAgainstResult(bet,res,manualAdj,race);
           return (
             <div key={row.name} className="border border-white/10 rounded p-3 bg-neutral-900">
               <div className="flex items-center justify-between gap-3">

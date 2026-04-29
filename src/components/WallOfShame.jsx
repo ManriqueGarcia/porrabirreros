@@ -28,7 +28,7 @@ export const WallOfShame = memo(function WallOfShame({ db, races, mode, currentU
   const shameData = useMemo(() => {
     if (mode === "f1") {
       const participants = getParticipantsForPorra(db, "f1");
-      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key]));
+      const completed = (races || []).filter(r => hasRaceResults(db.results?.[r.key], r));
       if (completed.length < 1 || participants.length < 2) return null;
 
       let worstSingle = null;
@@ -40,7 +40,7 @@ export const WallOfShame = memo(function WallOfShame({ db, races, mode, currentU
       participants.forEach(n => { mostLate[n] = 0; mostMissed[n] = 0; mostLast[n] = 0; });
 
       completed.forEach(r => {
-        const scores = participants.map(n => ({ name: n, ...scoreForRace(db, r.key, n) }));
+        const scores = participants.map(n => ({ name: n, ...scoreForRace(db, r.key, n, r) }));
         scores.sort((a, b) => a.points - b.points);
         const worst = scores[0];
         if (!worstSingle || worst.points < worstSingle.points) {
@@ -55,8 +55,8 @@ export const WallOfShame = memo(function WallOfShame({ db, races, mode, currentU
         participants.forEach(n => {
           const bet = db.bets?.[r.key]?.[n];
           if (bet?.trashtalk && bet.trashtalk.trim()) {
-            const sc = scoreForRace(db, r.key, n);
-            const allScores = participants.map(p => scoreForRace(db, r.key, p).points);
+            const sc = scoreForRace(db, r.key, n, r);
+            const allScores = participants.map(p => scoreForRace(db, r.key, p, r).points);
             const rank = allScores.filter(p => p > sc.points).length + 1;
             if (rank >= Math.ceil(participants.length * 0.6)) {
               trashtalkFails.push({
