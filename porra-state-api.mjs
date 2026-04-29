@@ -1021,7 +1021,7 @@ export const handler = async (event) => {
       if (!checkRateLimit(`login:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
-      return handleAuthLogin(body);
+      return await handleAuthLogin(body);
     }
     // POST /auth/verify — server-side password verification
     if (method === "POST" && segments[0] === "auth" && segments[1] === "verify") {
@@ -1104,14 +1104,14 @@ export const handler = async (event) => {
       if (!checkRateLimit(`create:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
-      return handleCreateGroup(body);
+      return await handleCreateGroup(body);
     }
     // GET /invite/{code}
     if (method === "GET" && segments[0] === "invite" && segments[1]) {
       if (!checkRateLimit(`invite:${clientIp}`, WRITE_RATE_MAX)) {
         return res(429, { error: "Demasiadas peticiones. Espera un momento." });
       }
-      return handleGetInvite(segments[1]);
+      return await handleGetInvite(segments[1]);
     }
     // POST /groups/{groupId}/join
     if (method === "POST" && segments[0] === "groups" && segments[1] && segments[2] === "join") {
@@ -1119,7 +1119,7 @@ export const handler = async (event) => {
       if (!checkRateLimit(`join:${clientIp}`)) {
         return res(429, { error: "Demasiados intentos. Espera un minuto." });
       }
-      return handleJoinGroup(segments[1], body);
+      return await handleJoinGroup(segments[1], body);
     }
     // Validate groupId for all /g/ routes
     if (segments[0] === "g" && segments[1] && !isValidId(segments[1])) {
@@ -1452,25 +1452,25 @@ export const handler = async (event) => {
     // PUT /bets/f1/{raceKey}
     if (method === "PUT" && segments[0] === "bets" && segments[1] === "f1" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user o usuario no encontrado");
-      return handleSaveBetF1(segments[2], reqUser, body);
+      return await handleSaveBetF1(segments[2], reqUser, body);
     }
 
     // PUT /bets/futbol/{jornadaId}
     if (method === "PUT" && segments[0] === "bets" && segments[1] === "futbol" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleSaveBetFutbol(segments[2], reqUser, body);
+      return await handleSaveBetFutbol(segments[2], reqUser, body);
     }
 
     // PUT /results/f1/{raceKey}
     if (method === "PUT" && segments[0] === "results" && segments[1] === "f1" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleSaveResultF1(segments[2], reqUser, body);
+      return await handleSaveResultF1(segments[2], reqUser, body);
     }
 
     // PUT /results/futbol/{jornadaId}
     if (method === "PUT" && segments[0] === "results" && segments[1] === "futbol" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleSaveResultFutbol(segments[2], reqUser, body);
+      return await handleSaveResultFutbol(segments[2], reqUser, body);
     }
 
     // PUT /users/{name}
@@ -1478,13 +1478,13 @@ export const handler = async (event) => {
       if (!reqUser) return forbidden("Falta x-porra-user");
       const targetUser = safeDecodeURI(segments[1]);
       if (targetUser === null) return badReq("Formato de URL inválido");
-      return handleUpdateUser(targetUser, reqUser, body);
+      return await handleUpdateUser(targetUser, reqUser, body);
     }
 
     // POST /users (add new user)
     if (method === "POST" && segments[0] === "users") {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleAddUser(reqUser, body);
+      return await handleAddUser(reqUser, body);
     }
 
     // DELETE /users/{name}
@@ -1492,30 +1492,30 @@ export const handler = async (event) => {
       if (!reqUser) return forbidden("Falta x-porra-user");
       const delUser = safeDecodeURI(segments[1]);
       if (delUser === null) return badReq("Formato de URL inválido");
-      return handleDeleteUser(delUser, reqUser);
+      return await handleDeleteUser(delUser, reqUser);
     }
 
     // PUT /meta
     if (method === "PUT" && segments[0] === "meta") {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleSaveMeta(reqUser, body);
+      return await handleSaveMeta(reqUser, body);
     }
 
     // PUT /admin/f1/{raceKey}
     if (method === "PUT" && segments[0] === "admin" && segments[1] === "f1" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleAdminF1(segments[2], reqUser, body);
+      return await handleAdminF1(segments[2], reqUser, body);
     }
 
     // PUT /admin/futbol/{jornadaId}
     if (method === "PUT" && segments[0] === "admin" && segments[1] === "futbol" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
-      return handleAdminFutbol(segments[2], reqUser, body);
+      return await handleAdminFutbol(segments[2], reqUser, body);
     }
 
     return notFound(`Ruta no encontrada: ${method} ${path}`);
   } catch (err) {
-    console.error("Error:", err?.message || "unknown");
+    console.error("Lambda error:", err?.stack || err?.message || err);
     return res(500, { error: "Error interno" });
   }
 };
