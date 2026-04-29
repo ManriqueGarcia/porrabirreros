@@ -940,12 +940,24 @@ async function handleAuthLogin(body) {
 
 // ─── Main handler ───
 
+/** Login/verify desde el navegador no envían x-porra-secret; el secreto es solo para scripts/backend. */
+function isPublicPasswordAuthRoute(method, segments) {
+  if (method !== "POST") return false;
+  if (segments[0] === "auth" && (segments[1] === "login" || segments[1] === "verify")) return true;
+  if (segments.length >= 3 && segments[1] === "auth" && (segments[2] === "login" || segments[2] === "verify")) {
+    return true;
+  }
+  return false;
+}
+
 export const handler = async (event) => {
   const method = event.requestContext?.http?.method || event.httpMethod || "GET";
   const rawPath = event.requestContext?.http?.path || event.rawPath || event.path || "/";
   const hdrs = Object.fromEntries(
     Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v])
   );
+  const path = rawPath.replace(/\/+$/, "") || "/";
+  const segments = path.split("/").filter(Boolean);
 
   if (method === "OPTIONS") return { statusCode: 204, headers: headers(), body: "" };
 
@@ -956,7 +968,7 @@ export const handler = async (event) => {
     }
   }
 
-  if (API_SECRET) {
+  if (API_SECRET && !isPublicPasswordAuthRoute(method, segments)) {
     if (hdrs["x-porra-secret"] !== API_SECRET) return forbidden("API secret invalido");
   }
 
@@ -967,8 +979,6 @@ export const handler = async (event) => {
     if (!sessionUser) return res(401, { error: "Sesión expirada. Vuelve a iniciar sesión." });
     rawUser = sessionUser;
   }
-  const path = rawPath.replace(/\/+$/, "") || "/";
-  const segments = path.split("/").filter(Boolean);
 
   let body = {};
   if (event.body) {
