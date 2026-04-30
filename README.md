@@ -180,7 +180,7 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 |------|-----------|
 | **Frontend** | React 18, Tailwind CSS v4, glassmorphism UI |
 | **Build** | esbuild (bundle + minify), @tailwindcss/cli |
-| **Backend** | AWS Lambda (Node.js), API Gateway |
+| **Backend** | AWS Lambda (**Node.js 24.x**), API Gateway |
 | **AI** | Google AI API (Gemma / Gemini), client-side Jolpica/Ergast |
 | **Storage** | AWS DynamoDB (multi-tenant) + localStorage (cache local) |
 | **Hosting** | S3 + CloudFront (CDN) |
@@ -434,6 +434,14 @@ Ver [DEPLOY.md](DEPLOY.md) para instrucciones detalladas.
 | **API Gateway + Lambda State** | `porra-state-api.mjs` — API REST con rutas granulares |
 | **API Gateway + Lambda AI** | `porra-ai.mjs` — ManriBot (opcional) |
 | **CloudFront + ACM** | CDN + HTTPS + dominio personalizado |
+
+**Runtime Lambda:** `nodejs24.x`. Despliegue automático (perfil AWS **`default`**, o `AWS_PROFILE` si lo defines):
+
+```bash
+npm run deploy:lambda
+```
+
+Requiere AWS CLI con credenciales del perfil usado y permisos `lambda:UpdateFunctionCode` / `lambda:UpdateFunctionConfiguration` sobre las funciones `porra-ai` (eu-west-1) y `porra-state-api`, `porra-state-api-dev`, `porra-get`, `porra-put` (us-east-1). Ver `scripts/deploy-aws-lambdas.mjs`.
 
 Variables de entorno de la Lambda State (`porra-state-api.mjs`):
 

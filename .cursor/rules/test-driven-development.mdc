@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Test-Driven Development
 
-Sigue las directrices de `.agents/skills/test-driven-development/SKILL.md`.
+Sigue las directrices de `~/.agents/skills/test-driven-development/SKILL.md`.
 
 ## Regla de Hierro
 

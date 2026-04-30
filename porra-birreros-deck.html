@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Porra Birreros 2026 — Presentación</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700;900&family=Red+Hat+Text:wght@400;500;700&family=Red+Hat+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #141414;
+      --bg-surface: #1e1e1e;
+      --text-primary: #ffffff;
+      --text-secondary: #b0b0b0;
+      --text-muted: #707070;
+      --accent: #e10600;
+      --accent-dark: #a60000;
+      --accent-light: #ff4438;
+      --f1-red: #e10600;
+      --beer-gold: #f59e0b;
+      --beer-amber: #b45309;
+      --futbol-green: #16a34a;
+      --tag-border: #333;
+      --font-display: 'Red Hat Display', sans-serif;
+      --font-body: 'Red Hat Text', sans-serif;
+      --font-mono: 'Red Hat Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100dvh;
+      width: 100vw;
+    }
+    .deck { position: relative; width: 100%; height: 100dvh; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      text-align: center;
+      padding: 60px 80px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    .slide.active { display: flex; }
+    .slide-spacer { flex-shrink: 0; flex-grow: 1; min-height: 0; }
+    .slide-content { width: 100%; max-width: 1000px; }
+
+    @supports (height: 100dvh) {
+      body, .deck { height: 100dvh; }
+    }
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(225,6,0,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .slide > * { position: relative; z-index: 1; }
+    .slide.glow-left::before { right: auto; left: -10%; }
+    .slide.glow-center::before { right: auto; left: 20%; top: -30%; width: 60%; height: 80%; }
+    .slide.glow-strong::before { background: radial-gradient(ellipse, rgba(225,6,0,0.12) 0%, transparent 70%); }
+    .slide.glow-gold::before { background: radial-gradient(ellipse, rgba(245,158,11,0.10) 0%, transparent 70%); }
+    .slide.glow-shame::before { background: radial-gradient(ellipse, rgba(239,68,68,0.12) 0%, transparent 60%); top: -10%; right: -5%; }
+
+    h1 {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 3.5rem;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 2.5rem;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+    }
+    h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      max-width: 750px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .accent { color: var(--accent); }
+    .gold { color: var(--beer-gold); }
+    .green { color: var(--futbol-green); }
+    .shame-red { color: #f87171; }
+    .tag {
+      display: inline-block;
+      padding: 6px 18px;
+      border: 1px solid var(--tag-border);
+      border-radius: 64px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin: 4px;
+    }
+    .tag.accent { border-color: var(--accent); color: var(--accent); }
+    .tag.gold { border-color: var(--beer-gold); color: var(--beer-gold); }
+    .tag.green { border-color: var(--futbol-green); color: var(--futbol-green); }
+    .big-number {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 6rem;
+      line-height: 1;
+      color: var(--accent);
+    }
+    .big-number.gold { color: var(--beer-gold); }
+    .big-number.green { color: var(--futbol-green); }
+    .big-emoji { font-size: 4.5rem; line-height: 1; margin-bottom: 16px; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      max-width: 960px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 28px 24px;
+    }
+    .card h3 { color: var(--text-primary); }
+    .card p { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.5; }
+    .card .icon { font-size: 2.2rem; margin-bottom: 12px; }
+    .card.shame {
+      border-color: rgba(239,68,68,0.2);
+      background: rgba(239,68,68,0.04);
+    }
+    .card.gold-border {
+      border-color: rgba(245,158,11,0.25);
+      background: rgba(245,158,11,0.04);
+    }
+    .attribution {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 32px;
+    }
+    .label-row {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    /* Ranking table */
+    .ranking-table {
+      margin: 0 auto;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 1.1rem;
+      max-width: 750px;
+      width: 100%;
+    }
+    .ranking-table th {
+      text-align: left;
+      padding: 10px 16px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .ranking-table th:first-child { text-align: center; width: 50px; }
+    .ranking-table td {
+      padding: 12px 16px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .ranking-table td:first-child {
+      text-align: center;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 1.3rem;
+    }
+    .ranking-table .name { font-weight: 700; color: var(--text-primary); }
+    .ranking-table .pts {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 1.2rem;
+    }
+    .ranking-table .detail {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .ranking-table .comment {
+      font-size: 0.85rem;
+      font-style: italic;
+      color: var(--text-muted);
+    }
+    .pos-1 td:first-child { color: var(--beer-gold); }
+    .pos-2 td:first-child { color: #c0c0c0; }
+    .pos-3 td:first-child { color: #cd7f32; }
+    .pos-last td:first-child { color: #f87171; }
+
+    .scoring-table {
+      margin: 0 auto;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 1.05rem;
+      max-width: 700px;
+      width: 100%;
+    }
+    .scoring-table th {
+      text-align: left;
+      padding: 10px 16px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .scoring-table td {
+      padding: 10px 16px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .scoring-table td:last-child {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .positive { color: #4ade80; }
+    .negative { color: #f87171; }
+    .bonus { color: var(--beer-gold); }
+
+    .arch-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+    .arch-box.highlight {
+      border-color: var(--accent);
+      background: rgba(225,6,0,0.06);
+    }
+    .arch-box .arch-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+    }
+    .arrow {
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .arch-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+      max-width: 800px;
+      width: 100%;
+    }
+    .feature-list {
+      list-style: none;
+      text-align: left;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .feature-list li {
+      padding: 8px 0;
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .feature-list .bullet { font-size: 1.3rem; flex-shrink: 0; }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin: 20px auto 0;
+      max-width: 700px;
+    }
+    .timeline-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .timeline-dot.done { border-color: #4ade80; background: rgba(74,222,128,0.15); color: #4ade80; }
+    .timeline-dot.next { border-color: var(--accent); background: rgba(225,6,0,0.15); color: var(--accent); }
+    .timeline-line { width: 8px; height: 2px; background: rgba(255,255,255,0.08); }
+
+    .controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 32px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      background: linear-gradient(transparent, rgba(0,0,0,0.6));
+      z-index: 100;
+    }
+    .progress .current { color: var(--accent); font-weight: 700; }
+
+    .slide.active .animate-in {
+      animation: fadeSlideUp 0.6s ease-out forwards;
+      opacity: 0;
+    }
+    .slide.active .animate-in:nth-child(2) { animation-delay: 0.1s; }
+    .slide.active .animate-in:nth-child(3) { animation-delay: 0.2s; }
+    .slide.active .animate-in:nth-child(4) { animation-delay: 0.3s; }
+    .slide.active .animate-in:nth-child(5) { animation-delay: 0.4s; }
+    .slide.active .animate-in:nth-child(6) { animation-delay: 0.5s; }
+    .slide.active .animate-in:nth-child(7) { animation-delay: 0.6s; }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .checkered-divider {
+      display: flex;
+      justify-content: center;
+      gap: 3px;
+      margin: 20px auto;
+    }
+    .checkered-divider span {
+      display: block;
+      width: 14px;
+      height: 14px;
+    }
+    .checkered-divider span:nth-child(odd) { background: var(--accent); }
+    .checkered-divider span:nth-child(even) { background: var(--text-primary); }
+
+    .quote {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 500;
+      font-style: italic;
+      line-height: 1.4;
+      max-width: 700px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .quote::before {
+      content: '"';
+      font-size: 6rem;
+      font-style: normal;
+      color: var(--accent);
+      opacity: 0.3;
+      position: absolute;
+      top: -40px;
+      left: -30px;
+      font-family: var(--font-display);
+      line-height: 1;
+    }
+
+    .trashtalk-box {
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 12px;
+      padding: 20px 28px;
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .trashtalk-box .clown { font-size: 2rem; }
+    .trashtalk-box .tt-quote {
+      font-style: italic;
+      font-size: 1.15rem;
+      color: #fca5a5;
+      margin: 8px 0;
+    }
+    .trashtalk-box .tt-result {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .beer-visual {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 40px;
+      margin: 20px auto 0;
+    }
+    .beer-person {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .beer-person .mugs { font-size: 2.5rem; line-height: 1; }
+    .beer-person .bp-name {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+    .beer-person .bp-detail {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .race-detail {
+      font-size: 1.1rem;
+      line-height: 2;
+      color: var(--text-secondary);
+    }
+    .race-standings {
+      font-size: 1.1rem;
+      line-height: 2.2;
+    }
+    .race-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ===== RESPONSIVE ===== */
+
+    @media (max-width: 1024px) {
+      .slide { padding: 48px 40px; }
+      h1 { font-size: 2.8rem; }
+      h2 { font-size: 2rem; }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      .slide { padding: 32px 20px 60px; justify-content: flex-start; }
+      h1 { font-size: 2rem; }
+      h2 { font-size: 1.5rem; }
+      h3 { font-size: 1.2rem; }
+      .big-number { font-size: 3.5rem; }
+      .big-emoji { font-size: 3rem; }
+      .subtitle { font-size: 0.95rem; }
+      .label-row { font-size: 0.7rem; margin-bottom: 12px; }
+
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; gap: 12px; }
+      .grid-2 { text-align: center; }
+
+      .arch-flow { flex-direction: column; gap: 8px; }
+      .arch-flow .arch-arrow { transform: rotate(90deg); font-size: 1rem; }
+      .arch-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+      .ranking-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+      .race-detail { font-size: 0.9rem; line-height: 1.8; }
+      .race-standings { font-size: 0.9rem; line-height: 2; }
+      .race-hint { font-size: 0.7rem; }
+
+      .card { padding: 20px 16px; }
+      .card .icon { font-size: 1.8rem; margin-bottom: 8px; }
+      .card p { font-size: 0.9rem; }
+
+      .tag { font-size: 0.65rem; padding: 5px 12px; margin: 3px; }
+
+      .ranking-table { font-size: 0.85rem; }
+      .ranking-table th { padding: 6px 8px; font-size: 0.6rem; }
+      .ranking-table td { padding: 8px; }
+      .ranking-table td:first-child { font-size: 1rem; }
+      .ranking-table .detail { font-size: 0.65rem; }
+      .ranking-table .comment { font-size: 0.7rem; }
+      .ranking-table .pts { font-size: 1rem; }
+
+      .scoring-table { font-size: 0.85rem; }
+      .scoring-table th, .scoring-table td { padding: 8px 10px; }
+
+      .quote { font-size: 1.3rem; }
+      .quote::before { font-size: 4rem; top: -30px; left: -15px; }
+
+      .trashtalk-box { padding: 14px 16px; }
+      .trashtalk-box .clown { font-size: 1.5rem; }
+      .trashtalk-box .tt-quote { font-size: 0.95rem; }
+      .trashtalk-box .tt-result { font-size: 0.8rem; }
+
+      .arch-box { padding: 12px 14px; font-size: 0.85rem; }
+      .arch-box .arch-label { font-size: 0.6rem; }
+      .arrow { font-size: 1rem; }
+
+      .feature-list li { font-size: 0.95rem; padding: 6px 0; }
+      .feature-list .bullet { font-size: 1rem; }
+
+      .timeline-row { flex-wrap: wrap; gap: 2px; }
+      .timeline-dot { width: 18px; height: 18px; font-size: 0.45rem; }
+      .timeline-line { width: 4px; }
+
+      .beer-visual { gap: 24px; }
+      .beer-person .mugs { font-size: 2rem; }
+      .beer-person .bp-name { font-size: 0.8rem; }
+
+      .checkered-divider span { width: 10px; height: 10px; }
+
+      .attribution { font-size: 0.8rem; margin-top: 20px; }
+
+      .controls { padding: 8px 16px; font-size: 0.6rem; }
+    }
+
+    @media (max-width: 480px) {
+      .slide { padding: 20px 12px 52px; }
+      h1 { font-size: 1.6rem; }
+      h2 { font-size: 1.25rem; }
+      .big-number { font-size: 2.8rem; }
+      .subtitle { font-size: 0.85rem; }
+
+      .ranking-table .comment { display: none; }
+      .ranking-table .detail { font-size: 0.6rem; }
+      .ranking-table td { padding: 6px; }
+
+      .arch-box strong { font-size: 0.8rem; }
+      .arch-grid { grid-template-columns: 1fr; }
+
+      .timeline-row { gap: 1px; }
+      .timeline-dot { width: 12px; height: 12px; font-size: 0; border-width: 1.5px; }
+      .timeline-line { width: 2px; height: 1.5px; }
+
+      .beer-visual { flex-direction: column; gap: 16px; align-items: center; }
+
+      .scoring-table td, .scoring-table th { padding: 6px 8px; font-size: 0.8rem; }
+
+      .trashtalk-box { padding: 12px; }
+      .trashtalk-box .tt-quote { font-size: 0.85rem; }
+    }
+
+    @media (max-height: 600px) {
+      .slide { padding-top: 16px; padding-bottom: 40px; }
+      .big-emoji { font-size: 2.5rem; margin-bottom: 8px; }
+      .big-number { font-size: 3rem; }
+      .card { padding: 14px 12px; }
+      .card .icon { font-size: 1.5rem; margin-bottom: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+
+    <!-- SLIDE 1: TÍTULO -->
+    <div class="slide glow-strong active">
+      <div class="label-row animate-in">—— PORRA BIRREROS · TEMPORADA 2026</div>
+      <h1 class="animate-in">
+        Apuestas, <span class="accent">Fórmula 1</span>,<br>
+        Fútbol y <span class="gold">Birras</span>
+      </h1>
+      <p class="subtitle animate-in">La app donde los amigos apuestan, compiten y el que pierde invita a cervezas. Estado de la temporada a 19 de marzo de 2026.</p>
+      <div class="animate-in" style="margin-top:24px">
+        <span class="tag accent">F1 · 2/24 GPs</span>
+        <span class="tag green">LIGA · 2/12 JORNADAS</span>
+        <span class="tag gold">BIRRAS EN JUEGO</span>
+      </div>
+      <div class="checkered-divider animate-in" style="margin-top:32px">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="attribution animate-in">Antonio · Carlos · Manrique · Marc · Pere · Toni</p>
+    </div>
+
+    <!-- SLIDE 2: ¿QUÉ ES? -->
+    <div class="slide glow-left">
+      <div class="label-row animate-in">VISIÓN GENERAL</div>
+      <h2 class="animate-in">Una porra entre amigos donde<br>el perdedor <span class="gold">paga las birras</span> 🍺</h2>
+      <div class="grid-3 animate-in" style="margin-top:32px">
+        <div class="card">
+          <div class="icon">🏎️</div>
+          <h3>Fórmula 1</h3>
+          <p>Apuesta en cada GP: pole, podio y 3 preguntas. Apuesta ciega hasta qualy.</p>
+        </div>
+        <div class="card">
+          <div class="icon">⚽</div>
+          <h3>Fútbol</h3>
+          <p>Predice resultados exactos de La Liga. 4 partidos por jornada.</p>
+        </div>
+        <div class="card">
+          <div class="icon">🍺</div>
+          <h3>Birras</h3>
+          <p>Quien gana cada carrera o jornada acumula birras. El que pierde... ya sabe.</p>
+        </div>
+      </div>
+      <p class="subtitle animate-in" style="margin-top:28px;font-size:1rem">6 participantes · Ranking en tiempo real · Logros, rivalidades, estadísticas, ManriBot IA y mucho más</p>
+    </div>
+
+    <!-- SLIDE 3: CLASIFICACIÓN F1 -->
+    <div class="slide glow-strong">
+      <div class="label-row animate-in">🏎️ CLASIFICACIÓN F1 — TRAS AUSTRALIA + CHINA</div>
+      <h2 class="animate-in">Toni arrasa y los demás<br><span class="accent">van a remolque</span></h2>
+      <table class="ranking-table animate-in">
+        <thead><tr><th>#</th><th>Piloto</th><th>Detalle</th><th></th><th class="pts">PTS</th></tr></thead>
+        <tbody>
+          <tr class="pos-1">
+            <td>🥇</td>
+            <td class="name">Toni</td>
+            <td class="detail">1 victoria · 1 pole · 7 aciertos</td>
+            <td class="comment">El elegido. Clavó la pole y el podio en Australia.</td>
+            <td class="pts" style="color:var(--beer-gold)">7</td>
+          </tr>
+          <tr class="pos-2">
+            <td>🥈</td>
+            <td class="name">Carlos</td>
+            <td class="detail">1 victoria · 0 poles · 4 aciertos</td>
+            <td class="comment">Ganó China por descarte. Alguien tenía que hacerlo.</td>
+            <td class="pts">4</td>
+          </tr>
+          <tr class="pos-3">
+            <td>🥉</td>
+            <td class="name">Pere</td>
+            <td class="detail">0 victorias · 5 aciertos · 1 late ⏰</td>
+            <td class="comment">Tiene aciertos pero llega tarde. Story of his life.</td>
+            <td class="pts">3</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted)">4</td>
+            <td class="name">Manrique</td>
+            <td class="detail">0 victorias · 3 aciertos · 0 late</td>
+            <td class="comment">3 pts y un trashtalk que le explotó en la cara.</td>
+            <td class="pts">3</td>
+          </tr>
+          <tr class="pos-last">
+            <td>💀</td>
+            <td class="name">Antonio</td>
+            <td class="detail">0 victorias · 2 aciertos · farolillo rojo</td>
+            <td class="comment">2 puntos en 2 carreras. Al menos es consistente.</td>
+            <td class="pts" style="color:#f87171">2</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="animate-in" style="margin-top:16px;font-size:0.9rem;color:var(--text-muted)">Marc no participa en F1. Sospechamos que le dan miedo los coches rápidos. 👻</p>
+    </div>
+
+    <!-- SLIDE 4: GP AUSTRALIA DESGLOSE -->
+    <div class="slide glow-left">
+      <div class="label-row animate-in">🇦🇺 GP DE AUSTRALIA — LA GOLEADA DE TONI</div>
+      <h2 class="animate-in">Russell ganó el GP y Toni<br>ganó la <span class="gold">birra</span></h2>
+      <div class="grid-2 animate-in" style="margin-top:20px">
+        <div>
+          <h3 style="color:var(--text-secondary);margin-bottom:16px">Resultado real</h3>
+          <p class="race-detail">
+            🏁 <strong style="color:white">Pole:</strong> George Russell<br>
+            🥇 <strong style="color:white">P1:</strong> George Russell<br>
+            🥈 <strong style="color:white">P2:</strong> Kimi Antonelli<br>
+            🥉 <strong style="color:white">P3:</strong> Charles Leclerc<br>
+            ❓ <strong style="color:white">Preguntas:</strong> Mercedes, Russell, Norris
+          </p>
+        </div>
+        <div>
+          <h3 style="color:var(--beer-gold);margin-bottom:16px">Clasificación GP</h3>
+          <p class="race-standings">
+            <span style="color:var(--beer-gold);font-weight:900">🏆 Toni — 6 pts</span> <span class="race-hint">(pole✓ + P1✓ + P2✓ + 3 preguntas✓)</span><br>
+            <span style="color:white">2. Manrique — 3 pts</span> <span class="race-hint">(P3 + 2 preguntas)</span><br>
+            <span style="color:var(--text-secondary)">3. Carlos — 2 pts</span><br>
+            <span style="color:var(--text-secondary)">3. Pere — 2 pts</span><br>
+            <span style="color:#f87171">5. Antonio — 1 pt</span> <span class="race-hint">(una solitaria pregunta)</span>
+          </p>
+        </div>
+      </div>
+      <p class="animate-in" style="margin-top:20px;font-size:1rem;color:var(--text-muted)">Toni acertó pole, P1, P2 y las 3 preguntas. Le faltó P3 para el pleno. <strong style="color:white">Casi perfecto</strong>, el muy ******.</p>
+    </div>
+
+    <!-- SLIDE 5: GP CHINA DESGLOSE -->
+    <div class="slide glow-shame">
+      <div class="label-row animate-in">🇨🇳 GP DE CHINA — EL DESASTRE DE MANRIQUE</div>
+      <h2 class="animate-in">Nadie acertó casi nada.<br>Pero <span class="accent">uno acertó menos</span>.</h2>
+      <div class="grid-2 animate-in" style="margin-top:20px">
+        <div>
+          <h3 style="color:var(--text-secondary);margin-bottom:16px">Resultado real</h3>
+          <p class="race-detail">
+            🏁 <strong style="color:white">Pole:</strong> Kimi Antonelli<br>
+            🥇 <strong style="color:white">P1:</strong> Kimi Antonelli<br>
+            🥈 <strong style="color:white">P2:</strong> George Russell<br>
+            🥉 <strong style="color:white">P3:</strong> Lewis Hamilton<br>
+            ❓ <strong style="color:white">Preguntas:</strong> No, Bottas, Hulkenberg
+          </p>
+        </div>
+        <div>
+          <h3 style="color:var(--beer-gold);margin-bottom:16px">Clasificación GP</h3>
+          <p class="race-standings">
+            <span style="color:var(--beer-gold);font-weight:900">🏆 Carlos — 2 pts</span> <span class="race-hint">(2 preguntas)</span><br>
+            <span style="color:white">2. Antonio — 1 pt</span><br>
+            <span style="color:white">2. Pere — 1 pt</span> <span style="color:#f87171;font-size:0.8rem">⏰ LATE (−2)</span><br>
+            <span style="color:var(--text-secondary)">2. Toni — 1 pt</span><br>
+            <span style="color:#f87171;font-weight:700">5. Manrique — 0 pts 💀</span>
+          </p>
+        </div>
+      </div>
+      <div class="trashtalk-box animate-in" style="margin-top:24px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="clown">🤡</span>
+          <div>
+            <div class="tt-quote">"Alonso no gana porque no quiere."</div>
+            <div class="tt-result">— Manrique, antes de conseguir 0 puntos y quedar último. Brillante.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: CLASIFICACIÓN FÚTBOL -->
+    <div class="slide">
+      <div class="label-row animate-in" style="color:var(--futbol-green)">⚽ CLASIFICACIÓN FÚTBOL — TRAS J27 + J28</div>
+      <h2 class="animate-in">Nadie acierta un resultado exacto.<br><span class="green">Literalmente nadie.</span></h2>
+      <table class="ranking-table animate-in">
+        <thead><tr><th>#</th><th>Jugador</th><th>Detalle</th><th></th><th class="pts">PTS</th></tr></thead>
+        <tbody>
+          <tr class="pos-1">
+            <td>🥇</td>
+            <td class="name">Manrique</td>
+            <td class="detail">6/8 signos · 0 exactos · goalDiff 15</td>
+            <td class="comment">Líder por diferencia de goles. La mediocridad triunfa.</td>
+            <td class="pts" style="color:var(--futbol-green)">6</td>
+          </tr>
+          <tr class="pos-2">
+            <td>🥈</td>
+            <td class="name">Toni</td>
+            <td class="detail">6/8 signos · 0 exactos · goalDiff 16</td>
+            <td class="comment">Mismos puntos, un gol peor. La vida es injusta.</td>
+            <td class="pts">6</td>
+          </tr>
+          <tr class="pos-3">
+            <td>🥉</td>
+            <td class="name">Carlos</td>
+            <td class="detail">5/8 signos · 0 exactos</td>
+            <td class="comment">Acertó los 4 signos de J28. Se le ve potencial (o suerte).</td>
+            <td class="pts">5</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted)">4</td>
+            <td class="name">Antonio</td>
+            <td class="detail">4/8 signos · 0 exactos</td>
+            <td class="comment">50% de acierto en signos. Un mono haría lo mismo.</td>
+            <td class="pts">4</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted)">5</td>
+            <td class="name">Pere</td>
+            <td class="detail">4/8 signos · 0 exactos</td>
+            <td class="comment">Empata con Antonio. No es un consuelo.</td>
+            <td class="pts">4</td>
+          </tr>
+          <tr class="pos-last">
+            <td>🐌</td>
+            <td class="name">Marc</td>
+            <td class="detail">3/8 signos · 0 exactos</td>
+            <td class="comment">Solo juega al fútbol y aun así pierde. Poético.</td>
+            <td class="pts" style="color:#f87171">3</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="animate-in" style="margin-top:16px;font-size:0.9rem;color:var(--text-muted)"><strong>0 resultados exactos</strong> entre todos en 2 jornadas. 48 predicciones y ni una clavada. Impresionante.</p>
+    </div>
+
+    <!-- SLIDE 7: STAT — 0 EXACTOS -->
+    <div class="slide glow-center">
+      <div class="label-row animate-in" style="color:var(--futbol-green)">DATO DEVASTADOR</div>
+      <div class="big-emoji animate-in">🎯</div>
+      <div class="big-number animate-in" style="color:#f87171">0</div>
+      <p class="subtitle animate-in" style="margin-top:16px">Resultados exactos acertados en fútbol.<br>48 predicciones. Cero exactas. <strong style="color:white">Estadísticamente improbable.</strong></p>
+      <p class="animate-in" style="margin-top:24px;font-size:1rem;color:var(--text-muted)">Si cada uno eligiera resultados al azar, habría más probabilidad de acertar alguno. No es mala suerte, es <em>talento</em>.</p>
+    </div>
+
+    <!-- SLIDE 8: MURO DE LA VERGÜENZA -->
+    <div class="slide glow-shame">
+      <div class="label-row animate-in" style="color:#f87171">🏚️ MURO DE LA VERGÜENZA</div>
+      <h2 class="animate-in">Aquí se expone a los que<br>mejor <span class="shame-red">lo hacen mal</span></h2>
+      <div class="grid-3 animate-in" style="margin-top:28px">
+        <div class="card shame">
+          <div class="icon">💀</div>
+          <h3>Peor puntuación</h3>
+          <p><strong style="color:#fca5a5">Manrique</strong><br>0 puntos en China</p>
+          <p style="font-size:0.85rem;margin-top:8px;color:var(--text-muted)">Ni la pole, ni el podio, ni una sola pregunta. Cero absoluto. Y encima fue bravuconeando.</p>
+        </div>
+        <div class="card shame">
+          <div class="icon">🥄</div>
+          <h3>Farolillo rojo F1</h3>
+          <p><strong style="color:#fca5a5">Antonio</strong><br>Último en Australia</p>
+          <p style="font-size:0.85rem;margin-top:8px;color:var(--text-muted)">1 punto solitario mientras Toni hacía 6. La brecha duele.</p>
+        </div>
+        <div class="card shame">
+          <div class="icon">🐌</div>
+          <h3>Siempre tarde</h3>
+          <p><strong style="color:#fca5a5">Pere</strong><br>1 apuesta fuera de plazo</p>
+          <p style="font-size:0.85rem;margin-top:8px;color:var(--text-muted)">Acertó 3 cosas en China pero le penalizaron −2 por llegar tarde. −2 de reloj, no de cerebro.</p>
+        </div>
+      </div>
+      <div class="trashtalk-box animate-in" style="margin-top:24px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="clown">🤡</span>
+          <div>
+            <div style="font-size:0.8rem;color:#f87171;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Bravuconada fallida de la temporada</div>
+            <div class="tt-quote">"Alonso no gana porque no quiere."</div>
+            <div class="tt-result">— Manrique · GP China · 0 puntos · Último de 5 · Nivel: payaso certificado 🎪</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: TRASHTALK FÚTBOL -->
+    <div class="slide glow-left">
+      <div class="label-row animate-in" style="color:#f87171">🗣️ BONUS: BRAVUCONADA FUTBOLERA</div>
+      <div class="big-emoji animate-in">🤡</div>
+      <blockquote class="quote animate-in">
+        Esta jornada lo acierto todo.
+      </blockquote>
+      <p class="attribution animate-in" style="color:#fca5a5;font-weight:700">— Manrique, J28, antes de no acertar NI UN resultado exacto</p>
+      <p class="animate-in" style="margin-top:32px;font-size:1.1rem;color:var(--text-secondary)">Acertó 4 de 4 signos (1X2), sí. Pero dijo "lo acierto <em>todo</em>".<br>0 resultados exactos. <strong style="color:white">Las palabras importan, Manrique.</strong></p>
+      <p class="animate-in" style="margin-top:16px;font-size:0.9rem;color:var(--text-muted)">Técnicamente empató con Carlos y Toni a 4 pts en esa jornada. Así que ni siquiera ganó.</p>
+    </div>
+
+    <!-- SLIDE 10: BIRRÓMETRO -->
+    <div class="slide glow-gold">
+      <div class="label-row animate-in" style="color:var(--beer-gold)">🍺 BIRRÓMETRO — ¿QUIÉN DEBE BIRRAS?</div>
+      <h2 class="animate-in">Las cuentas de las <span class="gold">cervezas</span><br>no mienten</h2>
+      <div class="grid-2 animate-in" style="margin-top:28px;text-align:center">
+        <div class="card gold-border">
+          <h3 style="color:var(--accent)">🏎️ F1 — Birras</h3>
+          <div class="beer-visual" style="margin-top:16px">
+            <div class="beer-person">
+              <div class="mugs">🍺</div>
+              <div class="bp-name" style="color:var(--beer-gold);font-weight:700">Toni</div>
+              <div class="bp-detail">Le deben 1 birra<br><span style="color:#4ade80">GP Australia</span></div>
+            </div>
+            <div class="beer-person">
+              <div class="mugs">🍺</div>
+              <div class="bp-name" style="color:var(--beer-gold);font-weight:700">Carlos</div>
+              <div class="bp-detail">Le deben 1 birra<br><span style="color:#4ade80">GP China</span></div>
+            </div>
+          </div>
+          <p style="margin-top:16px;font-size:0.85rem;color:var(--text-muted)">Antonio, Manrique y Pere deben birras a los dos. Pagando.</p>
+        </div>
+        <div class="card gold-border">
+          <h3 style="color:var(--futbol-green)">⚽ Fútbol — Birras</h3>
+          <div style="margin-top:20px">
+            <div style="font-size:3rem;margin-bottom:8px">🤷</div>
+            <p style="font-size:1rem;color:var(--text-secondary);font-weight:700">0 birras</p>
+            <p style="font-size:0.9rem;color:var(--text-muted);margin-top:8px">Empate en ambas jornadas.<br>Nadie gana, nadie paga.</p>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-top:8px">J27: Manrique y Toni empatan a 2 pts<br>J28: Carlos, Manrique y Toni a 4 pts</p>
+          </div>
+        </div>
+      </div>
+      <p class="animate-in" style="margin-top:20px;font-size:1rem;color:var(--text-muted)">Balance global: <strong style="color:var(--beer-gold)">Toni y Carlos</strong> van de barra libre. Los demás, a currar.</p>
+    </div>
+
+    <!-- SLIDE 11: DATOS CURIOSOS -->
+    <div class="slide glow-center">
+      <div class="label-row animate-in">📊 DATOS QUE NADIE PIDIÓ PERO TODOS NECESITAN</div>
+      <h2 class="animate-in">Estadísticas absurdas<br>de la <span class="accent">temporada</span></h2>
+      <div class="grid-3 animate-in" style="margin-top:28px">
+        <div class="card">
+          <div class="icon">🎯</div>
+          <h3 style="font-size:2rem;color:var(--beer-gold)">6 pts</h3>
+          <p>Mejor puntuación individual<br><strong style="color:white">Toni</strong> en Australia</p>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:6px">Acertó pole + P1 + P2 + 3 preguntas. Le faltó P3 para el pleno perfecto.</p>
+        </div>
+        <div class="card shame">
+          <div class="icon">💩</div>
+          <h3 style="font-size:2rem;color:#f87171">0 pts</h3>
+          <p>Peor puntuación individual<br><strong style="color:#fca5a5">Manrique</strong> en China</p>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:6px">No acertó absolutamente nada. Ni por casualidad. Ni de rebote.</p>
+        </div>
+        <div class="card">
+          <div class="icon">🔮</div>
+          <h3 style="font-size:2rem;color:var(--text-secondary)">0</h3>
+          <p>Plenos / Full Houses<br>en toda la temporada</p>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:6px">Nadie ha acertado pole + podio + preguntas. El pleno sigue siendo un mito.</p>
+        </div>
+      </div>
+      <div class="grid-3 animate-in" style="margin-top:16px">
+        <div class="card">
+          <div class="icon">🏁</div>
+          <h3>Mercedes domina</h3>
+          <p style="font-size:0.9rem">Russell y Antonelli ganaron los 2 primeros GPs. El que no apostó por Mercedes lo está pagando.</p>
+        </div>
+        <div class="card">
+          <div class="icon">👻</div>
+          <h3>Marc, el invisible</h3>
+          <p style="font-size:0.9rem">Solo juega a fútbol. En F1 no existe. Y en fútbol va último. Cuestiones existenciales.</p>
+        </div>
+        <div class="card">
+          <div class="icon">⏰</div>
+          <h3>Pere y los deadlines</h3>
+          <p style="font-size:0.9rem">Acertó cosas en China pero envió tarde. Perdió 2 puntos gratis. El reloj no perdona.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 12: CÓMO FUNCIONA (breve) -->
+    <div class="slide">
+      <div class="label-row animate-in">CÓMO FUNCIONA</div>
+      <h2 class="animate-in">La mecánica de la <span class="accent">porra</span></h2>
+      <div class="grid-2 animate-in" style="margin-top:24px">
+        <div>
+          <h3 style="color:var(--accent);margin-bottom:16px">🏎️ F1 · Puntuación</h3>
+          <table class="scoring-table" style="font-size:0.95rem">
+            <tbody>
+              <tr><td>Acierto (pole/podio/pregunta)</td><td class="positive">+1 c/u</td></tr>
+              <tr><td>Bonus pole + podio completo</td><td class="bonus">+2</td></tr>
+              <tr><td>Bonus pleno (todo correcto)</td><td class="bonus">+2 extra</td></tr>
+              <tr><td>Fuera de plazo</td><td class="negative">−2</td></tr>
+              <tr><td>No apostar</td><td class="negative">−3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3 style="color:var(--futbol-green);margin-bottom:16px">⚽ Fútbol · Puntuación</h3>
+          <table class="scoring-table" style="font-size:0.95rem">
+            <tbody>
+              <tr><td>Resultado exacto</td><td class="positive">+3</td></tr>
+              <tr><td>Signo correcto (1/X/2)</td><td class="positive">+1</td></tr>
+              <tr><td>Catastrófica (0 pts sin late)</td><td class="negative">−1</td></tr>
+              <tr><td>Fuera de plazo</td><td class="negative">−2</td></tr>
+              <tr><td>No apostar</td><td class="negative">−3</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="animate-in" style="margin-top:24px;font-size:0.95rem;color:var(--text-muted)">Apuesta ciega en F1: no ves las de otros hasta después de la qualy. Para que nadie copie.</p>
+    </div>
+
+    <!-- SLIDE 13: FUNCIONALIDADES -->
+    <div class="slide glow-center">
+      <div class="label-row animate-in">FUNCIONALIDADES</div>
+      <h2 class="animate-in">No es solo apostar,<br>es toda una <span class="accent">experiencia</span></h2>
+      <div class="grid-4 animate-in" style="margin-top:28px">
+        <div class="card">
+          <div class="icon">🏆</div>
+          <h3>Ranking</h3>
+          <p style="font-size:0.9rem">Clasificación en tiempo real con desempates y evolución</p>
+        </div>
+        <div class="card">
+          <div class="icon">🏚️</div>
+          <h3>Muro vergüenza</h3>
+          <p style="font-size:0.9rem">Exposición pública del fracaso con frases humillantes</p>
+        </div>
+        <div class="card">
+          <div class="icon">🍺</div>
+          <h3>Birrómetro</h3>
+          <p style="font-size:0.9rem">Balance de cervezas: quién debe y a quién le deben</p>
+        </div>
+        <div class="card">
+          <div class="icon">🗣️</div>
+          <h3>Bravuconadas</h3>
+          <p style="font-size:0.9rem">Trash-talk antes de apostar. Se publica si quedas mal.</p>
+        </div>
+      </div>
+      <div class="grid-4 animate-in" style="margin-top:16px">
+        <div class="card">
+          <div class="icon">🤖</div>
+          <h3>ManriBot IA</h3>
+          <p style="font-size:0.9rem">Asistente con Gemma 3 para datos y curiosidades</p>
+        </div>
+        <div class="card">
+          <div class="icon">⚔️</div>
+          <h3>Rivalidades</h3>
+          <p style="font-size:0.9rem">Head-to-head y similitud de apuestas entre rivales</p>
+        </div>
+        <div class="card">
+          <div class="icon">🎖️</div>
+          <h3>Logros</h3>
+          <p style="font-size:0.9rem">Pleno, Tricampeón, Rey de Birras, Imparable...</p>
+        </div>
+        <div class="card">
+          <div class="icon">📱</div>
+          <h3>Móvil First</h3>
+          <p style="font-size:0.9rem">Responsive, swipe, PWA, bottom nav</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 14: ARQUITECTURA -->
+    <div class="slide glow-left">
+      <div class="label-row animate-in">ARQUITECTURA</div>
+      <h2 class="animate-in">Serverless, en tiempo real,<br><span class="accent">sin excusas técnicas</span> para fallar</h2>
+      <div class="arch-flow animate-in">
+        <div class="arch-box highlight">
+          <div class="arch-label">Frontend</div>
+          <strong>React 18 + Tailwind v4</strong><br>
+          <span style="font-size:0.8rem;color:var(--text-muted)">SPA · esbuild · glassmorphism</span>
+        </div>
+        <div class="arrow arch-arrow">→</div>
+        <div class="arch-box">
+          <div class="arch-label">CDN</div>
+          <strong>CloudFront + S3</strong>
+        </div>
+        <div class="arrow arch-arrow">→</div>
+        <div class="arch-box">
+          <div class="arch-label">API</div>
+          <strong>Lambda + API Gateway</strong>
+        </div>
+        <div class="arrow arch-arrow">→</div>
+        <div class="arch-box">
+          <div class="arch-label">DB</div>
+          <strong>DynamoDB</strong><br>
+          <span style="font-size:0.8rem;color:var(--text-muted)">Single-table · Multi-tenant</span>
+        </div>
+      </div>
+      <div class="arch-grid animate-in">
+        <div class="arch-box">
+          <div class="arch-label">IA</div>
+          <strong>Google AI (Gemma 3)</strong>
+        </div>
+        <div class="arch-box">
+          <div class="arch-label">F1 Data</div>
+          <strong>Jolpica API</strong>
+        </div>
+        <div class="arch-box">
+          <div class="arch-label">CI/CD</div>
+          <strong>GitHub Actions</strong>
+        </div>
+        <div class="arch-box">
+          <div class="arch-label">Tests</div>
+          <strong>Vitest + Playwright</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 15: LO QUE VIENE -->
+    <div class="slide">
+      <div class="label-row animate-in">LO QUE VIENE</div>
+      <h2 class="animate-in">La temporada es larga y<br>todo puede <span class="accent">cambiar</span></h2>
+      <div class="grid-2 animate-in" style="margin-top:24px">
+        <div>
+          <h3 style="color:var(--accent);margin-bottom:16px">🏎️ F1 — 22 carreras por delante</h3>
+          <ul class="feature-list" style="max-width:100%">
+            <li><span class="bullet" style="color:var(--accent)">→</span> Japón (Suzuka) — 28-29 Mar</li>
+            <li><span class="bullet">○</span> Bahrain — 11-12 Abr</li>
+            <li><span class="bullet">○</span> Arabia Saudí — 18-19 Abr</li>
+            <li><span class="bullet">○</span> Miami — 2-3 May</li>
+          </ul>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:12px">Antonio puede remontar. O puede seguir último. Las apuestas están abiertas.</p>
+        </div>
+        <div>
+          <h3 style="color:var(--futbol-green);margin-bottom:16px">⚽ Fútbol — 10 jornadas restantes</h3>
+          <ul class="feature-list" style="max-width:100%">
+            <li><span class="bullet" style="color:var(--futbol-green)">→</span> J29 (20-22 Mar) — Este finde</li>
+            <li><span class="bullet">○</span> J30 (5 Abr)</li>
+            <li><span class="bullet">○</span> J31 (12 Abr)</li>
+            <li><span class="bullet">○</span> J33 (22 Abr)</li>
+          </ul>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:12px">¿Acertará alguien un resultado exacto algún día? Empezamos a dudar.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 16: TIMELINE F1 -->
+    <div class="slide glow-strong">
+      <div class="label-row animate-in">TEMPORADA F1 2026</div>
+      <h2 class="animate-in"><span class="accent">2</span> de 24 GPs completados</h2>
+      <div class="timeline-row animate-in">
+        <div class="timeline-dot done">1</div><div class="timeline-line"></div>
+        <div class="timeline-dot done">2</div><div class="timeline-line"></div>
+        <div class="timeline-dot next">3</div><div class="timeline-line"></div>
+        <div class="timeline-dot">4</div><div class="timeline-line"></div>
+        <div class="timeline-dot">5</div><div class="timeline-line"></div>
+        <div class="timeline-dot">6</div><div class="timeline-line"></div>
+        <div class="timeline-dot">7</div><div class="timeline-line"></div>
+        <div class="timeline-dot">8</div><div class="timeline-line"></div>
+        <div class="timeline-dot">9</div><div class="timeline-line"></div>
+        <div class="timeline-dot">10</div><div class="timeline-line"></div>
+        <div class="timeline-dot">11</div><div class="timeline-line"></div>
+        <div class="timeline-dot">12</div><div class="timeline-line"></div>
+        <div class="timeline-dot">13</div><div class="timeline-line"></div>
+        <div class="timeline-dot">14</div><div class="timeline-line"></div>
+        <div class="timeline-dot">15</div><div class="timeline-line"></div>
+        <div class="timeline-dot">16</div><div class="timeline-line"></div>
+        <div class="timeline-dot">17</div><div class="timeline-line"></div>
+        <div class="timeline-dot">18</div><div class="timeline-line"></div>
+        <div class="timeline-dot">19</div><div class="timeline-line"></div>
+        <div class="timeline-dot">20</div><div class="timeline-line"></div>
+        <div class="timeline-dot">21</div><div class="timeline-line"></div>
+        <div class="timeline-dot">22</div><div class="timeline-line"></div>
+        <div class="timeline-dot">23</div><div class="timeline-line"></div>
+        <div class="timeline-dot">24</div>
+      </div>
+      <div class="animate-in" style="margin-top:24px">
+        <span class="tag" style="border-color:rgba(74,222,128,0.3);color:#4ade80">✓ Australia</span>
+        <span class="tag" style="border-color:rgba(74,222,128,0.3);color:#4ade80">✓ China</span>
+        <span class="tag accent">→ Japón (28-29 Mar)</span>
+      </div>
+      <p class="animate-in" style="margin-top:24px;font-size:1rem;color:var(--text-muted)">Mercedes domina con Russell y Antonelli. La pregunta es: ¿alguien dejará de apostar por ellos o seguirán como ovejas? 🐑</p>
+    </div>
+
+    <!-- SLIDE 17: QUOTE FINAL -->
+    <div class="slide glow-strong">
+      <div class="big-emoji animate-in">🍺</div>
+      <blockquote class="quote animate-in">
+        Quien gana, se lleva las birras.<br>
+        Quien bravuconea y pierde, se lleva la vergüenza.
+      </blockquote>
+      <p class="attribution animate-in">— Lema actualizado de Porra Birreros, cortesía de Manrique</p>
+    </div>
+
+    <!-- SLIDE 18: THANK YOU -->
+    <div class="slide glow-strong">
+      <div class="checkered-divider animate-in" style="margin-bottom:24px">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <h1 class="animate-in">
+        ¡Gracias<span class="gold">!</span>
+      </h1>
+      <p class="subtitle animate-in" style="margin-top:8px">Que sigan las apuestas, las bravuconadas fallidas<br>y sobre todo... las <span style="color:var(--beer-gold);font-weight:700">birras</span> 🍻</p>
+      <div class="animate-in" style="margin-top:24px">
+        <span class="tag accent">TONI LÍDER F1</span>
+        <span class="tag green">MANRIQUE LÍDER FUT</span>
+        <span class="tag gold">ANTONIO FAROLILLO</span>
+        <span class="tag" style="border-color:#f87171;color:#f87171">0 EXACTOS FUT</span>
+      </div>
+      <p class="attribution animate-in" style="margin-top:32px">porra.manriquegarcia.com · Temporada 2026 · A 19 de marzo</p>
+      <div class="checkered-divider animate-in" style="margin-top:24px">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="controls">
+    <div class="nav-hint">← → o clic para navegar · Espacio para avanzar</div>
+    <div class="progress"><span class="current">1</span> / <span class="total">18</span></div>
+  </div>
+
+  <script>
+    (function() {
+      const slides = document.querySelectorAll('.slide');
+      const currentEl = document.querySelector('.current');
+      const totalEl = document.querySelector('.total');
+      let idx = 0;
+      totalEl.textContent = slides.length;
+      function show(i) {
+        slides.forEach((s, j) => {
+          s.classList.toggle('active', j === i);
+          s.style.display = j === i ? 'flex' : 'none';
+        });
+        currentEl.textContent = i + 1;
+      }
+      function next() { if (idx < slides.length - 1) { idx++; show(idx); } }
+      function prev() { if (idx > 0) { idx--; show(idx); } }
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+        if (e.key === 'ArrowLeft') { prev(); }
+      });
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('.controls')) return;
+        const x = e.clientX / window.innerWidth;
+        x > 0.5 ? next() : prev();
+      });
+      let touchStartX = 0;
+      document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+      document.addEventListener('touchend', (e) => {
+        const diff = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); }
+      });
+      show(0);
+    })();
+  </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Diseño Frontend
 
-Sigue las directrices de `.agents/skills/frontend-design/SKILL.md`.
+Sigue las directrices de `~/.agents/skills/frontend-design/SKILL.md`.
 
 ## En este proyecto
 

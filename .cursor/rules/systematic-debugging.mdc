@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Depuración Sistemática
 
-Sigue las directrices de `.agents/skills/systematic-debugging/SKILL.md`.
+Sigue las directrices de `~/.agents/skills/systematic-debugging/SKILL.md`.
 
 ## Regla de Hierro
 

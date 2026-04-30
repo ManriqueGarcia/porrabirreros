@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Testing de Aplicaciones Web
 
-Sigue las directrices de `.agents/skills/webapp-testing/SKILL.md`.
+Sigue las directrices de `~/.agents/skills/webapp-testing/SKILL.md`.
 
 ## En este proyecto
 

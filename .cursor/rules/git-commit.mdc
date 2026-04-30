@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Git Commits — Conventional Commits
 
-Sigue las directrices de `.agents/skills/git-commit/SKILL.md`.
+Sigue las directrices de `~/.agents/skills/git-commit/SKILL.md`.
 
 ## Formato
 

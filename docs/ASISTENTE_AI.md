@@ -17,13 +17,16 @@ El asistente conecta a la **API Ergast** (datos históricos de F1 desde 1950) y 
 ### 1. Crear la función Lambda
 
 ```bash
-# Crear el paquete (porra-ai no usa dependencias externas)
+# Opción A: desde el repo (recomendado; empaqueta con esbuild y sube a AWS)
+npm run deploy:lambda
+
+# Opción B: zip manual del fuente (sin bundle; solo para pruebas)
 zip porra-ai.zip porra-ai.mjs
 ```
 
 En la consola AWS Lambda:
-- Crear función: Node.js 20.x
-- Subir `porra-ai.zip`
+- Crear función: **Node.js 24.x** (`nodejs24.x`)
+- Subir el zip generado por el script de despliegue (o `porra-ai.zip` manual)
 - Handler: `porra-ai.handler`
 
 ### 2. Variables de entorno

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Seguridad — Mejores Prácticas
 
-Sigue las directrices de `.agents/skills/security-best-practices/SKILL.md`.
+Sigue las directrices de `~/.agents/skills/security-best-practices/SKILL.md`.
 
 ## Checklist OWASP Top 10
 

@@ -4,6 +4,16 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-04-30] — Lambda Node.js 24 + despliegue automatizado
+
+### Infraestructura
+
+- **AWS Lambda**: todas las funciones del proyecto (`porra-ai`, `porra-state-api`, `porra-state-api-dev`, `porra-get`, `porra-put`) actualizadas a runtime **`nodejs24.x`** y código redesplegado (bundle esbuild + zip).
+- **Script** `scripts/deploy-aws-lambdas.mjs` y comando npm `deploy:lambda` para repetir el despliegue con AWS CLI (`--profile default` por defecto; sobrescribible con `AWS_PROFILE`).
+- **Documentación**: `README.md`, `docs/ASISTENTE_AI.md` — runtime y flujo de despliegue alineados con AWS.
+
+---
+
 ## [2026-03-11d] — Fix crash al cerrar sesión + trashtalk fútbol
 
 ### Bugfixes
