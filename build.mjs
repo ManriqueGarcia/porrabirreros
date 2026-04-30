@@ -165,6 +165,10 @@ console.log("  ✅ dist/assets/");
 // 5. Copy PWA files
 if (existsSync("manifest.json")) { cpSync("manifest.json", `${DIST}/manifest.json`); console.log("  ✅ manifest.json"); }
 if (existsSync("sw.js")) { cpSync("sw.js", `${DIST}/sw.js`); console.log("  ✅ sw.js"); }
+if (existsSync("porra-birreros-deck.html")) {
+  cpSync("porra-birreros-deck.html", `${DIST}/porra-birreros-deck.html`);
+  console.log("  ✅ porra-birreros-deck.html");
+}
 
 // 6. Optimize images (convert large JPGs to WebP if sharp available, otherwise compress)
 console.log("🖼️ Optimizando imágenes...");

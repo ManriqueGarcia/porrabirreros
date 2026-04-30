@@ -63,11 +63,18 @@ jobs:
             --delete \
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "index.html" \
+            --exclude "porra-birreros-deck.html" \
             --exclude "*.gz" \
             --exclude "config.local.js"
 
           aws s3 cp dist/index.html s3://$S3_BUCKET/index.html \
             --cache-control "no-cache, no-store, must-revalidate"
+
+          if [ -f dist/porra-birreros-deck.html ]; then
+            aws s3 cp dist/porra-birreros-deck.html "s3://$S3_BUCKET/porra-birreros-deck.html" \
+              --cache-control "no-cache, no-store, must-revalidate" \
+              --content-type "text/html; charset=utf-8"
+          fi
 
       - name: Invalidar CloudFront
         if: env.CF_DIST_ID != ''
