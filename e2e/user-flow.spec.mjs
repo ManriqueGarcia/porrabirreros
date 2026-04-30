@@ -3,7 +3,7 @@
  * Simula las acciones reales: login, navegar, crear/modificar apuestas, ver ranking.
  */
 import { test, expect } from "@playwright/test";
-import { setupTestGroup, loginInBrowser, seedF1BetWindow, seedF1Reveal, seedFutbolReveal } from "./helpers.mjs";
+import { setupTestGroup, loginInBrowser, seedF1BetWindow, seedF1Reveal } from "./helpers.mjs";
 
 let ctx;
 

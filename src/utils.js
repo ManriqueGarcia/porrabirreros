@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, MADRID_TZ, SESSION_TIMEOUT_MS } from "./config.js";
+import { ADMIN_SECRET_HASH, MADRID_TZ } from "./config.js";
 
 export const nowISO = () => new Date().toISOString();
 
@@ -141,7 +141,7 @@ export function exportPDF(title, headers, rows) {
     <h1>${safeTitle}</h1>
     <table><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table>
     <div class="footer">Porra Birreros — Generado el ${new Date().toLocaleDateString("es-ES")}</div>
-    <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);}<\/script>
+    <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);}</script>
   </body></html>`;
   const w = window.open("", "_blank");
   if (w) { w.document.write(html); w.document.close(); }

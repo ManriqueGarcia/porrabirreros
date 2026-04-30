@@ -5,8 +5,6 @@ import { execSync } from "child_process";
 
 const DIR = path.join(process.cwd(), "avatares_reales");
 const PARTICIPANTES = process.env.PORRA_PARTICIPANTS?.split(",") || ["Jugador1", "Jugador2", "Jugador3"];
-const MODOS = ["f1", "futbol"];
-
 // Formatos permitidos
 const EXTS = [".png", ".jpg", ".jpeg", ".webp"];
 
@@ -80,7 +78,6 @@ async function run() {
   const tbl = process.env.DYNAMODB_TABLE || "PorraBirreros";
   const grp = process.env.PORRA_GROUP_ID || "tu-grupo";
   const rgn = process.env.AWS_REGION || "eu-west-1";
-  let currentMeta = null;
   try {
     const res = execSync(`aws dynamodb get-item --table-name ${tbl} --region ${rgn} --key '{"pk":{"S":"G#${grp}"},"sk":{"S":"META|CONFIG"}}' --projection-expression "avatars,avatarsFutbol"`, { encoding: "utf8" });
     const parsed = JSON.parse(res);
@@ -88,7 +85,7 @@ async function run() {
       if (parsed.Item.avatars?.M) Object.assign(avatarsM, parsed.Item.avatars.M, avatarsM); // Prioriza los nuevos
       if (parsed.Item.avatarsFutbol?.M) Object.assign(avatarsFutbolM, parsed.Item.avatarsFutbol.M, avatarsFutbolM);
     }
-  } catch (err) {
+  } catch {
     console.warn("No se pudo obtener el estado previo, se sobreescribirán.");
   }
 

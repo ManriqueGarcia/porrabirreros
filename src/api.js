@@ -61,7 +61,7 @@ let _onSessionExpired = null;
 export function setOnSessionExpired(fn) { _onSessionExpired = fn; }
 function onSessionExpired() { if (_onSessionExpired) _onSessionExpired(); }
 
-export async function saveRemoteState(payload, user) {
+export async function saveRemoteState(payload, _user) {
   if (!API_BASE_URL) return;
   const url = `${API_BASE_URL}${groupPrefix()}/state`;
   const hdrs = { "Content-Type": "application/json", ...authHeaders() };
@@ -169,7 +169,7 @@ export async function authLogin(username, passwordHash) {
   return data;
 }
 
-export async function fetchUserGroups(username, reqUser) {
+export async function fetchUserGroups(username, _reqUser) {
   const resp = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/groups`, {
     headers: { Accept: "application/json", ...authHeaders() },
   });
@@ -178,7 +178,7 @@ export async function fetchUserGroups(username, reqUser) {
   return data.groups || [];
 }
 
-export async function fetchGroupsList(reqUser) {
+export async function fetchGroupsList(_reqUser) {
   const resp = await fetch(`${API_BASE_URL}/groups/list`, {
     headers: { Accept: "application/json", ...authHeaders() },
   });

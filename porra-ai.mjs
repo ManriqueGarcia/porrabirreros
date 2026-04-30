@@ -186,7 +186,7 @@ ${PROMPT_GUARD}`;
 const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemma-4-31b-it"];
 
 function sanitizeInput(q) {
-  return q.replace(/<<<|>>>/g, "").replace(/\x00/g, "").slice(0, 500);
+  return q.replace(/<<<|>>>/g, "").split("\0").join("").slice(0, 500);
 }
 
 async function callGemini(question, context, systemPrompt) {
@@ -247,6 +247,7 @@ async function callGemini(question, context, systemPrompt) {
       log("error", "Gemini exception", { model, error: err.message });
     }
   }
+  if (lastErr) log("warn", "Gemini: todas las variantes fallaron", { lastErr });
   return null;
 }
 

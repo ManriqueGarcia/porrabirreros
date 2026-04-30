@@ -49,4 +49,51 @@ export default [
   {
     ignores: ["dist/**", "node_modules/**", "assets/**", ".entry_build.jsx"],
   },
+  {
+    files: [
+      "porra-state-api.mjs",
+      "porra-ai.mjs",
+      "porra-*.mjs",
+      "lib/**/*.mjs",
+      "scripts/**/*.mjs",
+      "tests/**/*.mjs",
+      "e2e/**/*.mjs",
+      "playwright.config.mjs",
+      "build.mjs",
+    ],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+      },
+    },
+  },
+  {
+    files: ["sw.js"],
+    languageOptions: {
+      globals: {
+        self: "readonly",
+        caches: "readonly",
+        fetch: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        URL: "readonly",
+      },
+    },
+  },
+  {
+    files: ["src/confetti.js", "src/utils.js"],
+    languageOptions: {
+      globals: {
+        clearTimeout: "readonly",
+        setTimeout: "readonly",
+        performance: "readonly",
+        requestAnimationFrame: "readonly",
+        Image: "readonly",
+        FileReader: "readonly",
+      },
+    },
+  },
 ];

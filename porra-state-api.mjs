@@ -8,7 +8,7 @@ import {
   DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand,
   QueryCommand, ScanCommand, BatchWriteCommand, UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { isCancelledF1RaceKey } from "./lib/f1-cancelled-races.mjs";
 
 const TABLE = process.env.TABLE_NAME || "PorraBirreros";
@@ -45,13 +45,13 @@ function sanitizeState(state) {
   if (s.users) {
     const users = {};
     for (const [name, u] of Object.entries(s.users)) {
-      const { passwordHash, ...safe } = u;
+      const { passwordHash: _passwordHash, ...safe } = u;
       users[name] = safe;
     }
     s.users = users;
   }
   if (s.meta) {
-    const { adminSecretHash, adminSecret, ...safeMeta } = s.meta;
+    const { adminSecretHash: _ash, adminSecret: _as, ...safeMeta } = s.meta;
     s.meta = safeMeta;
   }
   return s;
@@ -138,9 +138,7 @@ function validateFutbolBet(bet) {
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 function generateSessionToken() {
-  const arr = new Uint8Array(32);
-  globalThis.crypto?.getRandomValues?.(arr) || arr.forEach((_, i) => { arr[i] = Math.floor(Math.random() * 256); });
-  return Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+  return randomBytes(32).toString("hex");
 }
 
 async function createServerSession(username) {
@@ -169,6 +167,7 @@ function extractBearerToken(hdrs) {
 function headers(extra = {}) {
   return {
     "Content-Type": "application/json",
+    "X-Content-Type-Options": "nosniff",
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "content-type,x-porra-group,authorization,accept,if-none-match",
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
@@ -552,7 +551,7 @@ async function handleSaveResultFutbol(jornadaId, reqUser, body) {
   if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede guardar resultados");
   if (!jornadaId) return badReq("Falta jornadaId");
   if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
-  const { pk, sk, ...resultData } = body.result || body;
+  const { pk: _pk, sk: _sk, ...resultData } = body.result || body;
   const resErr = validateFutbolResult(resultData);
   if (resErr) return badReq(resErr);
   await putItem(`FUT#${jornadaId}`, "RESULT", resultData);
@@ -569,12 +568,13 @@ async function handleUpdateUser(targetUser, reqUser, body) {
 
   const updates = body.updates || body;
   const allowed = ["passwordHash", "mustChange", "avatar"];
-  if (await isAdmin(reqUser)) allowed.push("isAdmin", "blocked", "name", "porras", "adminRoles");
+  if (await isAdmin(reqUser)) allowed.push("isAdmin", "blocked", "porras", "adminRoles");
 
   const merged = { ...existing };
   for (const key of allowed) {
     if (updates[key] !== undefined) merged[key] = updates[key];
   }
+  merged.name = targetUser;
 
   await putItem(`USER#${targetUser}`, "PROFILE", merged);
   return res(200, { ok: true });
@@ -626,10 +626,11 @@ async function handleAdminF1(raceKey, reqUser, body) {
       await putItem(`F1#${raceKey}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
       break;
     }
-    case "questions":
-      const existing = await getItem("META", "QUESTIONS") || {};
-      await putItem("META", "QUESTIONS", { ...existing, ...data });
+    case "questions": {
+      const existingQ = await getItem("META", "QUESTIONS") || {};
+      await putItem("META", "QUESTIONS", { ...existingQ, ...data });
       break;
+    }
     default:
       return badReq(`Tipo desconocido: ${type}`);
   }
@@ -665,12 +666,13 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
       await putItem(`FUT#${jornadaId}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
       break;
     }
-    case "delete":
+    case "delete": {
       const items = await queryByPk(`FUT#${jornadaId}`);
       for (const item of items) {
         await deleteItem(item.pk, item.sk);
       }
       break;
+    }
     default:
       return badReq(`Tipo desconocido: ${type}`);
   }
@@ -710,9 +712,8 @@ async function handleDeleteUser(targetUser, reqUser) {
 function generateCode(len = 8) {
   const chars = "abcdefghijkmnpqrstuvwxyz23456789";
   let code = "";
-  const arr = new Uint8Array(len);
-  globalThis.crypto?.getRandomValues?.(arr) || arr.forEach((_, i) => { arr[i] = Math.floor(Math.random() * 256); });
-  for (const b of arr) code += chars[b % chars.length];
+  const bytes = randomBytes(len);
+  for (let i = 0; i < len; i++) code += chars[bytes[i] % chars.length];
   return code;
 }
 
@@ -904,10 +905,6 @@ async function isAdminInGroup(groupId, userName) {
 }
 
 // Group-aware item helpers
-function gItem(groupId, oldPk, oldSk) {
-  return { pk: `G#${groupId}`, sk: `${oldPk}|${oldSk}` };
-}
-
 async function gGetItem(gid, oldPk, oldSk) { return getItem(`G#${gid}`, `${oldPk}|${oldSk}`); }
 async function gPutItem(gid, oldPk, oldSk, data) { return putItem(`G#${gid}`, `${oldPk}|${oldSk}`, data); }
 async function gDeleteItem(gid, oldPk, oldSk) { return deleteItem(`G#${gid}`, `${oldPk}|${oldSk}`); }
@@ -1233,9 +1230,10 @@ export const handler = async (event) => {
       if (!existing) return notFound("Usuario no encontrado");
       const updates = body.updates || body;
       const allowed = ["passwordHash", "mustChange", "avatar"];
-      if (await isAdminInGroup(gid, reqUser)) allowed.push("isAdmin", "blocked", "name", "porras", "adminRoles");
+      if (await isAdminInGroup(gid, reqUser)) allowed.push("isAdmin", "blocked", "porras", "adminRoles");
       const merged = { ...existing };
       for (const key of allowed) { if (updates[key] !== undefined) merged[key] = updates[key]; }
+      merged.name = targetUser;
       await gPutItem(gid, `USER#${targetUser}`, "PROFILE", merged);
       return res(200, { ok: true });
     }

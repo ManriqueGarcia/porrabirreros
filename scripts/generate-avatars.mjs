@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Genera avatares SVG estilo caricatura extrema (Sebastian Krüger)
 
-const API_BASE = process.env.PORRA_API_BASE || "https://tu-api.example.com";
+const _API_BASE = process.env.PORRA_API_BASE || "https://tu-api.example.com";
 const GROUP_ID = process.env.PORRA_GROUP_ID || "tu-grupo";
 
 function svgToDataUrl(svg) {
