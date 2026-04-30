@@ -2,6 +2,8 @@
 
 Aplicacion web para gestionar porras de Formula 1 y Futbol entre amigos. Al que gane, le invitan a birras.
 
+> **IA / agentes:** contexto técnico condensado en [`.cursor/skills/project-context/SKILL.md`](.cursor/skills/project-context/SKILL.md) — preferir ese fichero al README para ahorrar tokens; aquí queda la guía humana y diagramas.
+
 ## 📦 Versiones
 
 | Version | Fecha | Descripcion |

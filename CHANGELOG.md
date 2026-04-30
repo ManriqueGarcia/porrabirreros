@@ -4,6 +4,16 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-04-30b] — Contexto IA más ligero
+
+### Documentación
+
+- **Skill** `.cursor/skills/project-context/SKILL.md` reescrito en formato compacto (menos tokens por sesión).
+- **Regla** `.cursor/rules/project-context.mdc` acortada; eliminada referencia inexistente a `reference.md`.
+- **README**: nota para IA apuntando al skill.
+
+---
+
 ## [2026-04-30] — Lambda Node.js 24 + despliegue automatizado
 
 ### Infraestructura
