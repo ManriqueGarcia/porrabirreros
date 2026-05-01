@@ -82,7 +82,7 @@ function GlobalLogin() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (loading || !username.trim() || !password) return;
+    if (loading || !username.trim()) return;
     const rl = checkLoginRateLimit();
     if (!rl.allowed) return toast.error(rl.msg);
     setLoading(true);

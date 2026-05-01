@@ -32,7 +32,7 @@ export function UserManagement({ db, setDb, currentUser }) {
     if (!name) return toast.error("Introduce un nombre");
     if (db.users?.[name]) return toast.error("Ese usuario ya existe");
     const passValue = newUserPass.trim();
-    const hash = passValue ? await hashPassword(passValue) : DEFAULT_PASSWORD_HASH;
+    const hash = await hashPassword(passValue);
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
       users[name] = {
@@ -54,17 +54,18 @@ export function UserManagement({ db, setDb, currentUser }) {
     toast.success(`Usuario ${name} creado`);
   };
 
-  const resetPasswordFor = (name) => {
+  const resetPasswordFor = async (name) => {
     if (!window.confirm(`¿Resetear la contraseña de ${name}?`)) return;
+    const emptyHash = await hashPassword("");
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
       if (users[name]) {
-        users[name] = { ...users[name], passwordHash: DEFAULT_PASSWORD_HASH, mustChange: true, blocked: false, changedAt: null };
+        users[name] = { ...users[name], passwordHash: emptyHash, mustChange: true, blocked: false, changedAt: null };
         delete users[name].password;
       }
       return { ...prev, users };
     });
-    updateUser(name, currentUser, { passwordHash: DEFAULT_PASSWORD_HASH, mustChange: true, blocked: false })
+    updateUser(name, currentUser, { passwordHash: emptyHash, mustChange: true, blocked: false })
       .catch(err => console.error("Error sync reset password:", err));
     toast.success("Contraseña reseteada");
   };
@@ -160,10 +161,11 @@ export function UserManagement({ db, setDb, currentUser }) {
   const addUserToGroup = async (userName, targetGroupId) => {
     setAddingToGroup(true);
     try {
+      const emptyHash = await hashPassword("");
       const resp = await fetch(`${API_BASE_URL}/g/${targetGroupId}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}) },
-        body: JSON.stringify({ name: userName, passwordHash: DEFAULT_PASSWORD_HASH, mustChange: true, porras: db.users?.[userName]?.porras || { f1: true, futbol: true } }),
+        body: JSON.stringify({ name: userName, passwordHash: emptyHash, mustChange: true, porras: db.users?.[userName]?.porras || { f1: true, futbol: true } }),
       });
       if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error"); }
       toast.success(`${userName} añadido al grupo`);
