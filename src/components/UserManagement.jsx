@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { nowISO, hashPassword } from "../utils.js";
-import { DEFAULT_PASSWORD_HASH } from "../config.js";
+
 import { toast } from "../toast.jsx";
 import { Avatar } from "./Avatar.jsx";
 import { getAdminRoles, hasAnyAdminRole } from "../admin-roles.js";
@@ -26,23 +26,34 @@ export function UserManagement({ db, setDb, currentUser }) {
     });
   }, [db.users, filter]);
 
+  const [addingUser, setAddingUser] = useState(false);
   const handleAddUser = async (e) => {
     e.preventDefault();
     const name = newUserName.trim();
     if (!name) return toast.error("Introduce un nombre");
     if (db.users?.[name]) return toast.error("Ese usuario ya existe");
+    if (addingUser) return;
+    setAddingUser(true);
     const passValue = newUserPass.trim();
     const hash = await hashPassword(passValue);
+    const porras = { f1: !!newUserPorras.f1, futbol: !!newUserPorras.futbol };
+    try {
+      const resp = await fetch(`${API_BASE_URL}/g/${currentGroupId}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}) },
+        body: JSON.stringify({ name, passwordHash: hash, mustChange: true, porras }),
+      });
+      if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error al crear usuario"); }
+    } catch (err) {
+      toast.error(err.message);
+      setAddingUser(false);
+      return;
+    }
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
       users[name] = {
-        name,
-        passwordHash: hash,
-        mustChange: true,
-        isAdmin: false,
-        blocked: false,
-        createdAt: nowISO(),
-        porras: { f1: !!newUserPorras.f1, futbol: !!newUserPorras.futbol },
+        name, passwordHash: hash, mustChange: true,
+        isAdmin: false, blocked: false, createdAt: nowISO(), porras,
       };
       const participants = { ...(prev.participants || {}) };
       if (!participants[name]) participants[name] = { name, createdAt: nowISO() };
@@ -51,12 +62,20 @@ export function UserManagement({ db, setDb, currentUser }) {
     setNewUserName("");
     setNewUserPass("");
     setNewUserPorras({ f1: true, futbol: true });
+    setAddingUser(false);
     toast.success(`Usuario ${name} creado`);
   };
 
   const resetPasswordFor = async (name) => {
-    if (!window.confirm(`¿Resetear la contraseña de ${name}?`)) return;
+    if (!window.confirm(`¿Resetear la contraseña de ${name}? Podrá entrar con contraseña vacía.`)) return;
     const emptyHash = await hashPassword("");
+    try {
+      await updateUser(name, currentUser, { passwordHash: emptyHash, mustChange: true, blocked: false });
+    } catch (err) {
+      console.error("Error sync reset password:", err);
+      toast.error("Error al resetear en el servidor. Inténtalo de nuevo.");
+      return;
+    }
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
       if (users[name]) {
@@ -65,9 +84,7 @@ export function UserManagement({ db, setDb, currentUser }) {
       }
       return { ...prev, users };
     });
-    updateUser(name, currentUser, { passwordHash: emptyHash, mustChange: true, blocked: false })
-      .catch(err => console.error("Error sync reset password:", err));
-    toast.success("Contraseña reseteada");
+    toast.success("Contraseña reseteada — el usuario puede entrar con contraseña vacía");
   };
 
   const toggleBlockUser = (name) => {
@@ -205,7 +222,7 @@ export function UserManagement({ db, setDb, currentUser }) {
         <div className="grid gap-2 md:grid-cols-[2fr,2fr,auto]">
           <input className="select border rounded px-3 py-2" placeholder="Nombre" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
           <input className="select border rounded px-3 py-2" placeholder="Contraseña inicial (vacío = defecto)" value={newUserPass} onChange={(e) => setNewUserPass(e.target.value)} />
-          <button className="px-3 py-2 rounded bg-slate-900 text-white">Añadir</button>
+          <button className="px-3 py-2 rounded bg-slate-900 text-white disabled:opacity-50" disabled={addingUser}>{addingUser?"Añadiendo...":"Añadir"}</button>
         </div>
         <div className="flex gap-4 text-sm">
           <label className="flex items-center gap-1.5">
