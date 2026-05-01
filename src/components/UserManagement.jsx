@@ -87,19 +87,36 @@ export function UserManagement({ db, setDb, currentUser }) {
     toast.success("Contraseña reseteada — el usuario puede entrar con contraseña vacía");
   };
 
-  const toggleBlockUser = (name) => {
+  const toggleBlockUser = async (name) => {
     if (name === currentUser) return;
+    const newBlocked = !db.users?.[name]?.blocked;
+    try {
+      await updateUser(name, currentUser, { blocked: newBlocked });
+    } catch (err) {
+      toast.error("Error al actualizar en el servidor");
+      return;
+    }
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
-      if (users[name]) users[name] = { ...users[name], blocked: !users[name].blocked };
+      if (users[name]) users[name] = { ...users[name], blocked: newBlocked };
       return { ...prev, users };
     });
   };
 
-  const removeUser = (name) => {
+  const removeUser = async (name) => {
     if (db.users?.[name]?.isAdmin) return toast.error("No puedes borrar un admin");
     if (name === currentUser) return toast.error("No puedes borrarte a ti mismo");
     if (!window.confirm(`¿Eliminar a ${name}?`)) return;
+    try {
+      const resp = await fetch(`${API_BASE_URL}/g/${currentGroupId}/users/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+        headers: { ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}) },
+      });
+      if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || "Error al eliminar"); }
+    } catch (err) {
+      toast.error(err.message);
+      return;
+    }
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
       delete users[name];
@@ -130,28 +147,41 @@ export function UserManagement({ db, setDb, currentUser }) {
     toast.success("Usuario eliminado");
   };
 
-  const toggleAdminRole = (name, role) => {
+  const toggleAdminRole = async (name, role) => {
     if (name === currentUser && role === "general") {
       toast.error("No puedes quitarte el rol general a ti mismo");
+      return;
+    }
+    const u = db.users?.[name];
+    if (!u) return;
+    const current = getAdminRoles(u);
+    const next = { ...current, [role]: !current[role] };
+    const anyRole = next.general || next.f1 || next.futbol;
+    try {
+      await updateUser(name, currentUser, { adminRoles: next, isAdmin: anyRole });
+    } catch (err) {
+      toast.error("Error al actualizar rol en el servidor");
       return;
     }
     setDb((prev) => {
       const users = { ...(prev.users || {}) };
       if (!users[name]) return prev;
-      const u = users[name];
-      const current = getAdminRoles(u);
-      const next = { ...current, [role]: !current[role] };
-      const anyRole = next.general || next.f1 || next.futbol;
-      users[name] = { ...u, adminRoles: next, isAdmin: anyRole };
+      users[name] = { ...users[name], adminRoles: next, isAdmin: anyRole };
       return { ...prev, users };
     });
   };
 
-  const togglePorra = (name, porra) => {
+  const togglePorra = async (name, porra) => {
     const current = (db.users?.[name]?.porras) || { f1: true, futbol: true };
     const next = { ...current, [porra]: !current[porra] };
     if (!next.f1 && !next.futbol) {
       toast.error("El usuario debe estar al menos en una porra");
+      return;
+    }
+    try {
+      await updateUser(name, currentUser, { porras: next });
+    } catch (err) {
+      toast.error("Error al actualizar porras en el servidor");
       return;
     }
     setDb((prev) => {
