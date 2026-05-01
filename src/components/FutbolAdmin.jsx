@@ -68,14 +68,25 @@ export function FutbolAdmin({db,setDb,currentUser}){
     return id || "";
   };
   const autoDeadline=useMemo(()=>computeDeadlineFromKickoffs({matches}),[matches]);
-  const saveJornada=()=>{
+  const [savingJornada,setSavingJornada]=useState(false);
+  const saveJornada=async()=>{
     const id=ensureId();
     if(!id) return toast.error("Define ID o nombre de jornada");
+    if(savingJornada) return;
+    setSavingJornada(true);
     const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:"",kickoff:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`, ...(m.kickoff?{kickoff:new Date(m.kickoff).toISOString()}:{})}));
     const computedDl=computeDeadlineFromKickoffs({matches:fixedMatches});
     const manualDl=parseLocalDateTime(deadlineInput);
     const finalDeadline=computedDl ? null : (manualDl||nextFridayAt2100());
     const jornadaData={id,name:jName||id,deadline:finalDeadline?finalDeadline.toISOString():null,matches:fixedMatches};
+    try {
+      await adminFutbol(id, currentUser, "jornada", {...jornadaData, order:[...(futbol.order||[]), ...(futbol.order?.includes(id)?[]:[id])]});
+    } catch(err) {
+      console.error("Error sync jornada:", err);
+      toast.error("Error al sincronizar jornada con el servidor");
+      setSavingJornada(false);
+      return;
+    }
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const jornadasMap={...(futbolPrev.jornadas||{})};
@@ -84,9 +95,8 @@ export function FutbolAdmin({db,setDb,currentUser}){
       if(!order.includes(id)) order.push(id);
       return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
     });
-    adminFutbol(id, currentUser, "jornada", {...jornadaData, order:[...(futbol.order||[]), ...(futbol.order?.includes(id)?[]:[id])]})
-      .catch(err => { console.error("Error sync jornada:", err); toast.error("Error al sincronizar jornada con el servidor"); });
     setSelected(id);
+    setSavingJornada(false);
     toast.success("Jornada guardada");
   };
   const deleteJornada=()=>{
@@ -218,7 +228,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
         </div>
         <div className="flex flex-wrap gap-2 mt-2">
           <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})))}>Cargar equipos base</button>
-          <button className="px-3 py-2 rounded bg-emerald-600 text-white text-sm" onClick={saveJornada}>Guardar jornada</button>
+          <button className="px-3 py-2 rounded bg-emerald-600 text-white text-sm disabled:opacity-50" onClick={saveJornada} disabled={savingJornada}>{savingJornada?"Guardando...":"Guardar jornada"}</button>
           {selected && <button className="px-3 py-2 rounded bg-red-700 text-white text-sm" onClick={deleteJornada}>Eliminar</button>}
         </div>
       </div>
