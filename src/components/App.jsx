@@ -441,7 +441,7 @@ function GroupApp({ groupId }) {
     if (!races?.length || !hydrated) return;
     const participants = Object.keys(db.participants || {});
     if (!participants.length) return;
-    const needsUpdate = races.some(r => !db.questionOwner?.[r.key]);
+    const needsUpdate = races.some(r => !r.cancelled && !db.questionOwner?.[r.key]);
     if (!needsUpdate) return;
     skipRemoteSaveRef.current = true;
     setDb(prev => {

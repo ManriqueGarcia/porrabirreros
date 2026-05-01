@@ -474,9 +474,10 @@ async function resolveFutbolDeadline(pkPrefix, jornadaId, getItemFn) {
   const windowData = await getItemFn(pkPrefix, jornadaId, "WINDOW");
   if (windowData?.forceClosed) return { blocked: true };
   const jornadaConfig = await getItemFn(pkPrefix, jornadaId, "CONFIG");
-  if (jornadaConfig?.deadline) return { deadline: new Date(jornadaConfig.deadline) };
   const kickoffDeadline = computeDeadlineFromKickoffs(jornadaConfig);
-  return { deadline: kickoffDeadline };
+  if (kickoffDeadline) return { deadline: kickoffDeadline };
+  if (jornadaConfig?.deadline) return { deadline: new Date(jornadaConfig.deadline) };
+  return { deadline: null };
 }
 
 async function handleSaveBetF1(raceKey, reqUser, body) {

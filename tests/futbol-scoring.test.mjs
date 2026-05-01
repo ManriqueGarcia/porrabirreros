@@ -394,13 +394,19 @@ describe("computeDeadlineFromKickoffs", () => {
 // ─── getEffectiveDeadline ───
 
 describe("getEffectiveDeadline", () => {
-  it("returns explicit deadline when present", () => {
+  it("prefers kickoff-based deadline over explicit deadline", () => {
     const j = { deadline: "2026-04-25T21:00:00Z", matches: [{ home: "A", away: "B", kickoff: "2026-04-25T18:00:00Z" }] };
+    const dl = getEffectiveDeadline(j);
+    expect(dl.toISOString()).toBe("2026-04-25T17:59:00.000Z");
+  });
+
+  it("falls back to explicit deadline when no kickoffs", () => {
+    const j = { deadline: "2026-04-25T21:00:00Z", matches: [{ home: "A", away: "B" }] };
     const dl = getEffectiveDeadline(j);
     expect(dl.toISOString()).toBe("2026-04-25T21:00:00.000Z");
   });
 
-  it("falls back to kickoff-based deadline when no explicit deadline", () => {
+  it("uses kickoff-based deadline when no explicit deadline", () => {
     const j = { matches: [{ home: "A", away: "B", kickoff: "2026-04-25T18:00:00Z" }] };
     const dl = getEffectiveDeadline(j);
     expect(dl.toISOString()).toBe("2026-04-25T17:59:00.000Z");

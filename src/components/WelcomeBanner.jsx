@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { CONFIG, BEER_EXCLUDED_USERS } from "../config.js";
 import { scoreForRace, computeGlobalStandings, hasRaceResults } from "../scoring.js";
-import { defaultFutbolState, listFutbolJornadas, computeFutbolStandings } from "../futbol-utils.js";
+import { defaultFutbolState, listFutbolJornadas, computeFutbolStandings, getEffectiveDeadline } from "../futbol-utils.js";
 import { Avatar } from "./Avatar.jsx";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 
@@ -49,7 +49,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     }
     const futbol=db.futbol||defaultFutbolState();
     const jornadas=listFutbolJornadas(futbol);
-    const next=jornadas.find(j=>j.deadline&&new Date(j.deadline).getTime()>now);
+    const next=jornadas.find(j=>{const dl=getEffectiveDeadline(j); return dl&&dl.getTime()>now;});
     if(!next) return null;
     const hasBet=!!futbol.bets?.[next.id]?.[user]?.submittedAt;
     return {name:next.name||`Jornada ${next.id}`,hasBet,key:next.id};
@@ -59,7 +59,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
       const futbol=db.futbol||defaultFutbolState();
       const jornadas=listFutbolJornadas(futbol);
       const now=Date.now();
-      const next=jornadas.find(j=>j.deadline&&new Date(j.deadline).getTime()>now);
+      const next=jornadas.find(j=>{const dl=getEffectiveDeadline(j); return dl&&dl.getTime()>now;});
       return next?`fut_${next.id}`:(jornadas.length?`fut_${jornadas[jornadas.length-1].id}`:"futbol_current");
     }
     const now=Date.now();

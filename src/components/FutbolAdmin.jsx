@@ -74,7 +74,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
     const fixedMatches=(matches.length?matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:"",kickoff:""}))).slice(0,4).map((m,idx)=>({home:m.home||FUTBOL_BASE_TEAMS[idx]||`Local ${idx+1}`, away:m.away||`Visitante ${idx+1}`, ...(m.kickoff?{kickoff:new Date(m.kickoff).toISOString()}:{})}));
     const computedDl=computeDeadlineFromKickoffs({matches:fixedMatches});
     const manualDl=parseLocalDateTime(deadlineInput);
-    const finalDeadline=computedDl||manualDl||nextFridayAt2100();
+    const finalDeadline=computedDl ? null : (manualDl||nextFridayAt2100());
     const jornadaData={id,name:jName||id,deadline:finalDeadline?finalDeadline.toISOString():null,matches:fixedMatches};
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();

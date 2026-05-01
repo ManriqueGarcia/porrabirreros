@@ -95,8 +95,10 @@ export function computeDeadlineFromKickoffs(jornada){
 }
 
 export function getEffectiveDeadline(jornada){
+  const kickoffDl = computeDeadlineFromKickoffs(jornada);
+  if(kickoffDl) return kickoffDl;
   if(jornada?.deadline) return new Date(jornada.deadline);
-  return computeDeadlineFromKickoffs(jornada);
+  return null;
 }
 
 export function listFutbolJornadas(futbol){
