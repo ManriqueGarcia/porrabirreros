@@ -14,19 +14,25 @@ export function hasRaceResults(res, raceFromCalendar) {
   return !!(res && (res.pole || res.podium?.some(Boolean)));
 }
 
-export function scoreForRace(db, raceKey, name, raceFromCalendar) {
+export function scoreForRace(db, raceKey, name, raceFromCalendar, userCreatedAt) {
   const bet = db.bets?.[raceKey]?.[name]; const res = db.results?.[raceKey];
   if (isRaceCancelled(res, raceFromCalendar)) {
     return {
       points: 0, hits: 0, exact: 0, pen: 0,
       gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false,
-      submittedAt: bet?.submittedAt || null, missed: false, late: false, cancelled: true,
+      submittedAt: bet?.submittedAt || null, missed: false, late: false, cancelled: true, notYetJoined: false,
     };
   }
   const realResults = hasRaceResults(res, raceFromCalendar);
   const noBet = !bet;
+  if (noBet && userCreatedAt && raceFromCalendar?.q_date_local) {
+    const raceDate = new Date(raceFromCalendar.q_date_local + "T00:00:00");
+    if (new Date(userCreatedAt) > raceDate) {
+      return { points: 0, hits: 0, exact: 0, pen: 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: false, late: false, notYetJoined: true };
+    }
+  }
   if (noBet) {
-    return { points: realResults ? -3 : 0, hits: 0, exact: 0, pen: realResults ? 1 : 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: realResults, late: false };
+    return { points: realResults ? -3 : 0, hits: 0, exact: 0, pen: realResults ? 1 : 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: null, missed: realResults, late: false, notYetJoined: false };
   }
   if (!realResults) {
     return { points: 0, hits: 0, exact: 0, pen: 0, gotPole: false, gotAllPodium: false, gotAllQuestions: false, fullHouse: false, submittedAt: bet.submittedAt || null, missed: false, late: false };
@@ -49,7 +55,7 @@ export function scoreForRace(db, raceKey, name, raceFromCalendar) {
   return { points: finalPoints, hits, exact, pen, gotPole: !!gotPole, gotAllPodium: !!gotAllPod, gotAllQuestions: !!gotAllQ, fullHouse, manualAdj, submittedAt: bet.submittedAt || null, missed: false, late: !!bet.late };
 }
 
-export function computeGPWins(db, races, participants) {
+export function computeGPWins(db, races, participants, usersMap) {
   const wins = {};
   participants.forEach(n => { wins[n] = 0; });
   (races || []).forEach(race => {
@@ -57,7 +63,9 @@ export function computeGPWins(db, races, participants) {
     if (!hasRaceResults(res, race)) return;
     let best = -Infinity; let winners = [];
     participants.forEach(name => {
-      const s = scoreForRace(db, race.key, name, race);
+      const uCreated = usersMap?.[name]?.createdAt;
+      const s = scoreForRace(db, race.key, name, race, uCreated);
+      if (s.notYetJoined) return;
       if (s.points > best) { best = s.points; winners = [name]; }
       else if (s.points === best) winners.push(name);
     });
@@ -76,16 +84,19 @@ export function computeAvgSubmitTime(db, races, name) {
   return count > 0 ? total / count : Infinity;
 }
 
-export function computeGlobalStandings(db, races, participantsOverride) {
+export function computeGlobalStandings(db, races, participantsOverride, usersMap) {
   const participants = participantsOverride || Object.keys(db.participants || {});
-  const gpWins = computeGPWins(db, races, participants);
+  const pMap = usersMap || db.participants || {};
+  const gpWins = computeGPWins(db, races, participants, pMap);
   return participants.map(name => {
+    const uCreated = pMap[name]?.createdAt;
     const acc = (races || []).reduce((a, race) => {
-      const s = scoreForRace(db, race.key, name, race);
+      const s = scoreForRace(db, race.key, name, race, uCreated);
       a.points += s.points; a.hits += s.hits; a.exact += s.exact; a.pen += s.pen; return a;
     }, { points: 0, hits: 0, exact: 0, pen: 0 });
-    return { ...acc, name, wins: gpWins[name] || 0, avgSubmit: computeAvgSubmitTime(db, races, name) };
-  }).sort((A, B) => B.points - A.points || B.wins - A.wins || B.exact - A.exact || B.hits - A.hits || A.pen - B.pen || A.avgSubmit - B.avgSubmit);
+    const createdTs = uCreated ? new Date(uCreated).getTime() : 0;
+    return { ...acc, name, wins: gpWins[name] || 0, avgSubmit: computeAvgSubmitTime(db, races, name), createdTs };
+  }).sort((A, B) => B.points - A.points || B.wins - A.wins || B.exact - A.exact || B.hits - A.hits || A.pen - B.pen || A.avgSubmit - B.avgSubmit || A.createdTs - B.createdTs);
 }
 
 export function topList(obj, limit = 5) {

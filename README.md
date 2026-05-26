@@ -1,4 +1,4 @@
-# Porra Birreros — F1 y Futbol 🍺
+# Porra Birreros — F1, Futbol y Mundial 2026 🍺
 
 Aplicacion web para gestionar porras de Formula 1 y Futbol entre amigos. Al que gane, le invitan a birras.
 
@@ -204,6 +204,13 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 - Puntuacion: 3 pts exacto, 1 pt signo correcto, 0 pts fallo, -1 catastrofica
 - Desempates: puntos -> victorias -> exactos -> signos -> menos penalizaciones -> menor diferencia de goles -> apuesta mas temprana
 - Apuesta ciega hasta despues del cierre
+
+### Porra Mundial 2026 (modo WC)
+- Calendario precargado: fase de grupos (Espana + partido estrella por grupo A–L), dieciseisavos (ronda de 32), octavos, cuartos, semifinal, tercer puesto y final
+- Horarios en hora Espana y hora local del estadio; cruces KO como TBD hasta que el admin los rellena
+- Misma puntuacion 90′ que futbol; en eliminatorias bonus opcional por prorroga/penaltis (+1/+1/+2)
+- Premio solo al final del torneo: cena de bocata (sin birra por jornada)
+- Participantes: mismos que la porra de futbol (`porras.mundial`)
 
 ### Penalizaciones (ambos modos)
 - No apostar: **-3 pts**
@@ -452,6 +459,9 @@ Variables de entorno de la Lambda State (`porra-state-api.mjs`):
 | `TABLE_NAME` | Nombre de la tabla DynamoDB (default: `PorraBirreros`) |
 | `ALLOWED_ORIGIN` | Tu dominio para CORS |
 | `API_SECRET` | (opcional) Secret para scripts backend (no se usa en frontend) |
+| `FOOTBALL_DATA_ORG_TOKEN` | (opcional) [football-data.org](https://www.football-data.org/) — al guardar una jornada de fútbol, la Lambda rellena `kickoff` de partidos sin hora emparejando con el calendario |
+| `FOOTBALL_DATA_COMPETITION_ID` | (opcional) Código competición API; default `PD` (La Liga) |
+| `FOOTBALL_DATA_DATE_RANGE_DAYS` | (opcional) Días hacia adelante al buscar partidos si no indicas matchday en la jornada; default `21` |
 
 Variables de entorno de la Lambda AI (`porra-ai.mjs`):
 
@@ -483,6 +493,11 @@ PORRA_API_BASE=https://tu-api-antigua.com \
 NEW_API_BASE=https://tu-api-nueva.com \
 node scripts/migrate-s3-to-dynamodb.mjs
 ```
+
+#### Scripts de mantenimiento (fútbol)
+
+- **`npm run remove:futbol-jornada`** — borra una jornada (`PORRA_JORNADA_ID`, default `J36`) de DynamoDB y la saca del `order` del grupo (`PORRA_GROUP_ID`) o modo `--legacy`. Usar `--dry-run` primero. Ver cabecera de `scripts/remove-futbol-jornada.mjs`.
+- **`npm run fix:futbol-penalties`** — quita flags `late` en apuestas; ver `scripts/fix-futbol-penalties.mjs`.
 
 ### 6. Configura CI/CD (GitHub Actions)
 
@@ -531,6 +546,68 @@ aws cloudfront create-invalidation --distribution-id TU_DIST_ID --paths "/*"
 # Automatico: haz push a main y GitHub Actions se encarga
 git push origin main
 ```
+
+## 📊 Logging y observabilidad
+
+El sistema tiene logging estructurado end-to-end para rastrear operaciones criticas (apuestas, login, errores).
+
+### Backend (CloudWatch)
+
+La Lambda `porra-state-api.mjs` emite logs JSON estructurados a CloudWatch con la funcion `log(level, action, data)`. El nivel se controla con la variable de entorno `LOG_LEVEL` (valores: `debug`, `info`, `warn`, `error`; default: `info`).
+
+| Accion | Nivel | Cuando se emite |
+|--------|-------|-----------------|
+| `bet_f1_saved` | info | Apuesta F1 guardada correctamente |
+| `bet_f1_reject` | warn | Apuesta F1 rechazada (validacion, cerrado, cancelado...) |
+| `bet_futbol_saved` | info | Apuesta futbol guardada correctamente |
+| `bet_futbol_reject` | warn | Apuesta futbol rechazada |
+| `auth_login` | info | Login exitoso |
+| `auth_reject` / `auth_fail` | warn | Login fallido (sin usuario, sin password, credenciales incorrectas) |
+| `session_expired` | warn | Token de sesion expirado en una peticion |
+| `lambda_unhandled` | error | Error no capturado (incluye stack trace) |
+
+Cada entrada incluye: timestamp ISO, usuario, identificador del recurso (raceKey/jornadaId), IP (en sesiones), y motivo del rechazo cuando aplica.
+
+**Consultas utiles en CloudWatch:**
+
+```bash
+# Ver apuestas F1 guardadas de un usuario
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/porra-state-api \
+  --filter-pattern '"bet_f1_saved" "Carlos"'
+
+# Ver rechazos de apuestas
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/porra-state-api \
+  --filter-pattern '"bet_f1_reject"'
+
+# Ver sesiones expiradas
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/porra-state-api \
+  --filter-pattern '"session_expired"'
+
+# Ver errores no capturados
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/porra-state-api \
+  --filter-pattern '"lambda_unhandled"'
+```
+
+### Frontend (consola del navegador)
+
+La capa `api.js` y los componentes de apuestas emiten logs JSON estructurados a la consola del navegador:
+
+| Tag | Cuando se emite |
+|-----|-----------------|
+| `[API_NETWORK_FAIL]` | Error de red (offline, DNS, timeout) |
+| `[API_SESSION_EXPIRED]` | La API devuelve 401 |
+| `[API_ERROR]` | La API devuelve cualquier otro error HTTP |
+| `[BET_F1_FAIL]` | Error al guardar apuesta F1 (tras el fallo del API call) |
+| `[BET_FUTBOL_FAIL]` | Error al guardar apuesta futbol |
+
+Si un usuario reporta que "guardo su apuesta pero no aparece":
+1. Buscar en CloudWatch si hay un `bet_f1_saved` o `bet_f1_reject` para ese usuario y carrera
+2. Si no hay ninguna entrada, el problema fue client-side (red, sesion expirada)
+3. Pedir al usuario que abra la consola del navegador y busque tags `[BET_F1_FAIL]` o `[API_ERROR]`
 
 ## 🔐 Seguridad
 

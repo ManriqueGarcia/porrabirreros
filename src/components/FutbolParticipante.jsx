@@ -62,7 +62,7 @@ export function FutbolParticipante({user,db,setDb}){
   const betsStatus=jornada ? (hasResult?"Cerrado (resultados publicados)":manualWindow?.forceClosed?"Cerrado por admin":isFutbolLate?"Fuera de plazo (penalización -2 pts)":deadline?`Cierre: ${formatDateTime(deadline,MADRID_TZ)}`:"Abierto") : "—";
   const [saving,setSaving]=useState(false);
   const saveBet=async(payload)=>{
-    if(!jornada||saving) return;
+    if(!jornada||saving) throw new Error("busy");
     setSaving(true);
     const ts=nowISO();
     const late=deadline ? new Date()>=deadline : false;
@@ -70,10 +70,10 @@ export function FutbolParticipante({user,db,setDb}){
     try {
       await saveBetFutbol(selected, user, nextBet);
     } catch(err) {
-      console.error("Error guardando apuesta futbol:", err);
+      console.error("[BET_FUTBOL_FAIL]", JSON.stringify({ user, jornadaId: selected, error: err.message, ts: new Date().toISOString() }));
       toast.error("Error al guardar la apuesta. Inténtalo de nuevo.");
       setSaving(false);
-      return;
+      throw err;
     }
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();

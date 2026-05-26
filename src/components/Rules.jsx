@@ -75,4 +75,21 @@ function FutbolRules(){
   );
 }
 
-export { RuleCard, F1Rules, FutbolRules };
+function MundialRules() {
+  const scoring = [
+    { icon: "🏆", text: "Por jornada: partido de España + el partido estrella de cada otro grupo (MD1–3), luego todos los partidos de dieciseisavos, octavos, cuartos, semifinal, tercer puesto y final." },
+    { icon: "⏰", text: "Cierre: 1 minuto antes del primer kickoff de la jornada (hora España). Fuera de plazo: -2 pts. No apostar: -3 pts." },
+    { icon: "🎯", text: "Marcador a 90′: exacto +3, signo 1X2 +1. Sin preguntas extra." },
+    { icon: "⚔️", text: "Eliminatorias: opcional prórroga sí/no (+1), penaltis sí/no (+1), ganador en penaltis (+2 si hubo penaltis)." },
+    { icon: "💥", text: "Apuesta catastrófica (0 pts en plazo): -1 extra (mismas excepciones que fútbol)." },
+    { icon: "🥪", text: "Premio solo al final del torneo: el último de la clasificación general invita a cena de bocata al resto. Sin birra por jornada." },
+  ];
+  return (
+    <div className="card card-racing p-5 space-y-4">
+      <h2 className="section-title text-lg">🏆 Normas Porra Mundial 2026</h2>
+      <div className="grid gap-2">{scoring.map((r, i) => <RuleCard key={i} {...r} />)}</div>
+    </div>
+  );
+}
+
+export { RuleCard, F1Rules, FutbolRules, MundialRules };

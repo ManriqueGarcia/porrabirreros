@@ -62,20 +62,20 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
   const handleBetSubmit=useCallback(async(b)=>{
     if (race && (isRaceCancelled(raceResult, race) || isKnownCancelledF1Key(race.key))) {
       toast.error("Gran Premio cancelado: no se admiten apuestas ni penalizaciones.");
-      return;
+      throw new Error("cancelled");
     }
     const late=new Date()>=race?.cutoff;
     const timestamp=nowISO();
-    const rk=race?.key; if(!rk || savingF1Ref.current) return;
+    const rk=race?.key; if(!rk || savingF1Ref.current) throw new Error("busy");
     const nextBet={...b,submittedAt:timestamp,late};
     setSavingF1(true); savingF1Ref.current = true;
     try {
       await saveBetF1(rk, user, nextBet, race?.cutoff?.toISOString());
     } catch(err) {
-      console.error("Error guardando apuesta F1:", err);
+      console.error("[BET_F1_FAIL]", JSON.stringify({ user, raceKey: rk, error: err.message, status: err.status, ts: new Date().toISOString() }));
       toast.error(err.message === "Sesión expirada" ? "Sesión expirada. Recarga la página." : "Error al guardar la apuesta. Inténtalo de nuevo.");
       setSavingF1(false); savingF1Ref.current = false;
-      return;
+      throw err;
     }
     setDb(prev=>{
       const prevRaceBets={...(prev.bets?.[rk]||{})};

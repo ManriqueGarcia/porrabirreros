@@ -8,14 +8,16 @@
     "preview": "npx serve dist",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:unit": "vitest run tests/scoring.test.mjs tests/futbol-scoring.test.mjs tests/f1-cancelled-races.test.mjs",
+    "test:unit": "vitest run tests/scoring.test.mjs tests/futbol-scoring.test.mjs tests/f1-cancelled-races.test.mjs tests/laliga-fixtures.test.mjs tests/mundial-scoring.test.mjs",
     "test:api": "vitest run tests/api-functional.test.mjs",
     "test:all": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npx playwright test",
     "test:e2e:user": "npx playwright test e2e/user-flow.spec.mjs",
     "test:e2e:admin": "npx playwright test e2e/admin-flow.spec.mjs",
-    "deploy:lambda": "node scripts/deploy-aws-lambdas.mjs"
+    "deploy:lambda": "node scripts/deploy-aws-lambdas.mjs",
+    "fix:futbol-penalties": "node scripts/fix-futbol-penalties.mjs",
+    "remove:futbol-jornada": "node scripts/remove-futbol-jornada.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

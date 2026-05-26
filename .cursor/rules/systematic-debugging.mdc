@@ -19,3 +19,27 @@ NO proponer fixes sin investigación de causa raíz primero.
 4. **Implementar** — crear test que falle, fix mínimo, verificar
 
 Si 3+ fixes fallan → cuestionar la arquitectura, no seguir parchando.
+
+## Logs disponibles para investigación
+
+### Backend (CloudWatch)
+
+```bash
+# Apuestas guardadas/rechazadas
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"bet_f1_saved" "USUARIO"'
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"bet_f1_reject"'
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"bet_futbol_reject"'
+
+# Login y sesiones
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"auth_fail"'
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"session_expired"'
+
+# Errores no capturados
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"lambda_unhandled"'
+```
+
+### Frontend (consola navegador)
+
+Tags: `[API_NETWORK_FAIL]`, `[API_SESSION_EXPIRED]`, `[API_ERROR]`, `[BET_F1_FAIL]`, `[BET_FUTBOL_FAIL]`
+
+Detalle completo en `.cursor/skills/project-context/SKILL.md` → sección "Logging / Observabilidad".

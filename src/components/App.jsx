@@ -5,6 +5,7 @@ import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadT
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
+import { buildMundialSeedState } from "../../lib/mundial-fixtures.mjs";
 import { Avatar } from "./Avatar.jsx";
 import { CircuitCard } from "./CircuitCard.jsx";
 import { ChangePasswordModal, ChangeAvatarModal } from "./Auth.jsx";
@@ -13,12 +14,14 @@ import { QuestionsHistory } from "./Ranking.jsx";
 import { Stats } from "./Stats.jsx";
 import { Historico } from "./Historico.jsx";
 import { AIAssistant } from "./AIAssistant.jsx";
-import { F1Rules, FutbolRules } from "./Rules.jsx";
+import { F1Rules, FutbolRules, MundialRules } from "./Rules.jsx";
 import { Participante } from "./Participante.jsx";
 import { WelcomeBanner } from "./WelcomeBanner.jsx";
 import { FutbolParticipante } from "./FutbolParticipante.jsx";
 import { FutbolRanking, FutbolEvolutionChart } from "./FutbolRanking.jsx";
 import { FutbolStats } from "./FutbolStats.jsx";
+import { MundialParticipante } from "./MundialParticipante.jsx";
+import { MundialRanking } from "./MundialRanking.jsx";
 import { AdminPanel } from "./AdminPanel.jsx";
 import { hasAnyAdminRole } from "../admin-roles.js";
 import { CreateGroup } from "./CreateGroup.jsx";
@@ -381,8 +384,15 @@ function GroupApp({ groupId }) {
       const users = { ...(prev.users || {}) };
       needsMigration.forEach(([name]) => {
         if (!users[name]) return;
-        if (!users[name].porras) users[name] = { ...users[name], porras: { f1: true, futbol: true } };
-        if (users[name].isAdmin && !users[name].adminRoles) users[name] = { ...users[name], adminRoles: { general: true, f1: true, futbol: true } };
+        if (!users[name].porras) users[name] = { ...users[name], porras: { f1: true, futbol: true, mundial: true } };
+        else if (users[name].porras.futbol && !users[name].porras.mundial) {
+          users[name] = { ...users[name], porras: { ...users[name].porras, mundial: true } };
+        }
+        if (users[name].isAdmin && !users[name].adminRoles) {
+          users[name] = { ...users[name], adminRoles: { general: true, f1: true, futbol: true, mundial: true } };
+        } else if (users[name].adminRoles?.futbol && !users[name].adminRoles?.mundial) {
+          users[name] = { ...users[name], adminRoles: { ...users[name].adminRoles, mundial: true } };
+        }
       });
       return { ...prev, users };
     });
@@ -404,7 +414,6 @@ function GroupApp({ groupId }) {
       { id: "J32", name: "Jornada 32 (26 Abr)", deadline: new Date(2026, 3, 24, 21, 0).toISOString(), matches: [{ home: "Betis", away: "Real Madrid" }, { home: "Getafe", away: "FC Barcelona" }, { home: "Rayo Vallecano", away: "Real Sociedad" }, { home: "Córdoba CF", away: "Real Sporting de Gijón" }] },
       { id: "J34", name: "Jornada 34 (3 May)", deadline: new Date(2026, 4, 1, 21, 0).toISOString(), matches: [{ home: "Espanyol", away: "Real Madrid" }, { home: "Osasuna", away: "FC Barcelona" }, { home: "Sevilla", away: "Real Sociedad" }, { home: "Real Sporting de Gijón", away: "A.D. Ceuta" }] },
       { id: "J35", name: "Jornada 35 (10 May)", deadline: new Date(2026, 4, 8, 21, 0).toISOString(), matches: [{ home: "FC Barcelona", away: "Real Madrid" }, { home: "Real Sociedad", away: "Betis" }, { home: "Málaga", away: "Real Sporting de Gijón" }] },
-      { id: "J36", name: "Jornada 36 (13 May)", deadline: new Date(2026, 4, 11, 21, 0).toISOString(), matches: [{ home: "Real Madrid", away: "Oviedo" }, { home: "Alavés", away: "FC Barcelona" }, { home: "Girona", away: "Real Sociedad" }] },
       { id: "J37", name: "Jornada 37 (17 May)", deadline: new Date(2026, 4, 15, 21, 0).toISOString(), matches: [{ home: "Sevilla", away: "Real Madrid" }, { home: "FC Barcelona", away: "Betis" }, { home: "Real Sociedad", away: "Valencia" }, { home: "Real Zaragoza", away: "Real Sporting de Gijón" }] },
       { id: "J38", name: "Jornada 38 (24 May)", deadline: new Date(2026, 4, 22, 21, 0).toISOString(), matches: [{ home: "Real Madrid", away: "Athletic Club" }, { home: "Valencia", away: "FC Barcelona" }, { home: "Espanyol", away: "Real Sociedad" }, { home: "Real Sporting de Gijón", away: "Almería" }] }
     ];
@@ -412,7 +421,7 @@ function GroupApp({ groupId }) {
       const f = prev.futbol || defaultFutbolState();
       let jornadas = { ...f.jornadas };
       let newOrder = [...f.order || []];
-      ["J1", "J2", "J3", "J27", "J28", "J29", "J30", "J31", "J32", "J33", "J34", "J35", "J36", "J37", "J38"].forEach(id => { delete jornadas[id]; newOrder = newOrder.filter(x => x !== id); });
+      ["J1", "J2", "J3", "J27", "J28", "J29", "J30", "J31", "J32", "J33", "J34", "J35", "J37", "J38"].forEach(id => { delete jornadas[id]; newOrder = newOrder.filter(x => x !== id); });
       defaultJornadas.forEach(j => {
         jornadas[j.id] = j;
         if (!newOrder.includes(j.id)) newOrder.push(j.id);
@@ -421,6 +430,17 @@ function GroupApp({ groupId }) {
       return { ...prev, futbol: { ...f, jornadas, order: newOrder }, meta: { ...(prev.meta || {}), futbolJornadasV3: true } };
     });
   }, [hydrated, db.futbol, db.meta]);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (db.meta?.mundialSeeded) return;
+    skipRemoteSaveRef.current = true;
+    const seed = buildMundialSeedState();
+    setDb((prev) => ({
+      ...prev,
+      mundial: seed,
+      meta: { ...(prev.meta || {}), mundialSeeded: true },
+    }));
+  }, [hydrated, db.meta?.mundialSeeded]);
   const raceOverrides = db.meta?.raceOverrides || {};
   const races = useMemo(() => (Array.isArray(cal) ? cal : []).map(item => {
     const override = raceOverrides[item.key] || {};
@@ -460,7 +480,8 @@ function GroupApp({ groupId }) {
   useEffect(() => { document.body.dataset.porraMode = mode || "f1"; }, [mode]);
   const sidebarRace = mode === "f1" && view === "participante" && selectedRaceKey ? races?.find(r => r.key === selectedRaceKey) : null;
   const viewTabs = useMemo(() => {
-    const base = ["participante", "ranking", "stats"];
+    const base = ["participante", "ranking"];
+    if (mode === "f1" || mode === "futbol") base.push("stats");
     if (mode === "f1") base.push("questions");
     base.push("rules");
     return base;
@@ -488,7 +509,7 @@ function GroupApp({ groupId }) {
     sessionStorage.setItem("porra_mode", newMode);
     if (newMode === "f1" && !["participante", "ranking", "stats", "questions", "historico", "rules", "admin"].includes(view)) {
       setView("participante");
-    } else if (newMode === "futbol" && !["participante", "ranking", "stats", "rules", "admin"].includes(view)) {
+    } else if ((newMode === "futbol" || newMode === "mundial") && !["participante", "ranking", "stats", "rules", "admin"].includes(view)) {
       setView("participante");
     }
   };
@@ -496,17 +517,18 @@ function GroupApp({ groupId }) {
     <header className="hero speed-lines p-4 md:p-6">
       <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0" style={mode === "futbol" ? { background: "linear-gradient(135deg,#16a34a,#d97706)", boxShadow: "0 4px 20px rgba(34,197,94,.2)" } : { background: "linear-gradient(135deg,#e10600,#d97706)", boxShadow: "0 4px 20px rgba(225,6,0,.2)" }}>
-            <span className="text-lg md:text-xl">{mode === "f1" ? "🏎️" : "⚽"}</span>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0" style={mode === "futbol" ? { background: "linear-gradient(135deg,#16a34a,#d97706)", boxShadow: "0 4px 20px rgba(34,197,94,.2)" } : mode === "mundial" ? { background: "linear-gradient(135deg,#d97706,#1d4ed8)", boxShadow: "0 4px 20px rgba(217,119,6,.25)" } : { background: "linear-gradient(135deg,#e10600,#d97706)", boxShadow: "0 4px 20px rgba(225,6,0,.2)" }}>
+            <span className="text-lg md:text-xl">{mode === "f1" ? "🏎️" : mode === "mundial" ? "🏆" : "⚽"}</span>
           </div>
           <div>
             <div className="text-xl md:text-2xl font-black tracking-tighter text-white" style={{ fontStyle: "italic" }}>PORRA {(currentGroupName || "BIRREROS").toUpperCase()} <span className="text-base md:text-lg" style={{ verticalAlign: "middle" }}>🍺</span></div>
-            <div className="text-[11px] text-white/50 font-semibold tracking-[.15em] uppercase">{mode === "f1" ? "Formula 1 · 2026 · Las birras en juego" : "Liga · Fútbol · Las birras en juego"}</div>
+            <div className="text-[11px] text-white/50 font-semibold tracking-[.15em] uppercase">{mode === "f1" ? "Formula 1 · 2026 · Las birras en juego" : mode === "mundial" ? "Mundial 2026 · Cena de bocata al final" : "Liga · Fútbol · Las birras en juego"}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode === "f1" ? "bg-red-600/25 text-white border border-red-500/30 shadow-lg shadow-red-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("f1")}>F1</button>
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode === "futbol" ? "bg-emerald-600/25 text-white border border-emerald-500/30 shadow-lg shadow-emerald-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("futbol")}>FUT</button>
+          <button className={`px-3 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode === "mundial" ? "bg-amber-600/25 text-white border border-amber-500/30 shadow-lg shadow-amber-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("mundial")}>WC</button>
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title={theme === "dark" ? "Modo claro" : "Modo oscuro"}>{theme === "dark" ? "☀️" : "🌙"}</button>
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setLang(lang === "es" ? "en" : "es")} title="Cambiar idioma">{lang === "es" ? "EN" : "ES"}</button>
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">
@@ -557,9 +579,16 @@ function GroupApp({ groupId }) {
             {view === "rules" && <FutbolRules />}
           </>
         )}
+        {view !== "admin" && mode === "mundial" && (
+          <>
+            {view === "participante" && <MundialParticipante user={user} db={db} setDb={setDbUser} />}
+            {view === "ranking" && <MundialRanking db={db} />}
+            {view === "rules" && <MundialRules />}
+          </>
+        )}
       </main></div>
     </>)}
-    <footer className="text-[12px] text-amber-200 pt-8 pb-20 md:pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · Quien gana, se lleva las birras <span className="beer-icon">🍻</span> {mode === "f1" ? "A todo gas" : "Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
+    <footer className="text-[12px] text-amber-200 pt-8 pb-20 md:pb-6 text-center tracking-widest uppercase font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"><span className="beer-icon">🍺</span> Porra Birreros · {mode === "mundial" ? "Al final, bocata para el campeón" : "Quien gana, se lleva las birras"} <span className="beer-icon">🍻</span> {mode === "f1" ? "A todo gas" : mode === "mundial" ? "Mundial 2026" : "Gol y cerveza"} <span className="beer-icon">🍺</span></footer>
     {user && <nav className="bottom-nav md:hidden" aria-label="Navegación móvil">
       {[
         {id:"participante",icon:"🎯",label:"Apuesta"},

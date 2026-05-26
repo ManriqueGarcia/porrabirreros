@@ -295,6 +295,75 @@ describe("scoreForRace", () => {
   });
 });
 
+// ─── scoreForRace — notYetJoined ───
+
+describe("scoreForRace — notYetJoined", () => {
+  it("no bet + user created after race date → 0 pts, notYetJoined=true", () => {
+    const db = { bets: {}, results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"] } } };
+    const race = { key: "gp1", q_date_local: "2026-03-07" };
+    const s = scoreForRace(db, "gp1", "newUser", race, "2026-04-01T00:00:00Z");
+    expect(s.points).toBe(0);
+    expect(s.missed).toBe(false);
+    expect(s.notYetJoined).toBe(true);
+  });
+
+  it("no bet + user created before race date → -3 pts (normal miss)", () => {
+    const db = { bets: {}, results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"] } } };
+    const race = { key: "gp1", q_date_local: "2026-03-07" };
+    const s = scoreForRace(db, "gp1", "oldUser", race, "2026-01-01T00:00:00Z");
+    expect(s.points).toBe(-3);
+    expect(s.missed).toBe(true);
+    expect(s.notYetJoined).toBe(false);
+  });
+
+  it("no userCreatedAt → behaves like before (-3 miss)", () => {
+    const db = { bets: {}, results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"] } } };
+    const race = { key: "gp1", q_date_local: "2026-03-07" };
+    const s = scoreForRace(db, "gp1", "user1", race);
+    expect(s.points).toBe(-3);
+    expect(s.missed).toBe(true);
+  });
+});
+
+// ─── computeGlobalStandings — new user handling ───
+
+describe("computeGlobalStandings — new user handling", () => {
+  it("new user gets 0 pts for races before join date", () => {
+    const db = {
+      bets: { gp1: { oldUser: { pole: "VER", podium: ["VER", "NOR", "LEC"], q: [], submittedAt: "2025-01-01" } } },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const races = [{ key: "gp1", q_date_local: "2026-03-07" }];
+    const usersMap = {
+      oldUser: { createdAt: "2026-01-01T00:00:00Z" },
+      newUser: { createdAt: "2026-04-01T00:00:00Z" },
+    };
+    const s = computeGlobalStandings(db, races, ["oldUser", "newUser"], usersMap);
+    expect(s.find(x => x.name === "oldUser").points).toBeGreaterThan(0);
+    expect(s.find(x => x.name === "newUser").points).toBe(0);
+  });
+
+  it("same points → newer user ranked below older user", () => {
+    const db = {
+      bets: {
+        gp1: {
+          oldUser: { pole: "VER", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-01" },
+          newUser: { pole: "VER", podium: ["X", "X", "X"], q: [], submittedAt: "2025-01-01" },
+        },
+      },
+      results: { gp1: { pole: "VER", podium: ["VER", "NOR", "LEC"], qAnswers: [] } },
+    };
+    const races = [{ key: "gp1", q_date_local: "2026-03-07" }];
+    const usersMap = {
+      oldUser: { createdAt: "2026-01-01T00:00:00Z" },
+      newUser: { createdAt: "2026-04-01T00:00:00Z" },
+    };
+    const s = computeGlobalStandings(db, races, ["newUser", "oldUser"], usersMap);
+    expect(s[0].name).toBe("oldUser");
+    expect(s[1].name).toBe("newUser");
+  });
+});
+
 // ─── computeGPWins ───
 
 describe("computeGPWins", () => {

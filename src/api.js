@@ -27,10 +27,17 @@ async function apiCall(method, path, user, body) {
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const fullPath = `${API_BASE_URL}${groupPrefix()}${path}`;
-  const res = await fetch(fullPath, opts);
-  if (res.status === 401) { onSessionExpired(); throw new Error("Sesión expirada"); }
+  let res;
+  try {
+    res = await fetch(fullPath, opts);
+  } catch (networkErr) {
+    console.error("[API_NETWORK_FAIL]", JSON.stringify({ method, path, user, error: networkErr.message, ts: new Date().toISOString() }));
+    throw networkErr;
+  }
+  if (res.status === 401) { console.warn("[API_SESSION_EXPIRED]", JSON.stringify({ method, path, user, ts: new Date().toISOString() })); onSessionExpired(); throw new Error("Sesión expirada"); }
   if (!res.ok) {
     const err = await res.text().catch(() => "");
+    console.error("[API_ERROR]", JSON.stringify({ method, path, user, status: res.status, body: err, ts: new Date().toISOString() }));
     throw new Error(`API ${method} ${path}: ${res.status} ${err}`);
   }
   return res.json();
@@ -131,6 +138,20 @@ export async function adminF1(raceKey, user, type, data) {
 
 export async function adminFutbol(jornadaId, user, type, data) {
   return apiCall("PUT", `/admin/futbol/${jornadaId}`, user, { type, data });
+}
+
+// ─── Mundial Bets ───
+
+export async function saveBetMundial(jornadaId, user, bet) {
+  return apiCall("PUT", `/bets/mundial/${jornadaId}`, user, { bet });
+}
+
+export async function saveResultMundial(jornadaId, user, result) {
+  return apiCall("PUT", `/results/mundial/${jornadaId}`, user, { result });
+}
+
+export async function adminMundial(jornadaId, user, type, data) {
+  return apiCall("PUT", `/admin/mundial/${jornadaId}`, user, { type, data });
 }
 
 // ─── Static assets ───

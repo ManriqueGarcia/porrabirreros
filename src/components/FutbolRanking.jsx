@@ -13,7 +13,7 @@ export function FutbolRanking({db}){
   const [scope,setScope]=useState("all");
   const [expandedRow,setExpandedRow]=useState(null);
   useEffect(()=>{ if(scope!=="all" && !jornadas.find(j=>j.id===scope)) setScope("all"); },[scope,jornadas]);
-  const standings=useMemo(()=>computeFutbolStandings(futbol,participants,jornadas),[futbol,participants,jornadas]);
+  const standings=useMemo(()=>computeFutbolStandings(futbol,participants,jornadas,db.participants),[futbol,participants,jornadas,db.participants]);
   const rows=useMemo(()=>{
     if(scope==="all") return standings;
     if(!futbol.results?.[scope]) return [];
@@ -28,7 +28,7 @@ export function FutbolRanking({db}){
   const prevPositions=useMemo(()=>{
     if(scope!=="all"||completedJornadas.length<2) return null;
     const prevJornadas=completedJornadas.slice(0,-1);
-    const prevStandings=computeFutbolStandings(futbol,participants,prevJornadas);
+    const prevStandings=computeFutbolStandings(futbol,participants,prevJornadas,db.participants);
     const map={}; prevStandings.forEach((s,i)=>{map[s.name]=i+1;}); return map;
   },[scope,completedJornadas,futbol,participants]);
   return (

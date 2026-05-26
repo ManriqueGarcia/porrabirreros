@@ -27,14 +27,16 @@ function Ranking({db,races,setDb,currentUser}){
   },[db.standings]);
   const computedData=useMemo(()=>{
     if(scope==="all"){
-      const gpWins=computeGPWins(db, races, participants);
+      const gpWins=computeGPWins(db, races, participants, db.participants);
       return participants.map(n=>{
+        const uCreated=db.participants?.[n]?.createdAt;
         const acc=(races||[]).reduce((a,race)=>{
-          const s=scoreForRace(db,race.key,n,race);
+          const s=scoreForRace(db,race.key,n,race,uCreated);
           a.points+=s.points; a.hits+=s.hits; a.exact+=s.exact; a.pen+=s.pen; return a;
         },{points:Number(basePoints[n]||0),hits:0,exact:0,pen:0});
-        return {name:n,...acc, wins:gpWins[n]||0, avgSubmit:computeAvgSubmitTime(db,races,n)};
-      }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
+        const createdTs=uCreated?new Date(uCreated).getTime():0;
+        return {name:n,...acc, wins:gpWins[n]||0, avgSubmit:computeAvgSubmitTime(db,races,n), createdTs};
+      }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit||A.createdTs-B.createdTs);
     } else {
       const k=scope;
       const raceMeta=(races||[]).find(r=>r.key===k);

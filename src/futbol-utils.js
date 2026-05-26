@@ -1,3 +1,5 @@
+import { FUTBOL_CAT_PENALTY_EXCLUDED_USERS } from "../lib/futbol-cat-excluded.mjs";
+
 export function defaultFutbolState(){
   return {order:[], jornadas:{}, bets:{}, results:{}, betsWindow:{}, betsReveal:{}, betHistory:{}, questions:{}, questionsStatus:{}};
 }
@@ -18,12 +20,16 @@ export function futbolMatchPoints(pred,res){
   return {points, exact, sign:signOk};
 }
 
-export function scoreFutbolJornada(db,jornadaId,name){
+export function scoreFutbolJornada(db,jornadaId,name,userCreatedAt){
   const futbol=db.futbol||{};
   const jornada=futbol.jornadas?.[jornadaId];
   const bet=futbol.bets?.[jornadaId]?.[name];
   const res=futbol.results?.[jornadaId];
-  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,latePenalty:0,late:!!bet?.late,goalDiff:0,items:[]};
+  if(!res) return {pending:true,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,latePenalty:0,late:!!bet?.late,goalDiff:0,items:[],notYetJoined:false};
+  if(!bet && userCreatedAt && jornada){
+    const dl=getEffectiveDeadline(jornada);
+    if(dl && new Date(userCreatedAt)>dl) return {pending:false,points:0,exact:0,signs:0,qHits:0,missed:false,catPenalty:0,missingPenalty:0,latePenalty:0,late:false,goalDiff:0,items:[],notYetJoined:true};
+  }
   const hasBet=!!bet;
   const predictions=hasBet?(bet.matches||[]):[];
   const late=!!bet?.late;
@@ -46,8 +52,10 @@ export function scoreFutbolJornada(db,jornadaId,name){
   if(missed){ missingPenalty=-3; points+=missingPenalty; items.push({label:"No participó en la apuesta", delta:missingPenalty}); goalDiff+=40; }
   else if(late){ latePenalty=-2; points+=latePenalty; items.push({label:"Apuesta fuera de plazo", delta:latePenalty}); }
   let catPenalty=0;
-  if(!missed && !late && points===0){ catPenalty=-1; points+=catPenalty; items.push({label:"Apuesta catastrófica", delta:catPenalty}); }
-  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,latePenalty,goalDiff,items};
+  if(!missed && !late && points===0 && !FUTBOL_CAT_PENALTY_EXCLUDED_USERS.has(name)){
+    catPenalty=-1; points+=catPenalty; items.push({label:"Apuesta catastrófica", delta:catPenalty});
+  }
+  return {pending:false,points,exact,signs,qHits,missed,late,catPenalty,missingPenalty,latePenalty,goalDiff,items,notYetJoined:false};
 }
 
 export function computeAvgFutbolSubmitTime(dbFutbol, jornadas, name){
@@ -59,14 +67,16 @@ export function computeAvgFutbolSubmitTime(dbFutbol, jornadas, name){
   return count>0?total/count:Infinity;
 }
 
-export function computeFutbolJornadaWins(dbFutbol, participants, jornadas){
+export function computeFutbolJornadaWins(dbFutbol, participants, jornadas, usersMap){
   const wins={};
   participants.forEach(n=>{ wins[n]=0; });
   const completed=(jornadas||[]).filter(j=>dbFutbol.results?.[j.id]);
   completed.forEach(j=>{
     let best=-Infinity; let winners=[];
     participants.forEach(name=>{
-      const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
+      const uCreated=usersMap?.[name]?.createdAt;
+      const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name,uCreated);
+      if(s.notYetJoined) return;
       if(s.points>best){ best=s.points; winners=[name]; }
       else if(s.points===best) winners.push(name);
     });
@@ -75,16 +85,18 @@ export function computeFutbolJornadaWins(dbFutbol, participants, jornadas){
   return wins;
 }
 
-export function computeFutbolStandings(dbFutbol,participants,jornadas){
+export function computeFutbolStandings(dbFutbol,participants,jornadas,usersMap){
   const completed=(jornadas||[]).filter(j=>dbFutbol.results?.[j.id]);
-  const jornadaWins=computeFutbolJornadaWins(dbFutbol, participants, jornadas);
+  const jornadaWins=computeFutbolJornadaWins(dbFutbol, participants, jornadas, usersMap);
   return participants.map(name=>{
+    const uCreated=usersMap?.[name]?.createdAt;
     const acc=completed.reduce((a,j)=>{
-      const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name);
+      const s=scoreFutbolJornada({futbol:dbFutbol},j.id,name,uCreated);
       a.points+=s.points; a.exact+=s.exact; a.signs+=s.signs; a.missed+=s.missed?1:0; a.late+=s.late?1:0; a.cat+=s.catPenalty?1:0; a.goalDiff+=s.goalDiff; return a;
     },{points:0,exact:0,signs:0,missed:0,late:0,cat:0,goalDiff:0});
-    return {name,...acc, wins:jornadaWins[name]||0, penCount:acc.missed+acc.late, avgSubmit:computeAvgFutbolSubmitTime(dbFutbol,jornadas,name)};
-  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.signs-a.signs||a.penCount-b.penCount||a.goalDiff-b.goalDiff||a.avgSubmit-b.avgSubmit);
+    const createdTs=uCreated?new Date(uCreated).getTime():0;
+    return {name,...acc, wins:jornadaWins[name]||0, penCount:acc.missed+acc.late, avgSubmit:computeAvgFutbolSubmitTime(dbFutbol,jornadas,name), createdTs};
+  }).sort((a,b)=>b.points-a.points||b.wins-a.wins||b.exact-a.exact||b.signs-a.signs||a.penCount-b.penCount||a.goalDiff-b.goalDiff||a.avgSubmit-b.avgSubmit||a.createdTs-b.createdTs);
 }
 
 export function computeDeadlineFromKickoffs(jornada){

@@ -15,6 +15,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
   const [jId,setJId]=useState("");
   const [jName,setJName]=useState("");
   const [deadlineInput,setDeadlineInput]=useState(()=>toLocalDateTimeInput(nextFridayAt2100()));
+  const [laligaMatchdayInput,setLaligaMatchdayInput]=useState("");
   const [matches,setMatches]=useState(()=>FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
   const [scores,setScores]=useState(()=>matches.map(()=>({home:"",away:""})));
   const [editUser,setEditUser]=useState("");
@@ -27,6 +28,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
       setJId(j.id);
       setJName(j.name||j.id);
       setDeadlineInput(toLocalDateTimeInput(j.deadline?new Date(j.deadline):nextFridayAt2100()));
+      setLaligaMatchdayInput(j.laligaMatchday!=null&&j.laligaMatchday!==""?String(j.laligaMatchday):"");
       const baseMatches=(j.matches?.length?j.matches:FUTBOL_BASE_TEAMS.map(team=>({home:team,away:"",kickoff:""})));
       setMatches(baseMatches);
       if(editingMode==="results"){
@@ -37,10 +39,11 @@ export function FutbolAdmin({db,setDb,currentUser}){
       setJId("");
       setJName("");
       setDeadlineInput(toLocalDateTimeInput(nextFridayAt2100()));
+      setLaligaMatchdayInput("");
       setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})));
       setScores(FUTBOL_BASE_TEAMS.map(()=>({home:"",away:""})));
     }
-  },[selected,editingMode]);
+  },[selected,editingMode,futbol.jornadas?.[selected]]);
   useEffect(()=>{
     if(editUser && selected && editingMode==="bet"){
       const bet=futbol.bets?.[selected]?.[editUser];
@@ -78,9 +81,22 @@ export function FutbolAdmin({db,setDb,currentUser}){
     const computedDl=computeDeadlineFromKickoffs({matches:fixedMatches});
     const manualDl=parseLocalDateTime(deadlineInput);
     const finalDeadline=computedDl ? null : (manualDl||nextFridayAt2100());
-    const jornadaData={id,name:jName||id,deadline:finalDeadline?finalDeadline.toISOString():null,matches:fixedMatches};
+    const mdRaw=laligaMatchdayInput.trim();
+    const laligaMatchday=mdRaw===""?undefined:parseInt(mdRaw,10);
+    if(mdRaw!==""&&!Number.isFinite(laligaMatchday)) {
+      toast.error("Jornada La Liga: introduce un número (1–38) o déjalo vacío");
+      setSavingJornada(false);
+      return;
+    }
+    const jornadaData={id,name:jName||id,deadline:finalDeadline?finalDeadline.toISOString():null,matches:fixedMatches,...(laligaMatchday!=null?{laligaMatchday}:{})};
+    let merged=jornadaData;
     try {
-      await adminFutbol(id, currentUser, "jornada", {...jornadaData, order:[...(futbol.order||[]), ...(futbol.order?.includes(id)?[]:[id])]});
+      const resp=await adminFutbol(id, currentUser, "jornada", {...jornadaData, order:[...(futbol.order||[]), ...(futbol.order?.includes(id)?[]:[id])]});
+      merged=resp?.jornada||jornadaData;
+      const k=resp?.kickoffEnrichment;
+      if(k?.filled>0) toast.success(`Jornada guardada. Horarios API: ${k.filled} partido(s).`);
+      else if(k?.attempted&&k?.apiError) toast.warn(`Calendario API: ${k.apiError}`);
+      else toast.success("Jornada guardada");
     } catch(err) {
       console.error("Error sync jornada:", err);
       toast.error("Error al sincronizar jornada con el servidor");
@@ -90,7 +106,7 @@ export function FutbolAdmin({db,setDb,currentUser}){
     setDb(prev=>{
       const futbolPrev=prev.futbol||defaultFutbolState();
       const jornadasMap={...(futbolPrev.jornadas||{})};
-      jornadasMap[id]=jornadaData;
+      jornadasMap[id]=merged;
       const order=[...(futbolPrev.order||[])];
       if(!order.includes(id)) order.push(id);
       return {...prev, futbol:{...futbolPrev, jornadas:jornadasMap, order}};
@@ -225,7 +241,10 @@ export function FutbolAdmin({db,setDb,currentUser}){
           <input className="select border rounded px-3 py-2" placeholder="Jornada 1" value={jName} onChange={e=>setJName(e.target.value)} />
           <label className="text-sm">Cierre (España)</label>
           <input type="datetime-local" className="select border rounded px-3 py-2" value={deadlineInput} onChange={e=>setDeadlineInput(e.target.value)} />
+          <label className="text-sm">Jornada La Liga (1–38, opcional)</label>
+          <input type="number" min="1" max="38" className="select border rounded px-3 py-2" placeholder="p. ej. 34" value={laligaMatchdayInput} onChange={e=>setLaligaMatchdayInput(e.target.value)} />
         </div>
+        <p className="text-xs text-slate-500">Si la Lambda tiene <code className="text-slate-400">FOOTBALL_DATA_ORG_TOKEN</code>, al guardar se rellenan solos los horarios vacíos (API football-data.org). El matchday afina la búsqueda; si lo dejas vacío se usa una ventana de fechas.</p>
         <div className="flex flex-wrap gap-2 mt-2">
           <button className="px-3 py-2 rounded bg-emerald-700 text-white text-sm" onClick={()=>setMatches(FUTBOL_BASE_TEAMS.map(team=>({home:team,away:""})))}>Cargar equipos base</button>
           <button className="px-3 py-2 rounded bg-emerald-600 text-white text-sm disabled:opacity-50" onClick={saveJornada} disabled={savingJornada}>{savingJornada?"Guardando...":"Guardar jornada"}</button>

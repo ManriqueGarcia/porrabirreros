@@ -136,8 +136,8 @@ function Stats({db,races,currentUser}){
       ...db,
       results:{...db.results,[whatIfRaceKey]:{...db.results[whatIfRaceKey],pole:whatIfResult.pole,podium:whatIfResult.podium,qAnswers:whatIfResult.qAnswers}}
     };
-    const original=computeGlobalStandings(db,races,f1Participants);
-    const modified=computeGlobalStandings(modifiedDb,races,f1Participants);
+    const original=computeGlobalStandings(db,races,f1Participants,db.participants);
+    const modified=computeGlobalStandings(modifiedDb,races,f1Participants,db.participants);
     return modified.map((m,newPos)=>{
       const oldPos=original.findIndex(o=>o.name===m.name);
       const origEntry=original[oldPos];

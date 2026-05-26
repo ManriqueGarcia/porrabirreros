@@ -7,7 +7,7 @@ description: >-
 
 # Porra Birreros — contexto (compacto)
 
-SPA porras **F1 + fútbol**, multi-tenant (grupos), login global. Perdedor invita birras.
+SPA porras **F1 + fútbol La Liga + Mundial 2026**, multi-tenant (grupos), login global. F1/fútbol: perdedor invita birras; Mundial: premio solo al final (bocata).
 
 ## Stack
 
@@ -22,7 +22,7 @@ SPA porras **F1 + fútbol**, multi-tenant (grupos), login global. Perdedor invit
 
 ## Rutas de código (prioridad)
 
-- `src/App.jsx`, `api.js`, `scoring.js`, `futbol-utils.js`, `config.js` / `config.local.js` (gitignored)
+- `src/App.jsx`, `api.js`, `scoring.js`, `futbol-utils.js`, `mundial-utils.js`, `lib/mundial-fixtures.mjs`, `config.js` / `config.local.js` (gitignored)
 - `porra-state-api.mjs` — auth Bearer, rate limits, rutas `/auth`, `/groups`, `/g/{id}/…`
 - `porra-ai.mjs` — asistente
 - **Scoring duplicado**: `src/scoring.js` y `lib/scoring.mjs` — **misma lógica**; tocar **ambos** si cambia puntuación F1
@@ -32,7 +32,8 @@ SPA porras **F1 + fútbol**, multi-tenant (grupos), login global. Perdedor invit
 
 - **F1**: pole + podio + 3 preguntas; scoring en `scoring.js`; apuesta ciega post-quali; penalizaciones -3/-2/-1
 - **Fútbol**: jornadas N partidos; `futbol-utils.js`; +3 exacto, +1 signo, etc.
-- **DynamoDB** (tabla única `pk`,`sk`): `UIDX#user`, `GROUPS`, `G#{gid}#USER|…`, `F1#…|BET#…`, `FUT#…|BET#…` — detalle en código/README si hace falta
+- **Mundial 2026**: `mundial-utils.js` + calendario en `lib/mundial-fixtures.mjs`; mismas penalizaciones que fútbol; KO: bonus prórroga/penaltis; participantes = `porras.mundial` (migración desde fútbol).
+- **DynamoDB** (tabla única `pk`,`sk`): `UIDX#user`, `GROUPS`, `G#{gid}#USER|…`, `F1#…`, `FUT#…`, `MUN#…` — detalle en código/README si hace falta
 
 ## Comandos (obligatorios antes de “listo”)
 
@@ -56,6 +57,42 @@ npm run deploy:lambda   # sube Lambdas (esbuild); AWS_PROFILE o perfil default
 
 - ESM; nombres código en inglés, UI/comentarios español
 - Commits: Conventional Commits; `dev` → probar; `main` → prod (promoción con tests Red-Green si aplica reglas)
+
+## Logging / Observabilidad
+
+### Backend (Lambda `porra-state-api.mjs`)
+
+Función `log(level, action, data)` emite JSON estructurado a CloudWatch. Nivel configurable con env `LOG_LEVEL` (debug/info/warn/error; default `info`).
+
+| action | level | Cuándo |
+|--------|-------|--------|
+| `bet_f1_saved` | info | Apuesta F1 guardada (raceKey, user, late, pole) |
+| `bet_f1_reject` | warn | Apuesta F1 rechazada (reason: missing_params/invalid_raceKey/cancelled/incomplete/validation/closed/no_user) |
+| `bet_futbol_saved` | info | Apuesta fútbol guardada (jornadaId, user, late, matchCount) |
+| `bet_futbol_reject` | warn | Apuesta fútbol rechazada (reason similar) |
+| `auth_login` | info | Login exitoso (user, groupCount) |
+| `auth_reject` | warn | Login rechazado antes de verificar (no_username/no_password/no_groups) |
+| `auth_fail` | warn | Login fallido tras verificar credenciales (user, groupCount) |
+| `session_expired` | warn | Token de sesión expirado (ip, method, path) |
+| `lambda_unhandled` | error | Error no capturado (method, path, user, error, stack) |
+
+Consultas CloudWatch:
+
+```bash
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"bet_f1_saved" "Carlos"'
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"bet_f1_reject"'
+aws logs filter-log-events --log-group-name /aws/lambda/porra-state-api --filter-pattern '"session_expired"'
+```
+
+### Frontend (consola del navegador)
+
+| tag | Cuándo |
+|-----|--------|
+| `[API_NETWORK_FAIL]` | `fetch` falla por red (offline, DNS, timeout) |
+| `[API_SESSION_EXPIRED]` | API devuelve 401 |
+| `[API_ERROR]` | API devuelve cualquier otro error HTTP |
+| `[BET_F1_FAIL]` | Error al guardar apuesta F1 (user, raceKey, error, ts) |
+| `[BET_FUTBOL_FAIL]` | Error al guardar apuesta fútbol (user, jornadaId, error, ts) |
 
 ## Seguridad (recordatorio)
 

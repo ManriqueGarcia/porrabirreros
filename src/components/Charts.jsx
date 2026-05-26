@@ -20,11 +20,13 @@ const PositionEvolutionChart = memo(function PositionEvolutionChart({db,races,sc
     const evol=[startEntry];
     target.forEach((_race,ri)=>{
       const racesUpTo=target.slice(0,ri+1);
-      const gw=computeGPWins(db,racesUpTo,participants);
+      const gw=computeGPWins(db,racesUpTo,participants,db.participants);
       const st=participants.map(name=>{
-        const acc=racesUpTo.reduce((a,race)=>{const s=scoreForRace(db,race.key,name,race);a.points+=s.points;a.hits+=s.hits;a.exact+=s.exact;a.pen+=s.pen;return a;},{points:Number(bp[name]||0),hits:0,exact:0,pen:0});
-        return{name,...acc,wins:gw[name]||0,avgSubmit:computeAvgSubmitTime(db,racesUpTo,name)};
-      }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit);
+        const uCreated=db.participants?.[name]?.createdAt;
+        const acc=racesUpTo.reduce((a,race)=>{const s=scoreForRace(db,race.key,name,race,uCreated);a.points+=s.points;a.hits+=s.hits;a.exact+=s.exact;a.pen+=s.pen;return a;},{points:Number(bp[name]||0),hits:0,exact:0,pen:0});
+        const createdTs=uCreated?new Date(uCreated).getTime():0;
+        return{name,...acc,wins:gw[name]||0,avgSubmit:computeAvgSubmitTime(db,racesUpTo,name),createdTs};
+      }).sort((A,B)=>B.points-A.points||B.wins-A.wins||B.exact-A.exact||B.hits-A.hits||A.pen-B.pen||A.avgSubmit-B.avgSubmit||A.createdTs-B.createdTs);
       const pos={};st.forEach((s,i)=>{pos[s.name]=i+1;});
       evol.push({race:_race,positions:pos});
     });

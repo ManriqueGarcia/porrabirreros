@@ -54,7 +54,7 @@ const baseCalendar=baseCal;
   },[selected,db.meta?.raceOverrides,baseCal]);
   const user=getSession()?.user||"";
   const participantNames=useMemo(()=>getParticipantsForPorra(db,"f1"),[db.participants,db.users]);
-  const computedStandings=useMemo(()=>computeGlobalStandings(db,races).map((row,idx)=>({name:row.name,points:row.points,rank:idx+1})),[db,races]);
+  const computedStandings=useMemo(()=>computeGlobalStandings(db,races,undefined,db.participants).map((row,idx)=>({name:row.name,points:row.points,rank:idx+1})),[db,races]);
   const manualStandingsExists=Object.keys(db.standings||{}).length>0;
   const standingsObject=useMemo(()=>{
     if(manualStandingsExists) return db.standings;

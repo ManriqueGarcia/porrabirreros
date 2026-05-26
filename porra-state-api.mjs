@@ -2,6 +2,7 @@
  * Lambda: API de estado con DynamoDB
  * Rutas granulares con validacion server-side.
  * Env vars: TABLE_NAME, ALLOWED_ORIGIN, API_SECRET
+ * Opcional fútbol (horarios La Liga vía football-data.org): FOOTBALL_DATA_ORG_TOKEN, FOOTBALL_DATA_COMPETITION_ID (default PD), FOOTBALL_DATA_DATE_RANGE_DAYS
  */
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
@@ -10,10 +11,19 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { createHash, randomBytes } from "crypto";
 import { isCancelledF1RaceKey } from "./lib/f1-cancelled-races.mjs";
+import { enrichFutbolJornadaMatchesFromApi } from "./lib/laliga-fixtures.mjs";
 
 const TABLE = process.env.TABLE_NAME || "PorraBirreros";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const API_SECRET = process.env.API_SECRET || "";
+const LOG_LEVEL = process.env.LOG_LEVEL || "info";
+
+function log(level, action, data) {
+  const levels = { debug: 0, info: 1, warn: 2, error: 3 };
+  if ((levels[level] ?? 1) < (levels[LOG_LEVEL] ?? 1)) return;
+  const entry = { ts: new Date().toISOString(), level, action, ...data };
+  console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](JSON.stringify(entry));
+}
 
 const RATE_WINDOW_MS = 60_000;
 const AUTH_RATE_MAX = 10;
@@ -132,6 +142,33 @@ function validateFutbolBet(bet) {
   }
   if (bet.trashtalk != null && bet.trashtalk !== "" && typeof bet.trashtalk !== "string") return "trashtalk debe ser string";
   if (typeof bet.trashtalk === "string" && bet.trashtalk.length > 120) return "trashtalk demasiado largo";
+  return null;
+}
+
+function validateMundialMatchExtras(m) {
+  if (m.extraTime != null && typeof m.extraTime !== "boolean") return "extraTime inválido";
+  if (m.penalties != null && typeof m.penalties !== "boolean") return "penalties inválido";
+  if (m.penWinner != null && m.penWinner !== "home" && m.penWinner !== "away") return "penWinner inválido";
+  return null;
+}
+
+function validateMundialBet(bet) {
+  const base = validateFutbolBet(bet);
+  if (base) return base;
+  for (const m of bet.matches || []) {
+    const ex = validateMundialMatchExtras(m);
+    if (ex) return ex;
+  }
+  return null;
+}
+
+function validateMundialResult(result) {
+  const base = validateFutbolResult(result);
+  if (base) return base;
+  for (const m of result.matches || []) {
+    const ex = validateMundialMatchExtras(m);
+    if (ex) return ex;
+  }
   return null;
 }
 
@@ -277,20 +314,22 @@ async function isAdmin(userName) {
   if (!user) return false;
   if (user.isAdmin) return true;
   const r = user.adminRoles;
-  return !!(r?.general || r?.f1 || r?.futbol);
+  return !!(r?.general || r?.f1 || r?.futbol || r?.mundial);
 }
 
 // GET /state - reconstruct full state from DynamoDB
 async function getFullState() {
   const items = await scanAll();
+  const emptyJornadaPorra = () => ({
+    order: [], jornadas: {}, bets: {}, results: {},
+    betsWindow: {}, betsReveal: {}, betHistory: {},
+  });
   const state = {
     users: {}, participants: {}, bets: {}, results: {},
     betHistory: {}, betsWindow: {}, betsReveal: {},
     scoreAdjustments: {}, questionOwner: {}, questions: {},
-    questionsStatus: {}, meta: {}, futbol: {
-      order: [], jornadas: {}, bets: {}, results: {},
-      betsWindow: {}, betsReveal: {}, betHistory: {},
-    },
+    questionsStatus: {}, meta: {}, futbol: emptyJornadaPorra(),
+    mundial: emptyJornadaPorra(),
   };
 
   for (const item of items) {
@@ -358,6 +397,31 @@ async function getFullState() {
     } else if (pk.startsWith("FUT#") && sk === "REVEAL") {
       const jId = pk.replace("FUT#", "");
       state.futbol.betsReveal[jId] = data;
+    } else if (pk === "MUN" && sk === "CONFIG") {
+      state.mundial.order = data.order || [];
+      if (data.mundialSeeded) state.meta.mundialSeeded = true;
+    } else if (pk.startsWith("MUN#") && sk === "CONFIG") {
+      const jId = pk.replace("MUN#", "");
+      state.mundial.jornadas[jId] = data;
+    } else if (pk.startsWith("MUN#") && sk === "RESULT") {
+      const jId = pk.replace("MUN#", "");
+      state.mundial.results[jId] = data;
+    } else if (pk.startsWith("MUN#") && sk.startsWith("BET#")) {
+      const jId = pk.replace("MUN#", "");
+      const userName = sk.replace("BET#", "");
+      if (!state.mundial.bets[jId]) state.mundial.bets[jId] = {};
+      state.mundial.bets[jId][userName] = data;
+    } else if (pk.startsWith("MUN#") && sk.startsWith("HISTORY#")) {
+      const jId = pk.replace("MUN#", "");
+      const userName = sk.replace("HISTORY#", "");
+      if (!state.mundial.betHistory[jId]) state.mundial.betHistory[jId] = {};
+      state.mundial.betHistory[jId][userName] = data.log || [];
+    } else if (pk.startsWith("MUN#") && sk === "WINDOW") {
+      const jId = pk.replace("MUN#", "");
+      state.mundial.betsWindow[jId] = data;
+    } else if (pk.startsWith("MUN#") && sk === "REVEAL") {
+      const jId = pk.replace("MUN#", "");
+      state.mundial.betsReveal[jId] = data;
     }
   }
 
@@ -437,6 +501,31 @@ async function writeFullState(state) {
     ops.push({ pk: `FUT#${jId}`, sk: "REVEAL", ...r });
   }
 
+  const mun = state.mundial || {};
+  ops.push({ pk: "MUN", sk: "CONFIG", order: mun.order || [], mundialSeeded: !!state.meta?.mundialSeeded });
+  for (const [jId, j] of Object.entries(mun.jornadas || {})) {
+    ops.push({ pk: `MUN#${jId}`, sk: "CONFIG", ...j });
+  }
+  for (const [jId, r] of Object.entries(mun.results || {})) {
+    ops.push({ pk: `MUN#${jId}`, sk: "RESULT", ...r });
+  }
+  for (const [jId, jBets] of Object.entries(mun.bets || {})) {
+    for (const [name, bet] of Object.entries(jBets || {})) {
+      ops.push({ pk: `MUN#${jId}`, sk: `BET#${name}`, ...bet });
+    }
+  }
+  for (const [jId, jHist] of Object.entries(mun.betHistory || {})) {
+    for (const [name, log] of Object.entries(jHist || {})) {
+      ops.push({ pk: `MUN#${jId}`, sk: `HISTORY#${name}`, log });
+    }
+  }
+  for (const [jId, w] of Object.entries(mun.betsWindow || {})) {
+    ops.push({ pk: `MUN#${jId}`, sk: "WINDOW", ...w });
+  }
+  for (const [jId, r] of Object.entries(mun.betsReveal || {})) {
+    ops.push({ pk: `MUN#${jId}`, sk: "REVEAL", ...r });
+  }
+
   for (let i = 0; i < ops.length; i += 25) {
     const batch = ops.slice(i, i + 25).map(item => ({
       PutRequest: { Item: item },
@@ -481,18 +570,18 @@ async function resolveFutbolDeadline(pkPrefix, jornadaId, getItemFn) {
 }
 
 async function handleSaveBetF1(raceKey, reqUser, body) {
-  if (!raceKey || !reqUser) return badReq("Faltan raceKey o user");
-  if (!isValidId(raceKey)) return badReq("raceKey inválido");
-  if (isCancelledF1RaceKey(raceKey)) return badReq("Gran Premio cancelado — no se admiten apuestas");
+  if (!raceKey || !reqUser) { log("warn", "bet_f1_reject", { reason: "missing_params", raceKey, user: reqUser }); return badReq("Faltan raceKey o user"); }
+  if (!isValidId(raceKey)) { log("warn", "bet_f1_reject", { reason: "invalid_raceKey", raceKey, user: reqUser }); return badReq("raceKey inválido"); }
+  if (isCancelledF1RaceKey(raceKey)) { log("warn", "bet_f1_reject", { reason: "cancelled", raceKey, user: reqUser }); return badReq("Gran Premio cancelado — no se admiten apuestas"); }
   const bet = body.bet || body;
-  if (!bet.pole && (!bet.podium || !Array.isArray(bet.podium))) return badReq("Bet data incompleta");
+  if (!bet.pole && (!bet.podium || !Array.isArray(bet.podium))) { log("warn", "bet_f1_reject", { reason: "incomplete", raceKey, user: reqUser }); return badReq("Bet data incompleta"); }
   const f1Err = validateF1Bet(bet);
-  if (f1Err) return badReq(f1Err);
+  if (f1Err) { log("warn", "bet_f1_reject", { reason: "validation", raceKey, user: reqUser, detail: f1Err }); return badReq(f1Err); }
 
   const dl = await resolveF1Deadline("F1#", raceKey, body.deadline,
     (_, rk, sk) => getItem(`F1#${rk}`, sk),
     (_, rk, sk, data) => putItem(`F1#${rk}`, sk, data));
-  if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+  if (dl.blocked) { log("warn", "bet_f1_reject", { reason: "closed", raceKey, user: reqUser }); return forbidden("Las apuestas están cerradas por el admin"); }
 
   const serverNow = new Date();
   const late = dl.deadline ? serverNow >= dl.deadline : false;
@@ -507,19 +596,20 @@ async function handleSaveBetF1(raceKey, reqUser, body) {
   await putItem(`F1#${raceKey}`, `BET#${reqUser}`, betData);
   await appendToHistory(`F1#${raceKey}`, `HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late });
 
+  log("info", "bet_f1_saved", { raceKey, user: reqUser, late, pole: betData.pole });
   return res(200, { ok: true, submittedAt: ts, late });
 }
 
 async function handleSaveBetFutbol(jornadaId, reqUser, body) {
-  if (!jornadaId || !reqUser) return badReq("Faltan jornadaId o user");
-  if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
+  if (!jornadaId || !reqUser) { log("warn", "bet_futbol_reject", { reason: "missing_params", jornadaId, user: reqUser }); return badReq("Faltan jornadaId o user"); }
+  if (!isValidId(jornadaId)) { log("warn", "bet_futbol_reject", { reason: "invalid_jornadaId", jornadaId, user: reqUser }); return badReq("jornadaId inválido"); }
   const bet = body.bet || body;
   const futErr = validateFutbolBet(bet);
-  if (futErr) return badReq(futErr);
+  if (futErr) { log("warn", "bet_futbol_reject", { reason: "validation", jornadaId, user: reqUser, detail: futErr }); return badReq(futErr); }
 
   const dl = await resolveFutbolDeadline("FUT#", jornadaId,
     (_, jId, sk) => getItem(`FUT#${jId}`, sk));
-  if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+  if (dl.blocked) { log("warn", "bet_futbol_reject", { reason: "closed", jornadaId, user: reqUser }); return forbidden("Las apuestas están cerradas por el admin"); }
 
   const serverNow = new Date();
   const late = dl.deadline ? serverNow >= dl.deadline : false;
@@ -531,7 +621,86 @@ async function handleSaveBetFutbol(jornadaId, reqUser, body) {
   await putItem(`FUT#${jornadaId}`, `BET#${reqUser}`, betData);
   await appendToHistory(`FUT#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
 
+  log("info", "bet_futbol_saved", { jornadaId, user: reqUser, late, matchCount: betData.matches.length });
   return res(200, { ok: true, submittedAt: ts, late });
+}
+
+async function handleSaveBetMundial(jornadaId, reqUser, body) {
+  if (!jornadaId || !reqUser) { log("warn", "bet_mundial_reject", { reason: "missing_params", jornadaId, user: reqUser }); return badReq("Faltan jornadaId o user"); }
+  if (!isValidId(jornadaId)) { log("warn", "bet_mundial_reject", { reason: "invalid_jornadaId", jornadaId, user: reqUser }); return badReq("jornadaId inválido"); }
+  const bet = body.bet || body;
+  const munErr = validateMundialBet(bet);
+  if (munErr) { log("warn", "bet_mundial_reject", { reason: "validation", jornadaId, user: reqUser, detail: munErr }); return badReq(munErr); }
+
+  const dl = await resolveFutbolDeadline("MUN#", jornadaId, (_, jId, sk) => getItem(`MUN#${jId}`, sk));
+  if (dl.blocked) { log("warn", "bet_mundial_reject", { reason: "closed", jornadaId, user: reqUser }); return forbidden("Las apuestas están cerradas por el admin"); }
+
+  const serverNow = new Date();
+  const late = dl.deadline ? serverNow >= dl.deadline : false;
+  const ts = serverNow.toISOString();
+  const tt = sanitizeTrashtalk(bet);
+  const betData = { matches: bet.matches || [], submittedAt: ts, late };
+  if (tt) betData.trashtalk = tt;
+
+  await putItem(`MUN#${jornadaId}`, `BET#${reqUser}`, betData);
+  await appendToHistory(`MUN#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
+
+  log("info", "bet_mundial_saved", { jornadaId, user: reqUser, late, matchCount: betData.matches.length });
+  return res(200, { ok: true, submittedAt: ts, late });
+}
+
+async function handleSaveResultMundial(jornadaId, reqUser, body) {
+  if (!(await isAdmin(reqUser))) return forbidden("Solo admin puede guardar resultados");
+  if (!jornadaId) return badReq("Falta jornadaId");
+  if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
+  const { pk: _pk, sk: _sk, ...resultData } = body.result || body;
+  const resErr = validateMundialResult(resultData);
+  if (resErr) return badReq(resErr);
+  await putItem(`MUN#${jornadaId}`, "RESULT", resultData);
+  return res(200, { ok: true });
+}
+
+async function handleAdminMundial(jornadaId, reqUser, body) {
+  if (!(await isAdmin(reqUser))) return forbidden("Solo admin");
+  const { type, data } = body;
+  if (!type) return badReq("Falta type");
+  if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
+
+  switch (type) {
+    case "jornada": {
+      const saved = data || {};
+      await putItem(`MUN#${jornadaId}`, "CONFIG", saved);
+      if (saved?.order) {
+        const munConf = await getItem("MUN", "CONFIG") || {};
+        await putItem("MUN", "CONFIG", { ...munConf, order: saved.order });
+      }
+      log("info", "mundial_jornada_saved", { jornadaId });
+      return res(200, { ok: true, jornada: saved });
+    }
+    case "window":
+      await putItem(`MUN#${jornadaId}`, "WINDOW", data || {});
+      break;
+    case "reveal":
+      await putItem(`MUN#${jornadaId}`, "REVEAL", data || {});
+      break;
+    case "bet": {
+      const { userName, bet } = data;
+      if (!userName) return badReq("Falta userName");
+      if (!isValidUserName(userName)) return badReq("Nombre de usuario no válido");
+      const admErr = validateMundialBet(bet || {});
+      if (admErr) return badReq(admErr);
+      await putItem(`MUN#${jornadaId}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
+      break;
+    }
+    case "delete": {
+      const items = await queryByPk(`MUN#${jornadaId}`);
+      for (const item of items) await deleteItem(item.pk, item.sk);
+      break;
+    }
+    default:
+      return badReq(`Tipo desconocido: ${type}`);
+  }
+  return res(200, { ok: true });
 }
 
 async function handleSaveResultF1(raceKey, reqUser, body) {
@@ -644,14 +813,25 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
   if (!type) return badReq("Falta type");
   if (!isValidId(jornadaId)) return badReq("jornadaId inválido");
 
+  let responseExtra = null;
+
   switch (type) {
-    case "jornada":
-      await putItem(`FUT#${jornadaId}`, "CONFIG", data || {});
-      if (data?.order) {
+    case "jornada": {
+      const raw = data || {};
+      const { data: saved, meta } = await enrichFutbolJornadaMatchesFromApi(raw, {
+        token: process.env.FOOTBALL_DATA_ORG_TOKEN || "",
+        competitionId: process.env.FOOTBALL_DATA_COMPETITION_ID,
+        futureDays: Number(process.env.FOOTBALL_DATA_DATE_RANGE_DAYS) || 21,
+      });
+      await putItem(`FUT#${jornadaId}`, "CONFIG", saved);
+      if (saved?.order) {
         const futConf = await getItem("FUT", "CONFIG") || {};
-        await putItem("FUT", "CONFIG", { ...futConf, order: data.order });
+        await putItem("FUT", "CONFIG", { ...futConf, order: saved.order });
       }
+      log("info", "futbol_jornada_saved", { jornadaId, kickoffEnrichment: meta });
+      responseExtra = { kickoffEnrichment: meta, jornada: saved };
       break;
+    }
     case "window":
       await putItem(`FUT#${jornadaId}`, "WINDOW", data || {});
       break;
@@ -677,7 +857,7 @@ async function handleAdminFutbol(jornadaId, reqUser, body) {
     default:
       return badReq(`Tipo desconocido: ${type}`);
   }
-  return res(200, { ok: true });
+  return res(200, responseExtra ? { ok: true, ...responseExtra } : { ok: true });
 }
 
 async function handleAddUser(reqUser, body) {
@@ -810,14 +990,16 @@ async function handleJoinGroup(groupId, body) {
 
 async function getGroupState(groupId) {
   const items = await queryByPk(`G#${groupId}`);
+  const emptyJornadaPorra = () => ({
+    order: [], jornadas: {}, bets: {}, results: {},
+    betsWindow: {}, betsReveal: {}, betHistory: {},
+  });
   const state = {
     users: {}, participants: {}, bets: {}, results: {},
     betHistory: {}, betsWindow: {}, betsReveal: {},
     scoreAdjustments: {}, questionOwner: {}, questions: {},
-    questionsStatus: {}, meta: {}, futbol: {
-      order: [], jornadas: {}, bets: {}, results: {},
-      betsWindow: {}, betsReveal: {}, betHistory: {},
-    },
+    questionsStatus: {}, meta: {}, futbol: emptyJornadaPorra(),
+    mundial: emptyJornadaPorra(),
   };
 
   for (const item of items) {
@@ -876,6 +1058,25 @@ async function getGroupState(groupId) {
       state.futbol.betsWindow[ePk.replace("FUT#", "")] = data;
     } else if (ePk.startsWith("FUT#") && eSk === "REVEAL") {
       state.futbol.betsReveal[ePk.replace("FUT#", "")] = data;
+    } else if (ePk === "MUN" && eSk === "CONFIG") {
+      state.mundial.order = data.order || [];
+      if (data.mundialSeeded) state.meta.mundialSeeded = true;
+    } else if (ePk.startsWith("MUN#") && eSk === "CONFIG") {
+      state.mundial.jornadas[ePk.replace("MUN#", "")] = data;
+    } else if (ePk.startsWith("MUN#") && eSk === "RESULT") {
+      state.mundial.results[ePk.replace("MUN#", "")] = data;
+    } else if (ePk.startsWith("MUN#") && eSk.startsWith("BET#")) {
+      const jId = ePk.replace("MUN#", "");
+      if (!state.mundial.bets[jId]) state.mundial.bets[jId] = {};
+      state.mundial.bets[jId][eSk.replace("BET#", "")] = data;
+    } else if (ePk.startsWith("MUN#") && eSk.startsWith("HISTORY#")) {
+      const jId = ePk.replace("MUN#", "");
+      if (!state.mundial.betHistory[jId]) state.mundial.betHistory[jId] = {};
+      state.mundial.betHistory[jId][eSk.replace("HISTORY#", "")] = data.log || [];
+    } else if (ePk.startsWith("MUN#") && eSk === "WINDOW") {
+      state.mundial.betsWindow[ePk.replace("MUN#", "")] = data;
+    } else if (ePk.startsWith("MUN#") && eSk === "REVEAL") {
+      state.mundial.betsReveal[ePk.replace("MUN#", "")] = data;
     }
   }
 
@@ -902,7 +1103,7 @@ async function isAdminInGroup(groupId, userName) {
   if (!user) return false;
   if (user.isAdmin) return true;
   const r = user.adminRoles;
-  return !!(r?.general || r?.f1 || r?.futbol);
+  return !!(r?.general || r?.f1 || r?.futbol || r?.mundial);
 }
 
 // Group-aware item helpers
@@ -936,10 +1137,10 @@ async function getUserGroups(username) {
 
 async function handleAuthLogin(body) {
   const { username, passwordHash } = body;
-  if (!username?.trim()) return badReq("Falta nombre de usuario");
-  if (!passwordHash) return badReq("Falta contraseña");
+  if (!username?.trim()) { log("warn", "auth_reject", { reason: "no_username" }); return badReq("Falta nombre de usuario"); }
+  if (!passwordHash) { log("warn", "auth_reject", { reason: "no_password", user: username.trim() }); return badReq("Falta contraseña"); }
   const groups = await getUserGroups(username.trim());
-  if (!groups.length) return res(401, { error: "Credenciales incorrectas" });
+  if (!groups.length) { log("warn", "auth_reject", { reason: "no_groups", user: username.trim() }); return res(401, { error: "Credenciales incorrectas" }); }
   const validGroups = [];
   let canonicalName = username.trim();
   for (const g of groups) {
@@ -961,7 +1162,8 @@ async function handleAuthLogin(body) {
       }
     }
   }
-  if (!validGroups.length) return res(401, { error: "Credenciales incorrectas" });
+  if (!validGroups.length) { log("warn", "auth_fail", { user: username.trim(), groupCount: groups.length }); return res(401, { error: "Credenciales incorrectas" }); }
+  log("info", "auth_login", { user: canonicalName, groupCount: validGroups.length });
   const sessionToken = await createServerSession(canonicalName);
   return res(200, { username: canonicalName, groups: validGroups, sessionToken });
 }
@@ -1004,7 +1206,7 @@ export const handler = async (event) => {
   let rawUser = "";
   if (bearerToken) {
     const sessionUser = await validateSession(bearerToken);
-    if (!sessionUser) return res(401, { error: "Sesión expirada. Vuelve a iniciar sesión." });
+    if (!sessionUser) { log("warn", "session_expired", { ip: event.requestContext?.http?.sourceIp || "unknown", method, path }); return res(401, { error: "Sesión expirada. Vuelve a iniciar sesión." }); }
     rawUser = sessionUser;
   }
 
@@ -1173,16 +1375,16 @@ export const handler = async (event) => {
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "f1" && segments[4]) {
       const gid = segments[1];
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
-      if (!reqUser) return forbidden("Falta x-porra-user o usuario no encontrado");
+      if (!reqUser) { log("warn", "bet_f1_reject", { reason: "no_user", group: gid, rawUser }); return forbidden("Falta x-porra-user o usuario no encontrado"); }
       const rk = segments[4];
       const bet = body.bet || body;
       const f1Err = validateF1Bet(bet);
-      if (f1Err) return badReq(f1Err);
+      if (f1Err) { log("warn", "bet_f1_reject", { reason: "validation", group: gid, raceKey: rk, user: reqUser, detail: f1Err }); return badReq(f1Err); }
 
       const dl = await resolveF1Deadline(gid, rk, body.deadline,
         (g, r, sk) => gGetItem(g, `F1#${r}`, sk),
         (g, r, sk, data) => gPutItem(g, `F1#${r}`, sk, data));
-      if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+      if (dl.blocked) { log("warn", "bet_f1_reject", { reason: "closed", group: gid, raceKey: rk, user: reqUser }); return forbidden("Las apuestas están cerradas por el admin"); }
 
       const serverNow = new Date();
       const late = dl.deadline ? serverNow >= dl.deadline : false;
@@ -1192,21 +1394,22 @@ export const handler = async (event) => {
       if (tt) betData.trashtalk = tt;
       await gPutItem(gid, `F1#${rk}`, `BET#${reqUser}`, betData);
       await appendToHistory(`G#${gid}`, `F1#${rk}|HISTORY#${reqUser}`, { ts, pole: betData.pole, podium: betData.podium, q: betData.q, late });
+      log("info", "bet_f1_saved", { group: gid, raceKey: rk, user: reqUser, late, pole: betData.pole });
       return res(200, { ok: true, submittedAt: ts, late });
     }
     // PUT /g/{groupId}/bets/futbol/{jId}
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "futbol" && segments[4]) {
       const gid = segments[1];
       const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
-      if (!reqUser) return forbidden("Falta x-porra-user");
+      if (!reqUser) { log("warn", "bet_futbol_reject", { reason: "no_user", group: gid, rawUser }); return forbidden("Falta x-porra-user"); }
       const jId = segments[4];
       const bet = body.bet || body;
       const futErr = validateFutbolBet(bet);
-      if (futErr) return badReq(futErr);
+      if (futErr) { log("warn", "bet_futbol_reject", { reason: "validation", group: gid, jornadaId: jId, user: reqUser, detail: futErr }); return badReq(futErr); }
 
       const dl = await resolveFutbolDeadline(gid, jId,
         (g, j, sk) => gGetItem(g, `FUT#${j}`, sk));
-      if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+      if (dl.blocked) { log("warn", "bet_futbol_reject", { reason: "closed", group: gid, jornadaId: jId, user: reqUser }); return forbidden("Las apuestas están cerradas por el admin"); }
 
       const serverNow = new Date();
       const late = dl.deadline ? serverNow >= dl.deadline : false;
@@ -1216,6 +1419,29 @@ export const handler = async (event) => {
       if (tt) betData.trashtalk = tt;
       await gPutItem(gid, `FUT#${jId}`, `BET#${reqUser}`, betData);
       await appendToHistory(`G#${gid}`, `FUT#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
+      log("info", "bet_futbol_saved", { group: gid, jornadaId: jId, user: reqUser, late, matchCount: betData.matches.length });
+      return res(200, { ok: true, submittedAt: ts, late });
+    }
+    // PUT /g/{groupId}/bets/mundial/{jId}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "bets" && segments[3] === "mundial" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!reqUser) { log("warn", "bet_mundial_reject", { reason: "no_user", group: gid }); return forbidden("Falta x-porra-user"); }
+      const jId = segments[4];
+      const bet = body.bet || body;
+      const munErr = validateMundialBet(bet);
+      if (munErr) return badReq(munErr);
+      const dl = await resolveFutbolDeadline(gid, jId, (g, j, sk) => gGetItem(g, `MUN#${j}`, sk));
+      if (dl.blocked) return forbidden("Las apuestas están cerradas por el admin");
+      const serverNow = new Date();
+      const late = dl.deadline ? serverNow >= dl.deadline : false;
+      const ts = serverNow.toISOString();
+      const tt = sanitizeTrashtalk(bet);
+      const betData = { matches: bet.matches || [], submittedAt: ts, late };
+      if (tt) betData.trashtalk = tt;
+      await gPutItem(gid, `MUN#${jId}`, `BET#${reqUser}`, betData);
+      await appendToHistory(`G#${gid}`, `MUN#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
+      log("info", "bet_mundial_saved", { group: gid, jornadaId: jId, user: reqUser, late });
       return res(200, { ok: true, submittedAt: ts, late });
     }
     // PUT /g/{groupId}/users/{name}
@@ -1273,6 +1499,17 @@ export const handler = async (event) => {
       const futResErr = validateFutbolResult(resultData);
       if (futResErr) return badReq(futResErr);
       await gPutItem(gid, `FUT#${segments[4]}`, "RESULT", resultData);
+      return res(200, { ok: true });
+    }
+    // PUT /g/{groupId}/results/mundial/{jId}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "results" && segments[3] === "mundial" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin puede guardar resultados");
+      const { pk: _pk, sk: _sk, ...resultData } = body.result || body;
+      const munResErr = validateMundialResult(resultData);
+      if (munResErr) return badReq(munResErr);
+      await gPutItem(gid, `MUN#${segments[4]}`, "RESULT", resultData);
       return res(200, { ok: true });
     }
     // POST /g/{groupId}/users (add user)
@@ -1351,14 +1588,24 @@ export const handler = async (event) => {
       const { type, data } = body;
       if (!type) return badReq("Falta type");
       const jornadaId = segments[4];
+      let futbolJornadaExtra = null;
       switch (type) {
-        case "jornada":
-          await gPutItem(gid, `FUT#${jornadaId}`, "CONFIG", data || {});
-          if (data?.order) {
+        case "jornada": {
+          const raw = data || {};
+          const { data: saved, meta } = await enrichFutbolJornadaMatchesFromApi(raw, {
+            token: process.env.FOOTBALL_DATA_ORG_TOKEN || "",
+            competitionId: process.env.FOOTBALL_DATA_COMPETITION_ID,
+            futureDays: Number(process.env.FOOTBALL_DATA_DATE_RANGE_DAYS) || 21,
+          });
+          await gPutItem(gid, `FUT#${jornadaId}`, "CONFIG", saved);
+          if (saved?.order) {
             const futConf = await gGetItem(gid, "FUT", "CONFIG") || {};
-            await gPutItem(gid, "FUT", "CONFIG", { ...futConf, order: data.order });
+            await gPutItem(gid, "FUT", "CONFIG", { ...futConf, order: saved.order });
           }
+          log("info", "futbol_jornada_saved", { group: gid, jornadaId, kickoffEnrichment: meta });
+          futbolJornadaExtra = { kickoffEnrichment: meta, jornada: saved };
           break;
+        }
         case "window": await gPutItem(gid, `FUT#${jornadaId}`, "WINDOW", data || {}); break;
         case "reveal": await gPutItem(gid, `FUT#${jornadaId}`, "REVEAL", data || {}); break;
         case "bet": {
@@ -1378,7 +1625,47 @@ export const handler = async (event) => {
         }
         default: return badReq(`Tipo desconocido: ${type}`);
       }
-      return res(200, { ok: true });
+      return res(200, futbolJornadaExtra ? { ok: true, ...futbolJornadaExtra } : { ok: true });
+    }
+    // PUT /g/{groupId}/admin/mundial/{jId}
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "admin" && segments[3] === "mundial" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!(await isAdminInGroup(gid, reqUser))) return forbidden("Solo admin");
+      const { type, data } = body;
+      if (!type) return badReq("Falta type");
+      const jornadaId = segments[4];
+      let mundialExtra = null;
+      switch (type) {
+        case "jornada": {
+          const saved = data || {};
+          await gPutItem(gid, `MUN#${jornadaId}`, "CONFIG", saved);
+          if (saved?.order) {
+            const munConf = await gGetItem(gid, "MUN", "CONFIG") || {};
+            await gPutItem(gid, "MUN", "CONFIG", { ...munConf, order: saved.order });
+          }
+          mundialExtra = { jornada: saved };
+          break;
+        }
+        case "window": await gPutItem(gid, `MUN#${jornadaId}`, "WINDOW", data || {}); break;
+        case "reveal": await gPutItem(gid, `MUN#${jornadaId}`, "REVEAL", data || {}); break;
+        case "bet": {
+          const { userName, bet } = data;
+          if (!userName || !isValidUserName(userName)) return badReq("userName inválido");
+          const admErr = validateMundialBet(bet || {});
+          if (admErr) return badReq(admErr);
+          await gPutItem(gid, `MUN#${jornadaId}`, `BET#${userName}`, normalizeBetTrashtalk(bet));
+          break;
+        }
+        case "delete": {
+          const items = await queryByPk(`G#${gid}`);
+          const munItems = items.filter((i) => i.sk.startsWith(`MUN#${jornadaId}|`));
+          for (const item of munItems) await deleteItem(item.pk, item.sk);
+          break;
+        }
+        default: return badReq(`Tipo desconocido: ${type}`);
+      }
+      return res(200, mundialExtra ? { ok: true, ...mundialExtra } : { ok: true });
     }
     // POST /migrate-to-group - admin-only, migrates legacy data to a group
     if (method === "POST" && segments[0] === "migrate-to-group") {
@@ -1427,6 +1714,13 @@ export const handler = async (event) => {
       for (const [jId, jB] of Object.entries(fut.bets || {})) {
         for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|BET#${name}`, ...bet });
       }
+      const munMig = state.mundial || {};
+      ops.push({ pk: gpk, sk: "MUN|CONFIG", order: munMig.order || [], mundialSeeded: !!state.meta?.mundialSeeded });
+      for (const [jId, j] of Object.entries(munMig.jornadas || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|CONFIG`, ...j });
+      for (const [jId, r] of Object.entries(munMig.results || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|RESULT`, ...r });
+      for (const [jId, jB] of Object.entries(munMig.bets || {})) {
+        for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|BET#${name}`, ...bet });
+      }
       for (let i = 0; i < ops.length; i += 25) {
         const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
         await batchWriteWithRetry({ [TABLE]: batch });
@@ -1473,6 +1767,13 @@ export const handler = async (event) => {
       for (const [jId, jB] of Object.entries(fut.bets || {})) {
         for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `FUT#${jId}|BET#${name}`, ...bet });
       }
+      const mun = state.mundial || {};
+      ops.push({ pk: gpk, sk: "MUN|CONFIG", order: mun.order || [], mundialSeeded: !!state.meta?.mundialSeeded });
+      for (const [jId, j] of Object.entries(mun.jornadas || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|CONFIG`, ...j });
+      for (const [jId, r] of Object.entries(mun.results || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|RESULT`, ...r });
+      for (const [jId, jB] of Object.entries(mun.bets || {})) {
+        for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|BET#${name}`, ...bet });
+      }
       for (let i = 0; i < ops.length; i += 25) {
         const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
         await batchWriteWithRetry({ [TABLE]: batch });
@@ -1494,6 +1795,12 @@ export const handler = async (event) => {
       return await handleSaveBetFutbol(segments[2], reqUser, body);
     }
 
+    // PUT /bets/mundial/{jornadaId}
+    if (method === "PUT" && segments[0] === "bets" && segments[1] === "mundial" && segments[2]) {
+      if (!reqUser) return forbidden("Falta x-porra-user");
+      return await handleSaveBetMundial(segments[2], reqUser, body);
+    }
+
     // PUT /results/f1/{raceKey}
     if (method === "PUT" && segments[0] === "results" && segments[1] === "f1" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
@@ -1504,6 +1811,12 @@ export const handler = async (event) => {
     if (method === "PUT" && segments[0] === "results" && segments[1] === "futbol" && segments[2]) {
       if (!reqUser) return forbidden("Falta x-porra-user");
       return await handleSaveResultFutbol(segments[2], reqUser, body);
+    }
+
+    // PUT /results/mundial/{jornadaId}
+    if (method === "PUT" && segments[0] === "results" && segments[1] === "mundial" && segments[2]) {
+      if (!reqUser) return forbidden("Falta x-porra-user");
+      return await handleSaveResultMundial(segments[2], reqUser, body);
     }
 
     // PUT /users/{name}
@@ -1546,9 +1859,15 @@ export const handler = async (event) => {
       return await handleAdminFutbol(segments[2], reqUser, body);
     }
 
+    // PUT /admin/mundial/{jornadaId}
+    if (method === "PUT" && segments[0] === "admin" && segments[1] === "mundial" && segments[2]) {
+      if (!reqUser) return forbidden("Falta x-porra-user");
+      return await handleAdminMundial(segments[2], reqUser, body);
+    }
+
     return notFound(`Ruta no encontrada: ${method} ${path}`);
   } catch (err) {
-    console.error("Lambda error:", err?.stack || err?.message || err);
+    log("error", "lambda_unhandled", { method, path, user: reqUser, error: err?.message, stack: err?.stack });
     return res(500, { error: "Error interno" });
   }
 };

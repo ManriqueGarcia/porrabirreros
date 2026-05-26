@@ -4,6 +4,55 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 ---
 
+## [2026-05-26] — Porra Mundial FIFA 2026
+
+### Added
+
+- Modo **WC** en la app: jornadas precargadas (grupos J1–J3, dieciseisavos, octavos, cuartos, semifinal, tercer puesto, final), partido de España + estrella por grupo, cruces TBD en eliminatorias, horarios España + local del estadio.
+- Puntuación como fútbol (+3/+1, penalizaciones); en KO bonus opcional prórroga/penaltis (+1/+1/+2).
+- Premio solo al final: cena de bocata (sin birra por jornada).
+- API DynamoDB `MUN#` y rutas `/bets|results|admin/mundial`; tests `tests/mundial-scoring.test.mjs`.
+
+---
+
+## [2026-05-12] — Horarios de fútbol automáticos (La Liga API)
+
+### Fútbol
+
+- **Lambda** (`porra-state-api.mjs`): al guardar una jornada (`admin/futbol` tipo `jornada`, legacy o grupo), si existe `FOOTBALL_DATA_ORG_TOKEN` se consulta [football-data.org](https://www.football-data.org/) y se rellenan `kickoff` ISO en partidos que vayan sin hora, emparejando local/visitante con el calendario (competición por defecto `PD`). Respuesta JSON opcional: `kickoffEnrichment`, `jornada`.
+- **Módulo** `lib/laliga-fixtures.mjs`: normalización de nombres de club y merge; tests en `tests/laliga-fixtures.test.mjs`.
+- **Admin UI** (`FutbolAdmin.jsx`): campo opcional «Jornada La Liga (1–38)» para acotar la API; textos de ayuda; toasts según relleno API.
+- **Penalización catastrófica**: usuarios en `lib/futbol-cat-excluded.mjs` (p. ej. `Paula`) no reciben el -1 por «apuesta catastrófica»; reexport en `config.js`.
+
+### Operativa
+
+- **Quitar jornada fútbol en DynamoDB** (p. ej. J36 sin Sporting): `npm run remove:futbol-jornada -- --dry-run` (ver `scripts/remove-futbol-jornada.mjs`). Requiere `TABLE_NAME`, `PORRA_GROUP_ID` (o `--legacy`), opcional `PORRA_JORNADA_ID=J36`.
+
+### Seed local
+
+- **App.jsx**: eliminada Jornada 36 del listado inicial `futbolJornadasV3` (solo afecta entornos que aún no tenían `futbolJornadasV3`; producción ya migrada debe usar el script o admin).
+
+### Documentación
+
+- **README**: variables `FOOTBALL_DATA_ORG_TOKEN`, `FOOTBALL_DATA_COMPETITION_ID`, `FOOTBALL_DATA_DATE_RANGE_DAYS`.
+
+---
+
+## [2026-05-04] — Logging estructurado end-to-end
+
+### Observabilidad
+
+- **Backend**: función `log(level, action, data)` en `porra-state-api.mjs` emite JSON estructurado a CloudWatch para todas las operaciones de apuestas (F1 y fútbol), login, sesiones expiradas y errores no capturados. Nivel configurable con env `LOG_LEVEL`.
+- **Frontend**: `api.js` logea errores de red (`[API_NETWORK_FAIL]`), sesiones expiradas (`[API_SESSION_EXPIRED]`) y errores HTTP (`[API_ERROR]`). Componentes `Participante.jsx` y `FutbolParticipante.jsx` logean `[BET_F1_FAIL]` / `[BET_FUTBOL_FAIL]` con contexto completo.
+
+### Documentación
+
+- **README.md**: nueva sección "Logging y observabilidad" con tabla de acciones, consultas CloudWatch y guía de diagnóstico.
+- **SKILL.md**: sección compacta "Logging / Observabilidad" con referencia rápida.
+- **`.cursor/rules/systematic-debugging.mdc`**: referencia a logs disponibles para investigación.
+
+---
+
 ## [2026-04-30b] — Contexto IA más ligero
 
 ### Documentación

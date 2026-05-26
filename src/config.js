@@ -25,6 +25,9 @@ export const FUTBOL_DEFAULT_DEADLINE_HOUR = CONFIG.futbolDeadlineHour;
 
 export const BEER_EXCLUDED_USERS = new Set(/* e.g. ["NombreUsuario"] */);
 
+/** Re-export: lista en `lib/futbol-cat-excluded.mjs` (sin penalización -1 catastrófica). */
+export { FUTBOL_CAT_PENALTY_EXCLUDED_USERS } from "../lib/futbol-cat-excluded.mjs";
+
 export const DRIVER_TEAMS = {
   "Lando Norris": "McLaren", "Oscar Piastri": "McLaren",
   "Lewis Hamilton": "Ferrari", "Charles Leclerc": "Ferrari",

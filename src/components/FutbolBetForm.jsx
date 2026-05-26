@@ -5,6 +5,7 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
   const matches=jornada?.matches||[];
   const hasSavedBet=!!(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null));
   const [editing,setEditing]=useState(!hasSavedBet);
+  const [saving,setSaving]=useState(false);
   const initialScores=()=>matches.map((_,idx)=>({home:bet?.matches?.[idx]?.home??"", away:bet?.matches?.[idx]?.away??""}));
   const [scores,setScores]=useState(initialScores);
   const [trashtalk,setTrashtalk]=useState(bet?.trashtalk||"");
@@ -12,19 +13,21 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
   useEffect(()=>{
     setScores(initialScores());
     setTrashtalk(bet?.trashtalk||"");
-    if(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null)) setEditing(false);
+    if(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null)) { setEditing(false); setSaving(false); }
   },[betFingerprint,jornada?.id,matches.length]);
   const handleScoreChange=(idx,field,val)=>{
     const clean=val===""?"":Math.max(0,parseInt(val,10)||0);
     setScores(prev=>prev.map((s,i)=> i===idx ? {...s, [field]: clean===""?"":String(clean)} : s));
   };
   const allFilled=scores.length===matches.length && scores.every(s=>s.home!==""&&s.home!=null&&s.away!==""&&s.away!=null);
-  const submit=(e)=>{
+  const submit=async(e)=>{
     e.preventDefault();
     if(!allFilled) return toast.error("Rellena todos los marcadores antes de guardar");
     const parsedScores=scores.map(s=>({home:Number(s.home), away:Number(s.away)}));
-    onSubmit({matches:parsedScores,trashtalk:trashtalk.trim()});
-    setEditing(false);
+    setSaving(true);
+    try {
+      await onSubmit({matches:parsedScores,trashtalk:trashtalk.trim()});
+    } catch { setSaving(false); return; }
   };
 
   if(!editing && hasSavedBet){
@@ -86,8 +89,8 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
         <input disabled={disabled} className="select border rounded px-3 py-2 w-full mt-1" value={trashtalk} onChange={e=>setTrashtalk(e.target.value)} placeholder="¿Algo que decir? Ej: Esta jornada es mía..." maxLength={120}/>
       </div>
       <div className="flex gap-2 mt-1">
-        <button disabled={disabled||!allFilled} className={`flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${disabled?"bg-white/5 text-white/30 border border-white/5":!allFilled?"bg-white/5 text-white/25 border border-white/5 cursor-not-allowed":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{disabled?"⏳ Cerrado por admin":!allFilled?"⚽ Rellena todos los marcadores":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"⚽ Guardar apuesta"}</button>
-        {hasSavedBet && <button type="button" onClick={()=>{setScores(initialScores());setTrashtalk(bet?.trashtalk||"");setEditing(false);}} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/70 transition-colors text-sm">Cancelar</button>}
+        <button disabled={disabled||!allFilled||saving} className={`flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${disabled||saving?"bg-white/5 text-white/30 border border-white/5":!allFilled?"bg-white/5 text-white/25 border border-white/5 cursor-not-allowed":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{saving?"⏳ Guardando...":disabled?"⏳ Cerrado por admin":!allFilled?"⚽ Rellena todos los marcadores":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"⚽ Guardar apuesta"}</button>
+        {hasSavedBet && !saving && <button type="button" onClick={()=>{setScores(initialScores());setTrashtalk(bet?.trashtalk||"");setEditing(false);}} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/70 transition-colors text-sm">Cancelar</button>}
       </div>
     </form>
   );

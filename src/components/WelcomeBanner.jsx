@@ -9,10 +9,10 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
   const isFut=mode==="futbol";
   const porraParticipants=useMemo(()=>getParticipantsForPorra(db,mode==="f1"?"f1":"futbol"),[db.participants,db.users,mode]);
   const standings=useMemo(()=>{
-    if(mode==="f1") return computeGlobalStandings(db,races,porraParticipants);
+    if(mode==="f1") return computeGlobalStandings(db,races,porraParticipants,db.participants);
     const futbol=db.futbol||defaultFutbolState();
     const jornadas=listFutbolJornadas(futbol);
-    return computeFutbolStandings(futbol,porraParticipants,jornadas);
+    return computeFutbolStandings(futbol,porraParticipants,jornadas,db.participants);
   },[db,races,mode,porraParticipants]);
   const total=standings.length;
   const myIdx=standings.findIndex(s=>s.name===user);
@@ -24,7 +24,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
       const completedRaces=races.filter(r=>hasRaceResults(db.results?.[r.key],r));
       if(completedRaces.length<2) return null;
       const allButLast=completedRaces.slice(0,-1);
-      const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants);
+      const prevStandings=computeGlobalStandings(db,allButLast,porraParticipants,db.participants);
       const prevPos=prevStandings.findIndex(s=>s.name===user)+1;
       if(!prevPos||!pos) return null;
       return prevPos-pos;
@@ -34,7 +34,7 @@ function WelcomeBanner({user,db,races,mode,onDismiss}){
     const completed=jornadas.filter(j=>futbol.results?.[j.id]);
     if(completed.length<2) return null;
     const allButLast=completed.slice(0,-1);
-    const prevStandings=computeFutbolStandings(futbol,porraParticipants,allButLast);
+    const prevStandings=computeFutbolStandings(futbol,porraParticipants,allButLast,db.participants);
     const prevPos=prevStandings.findIndex(s=>s.name===user)+1;
     if(!prevPos||!pos) return null;
     return prevPos-pos;

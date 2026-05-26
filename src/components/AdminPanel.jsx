@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Admin } from "./Admin.jsx";
 import { FutbolAdmin } from "./FutbolAdmin.jsx";
+import { MundialAdmin } from "./MundialAdmin.jsx";
 import { UserManagement } from "./UserManagement.jsx";
 import { isAdminFor, hasAnyAdminRole } from "../admin-roles.js";
 
@@ -11,6 +12,7 @@ export function AdminPanel({ db, setDb, races, drivers, teams, calendar, current
     if (isAdminFor(userData, "general")) tabs.push({ id: "general", label: "General", icon: "👥" });
     if (isAdminFor(userData, "f1")) tabs.push({ id: "f1", label: "F1", icon: "🏎️" });
     if (isAdminFor(userData, "futbol")) tabs.push({ id: "futbol", label: "Fútbol", icon: "⚽" });
+    if (isAdminFor(userData, "mundial")) tabs.push({ id: "mundial", label: "Mundial", icon: "🏆" });
     return tabs;
   }, [userData]);
 
@@ -48,6 +50,9 @@ export function AdminPanel({ db, setDb, races, drivers, teams, calendar, current
       )}
       {activeTab === "futbol" && isAdminFor(userData, "futbol") && (
         <FutbolAdmin db={db} setDb={setDb} currentUser={currentUser} />
+      )}
+      {activeTab === "mundial" && isAdminFor(userData, "mundial") && (
+        <MundialAdmin db={db} setDb={setDb} currentUser={currentUser} />
       )}
     </div>
   );

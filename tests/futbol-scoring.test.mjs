@@ -159,6 +159,19 @@ describe("scoreFutbolJornada", () => {
     expect(s.missingPenalty).toBe(-3);
   });
 
+  it("catastrophic skipped for excluded user (Paula)", () => {
+    const db = {
+      futbol: {
+        jornadas: {},
+        bets: { j1: { Paula: { matches: [{ home: 2, away: 0 }, { home: 0, away: 3 }] } } },
+        results: { j1: { matches: [{ home: 0, away: 1 }, { home: 2, away: 0 }] } },
+      },
+    };
+    const s = scoreFutbolJornada(db, "j1", "Paula");
+    expect(s.catPenalty).toBe(0);
+    expect(s.points).toBe(0);
+  });
+
   it("goalDiff calculated correctly", () => {
     const db = mkDb(
       { matches: [{ home: 3, away: 0 }] },
@@ -197,6 +210,64 @@ describe("scoreFutbolJornada", () => {
     const s = scoreFutbolJornada(db, "j1", "user1");
     expect(s.points).toBe(3);
     expect(s.latePenalty).toBe(0);
+  });
+});
+
+// ─── scoreFutbolJornada — notYetJoined ───
+
+describe("scoreFutbolJornada — notYetJoined", () => {
+  it("no bet + user created after deadline → 0 pts, notYetJoined=true", () => {
+    const db = {
+      futbol: {
+        jornadas: { j1: { id: "j1", deadline: "2026-03-01T21:00:00Z", matches: [{ home: "A", away: "B" }] } },
+        bets: {},
+        results: { j1: { matches: [{ home: 1, away: 0 }] } },
+      },
+    };
+    const s = scoreFutbolJornada(db, "j1", "newUser", "2026-03-05T10:00:00Z");
+    expect(s.points).toBe(0);
+    expect(s.missed).toBe(false);
+    expect(s.notYetJoined).toBe(true);
+  });
+
+  it("no bet + user created before deadline → -3 pts (normal miss)", () => {
+    const db = {
+      futbol: {
+        jornadas: { j1: { id: "j1", deadline: "2026-03-01T21:00:00Z", matches: [{ home: "A", away: "B" }] } },
+        bets: {},
+        results: { j1: { matches: [{ home: 1, away: 0 }] } },
+      },
+    };
+    const s = scoreFutbolJornada(db, "j1", "oldUser", "2026-02-01T10:00:00Z");
+    expect(s.points).toBe(-3);
+    expect(s.missed).toBe(true);
+    expect(s.notYetJoined).toBe(false);
+  });
+
+  it("no userCreatedAt → behaves like before (-3 miss)", () => {
+    const db = {
+      futbol: {
+        jornadas: { j1: { id: "j1", deadline: "2026-03-01T21:00:00Z", matches: [{ home: "A", away: "B" }] } },
+        bets: {},
+        results: { j1: { matches: [{ home: 1, away: 0 }] } },
+      },
+    };
+    const s = scoreFutbolJornada(db, "j1", "user1");
+    expect(s.points).toBe(-3);
+    expect(s.missed).toBe(true);
+  });
+
+  it("has bet (even if user is new) → scores normally", () => {
+    const db = {
+      futbol: {
+        jornadas: { j1: { id: "j1", deadline: "2026-03-01T21:00:00Z", matches: [{ home: "A", away: "B" }] } },
+        bets: { j1: { newUser: { matches: [{ home: 1, away: 0 }] } } },
+        results: { j1: { matches: [{ home: 1, away: 0 }] } },
+      },
+    };
+    const s = scoreFutbolJornada(db, "j1", "newUser", "2026-03-05T10:00:00Z");
+    expect(s.points).toBe(3);
+    expect(s.notYetJoined).toBe(false);
   });
 });
 
@@ -303,6 +374,46 @@ describe("computeFutbolStandings", () => {
     expect(s[0].missed).toBe(1);
     expect(s[0].late).toBe(1);
     expect(s[0].penCount).toBe(2);
+  });
+});
+
+// ─── computeFutbolStandings — new user handling ───
+
+describe("computeFutbolStandings — new user handling", () => {
+  it("new user gets 0 pts for jornadas before join date", () => {
+    const dbFutbol = {
+      jornadas: { j1: { id: "j1", deadline: "2026-03-01T21:00:00Z", matches: [{ home: "A", away: "B" }] } },
+      bets: { j1: { oldUser: { matches: [{ home: 1, away: 0 }] } } },
+      results: { j1: { matches: [{ home: 1, away: 0 }] } },
+    };
+    const usersMap = {
+      oldUser: { createdAt: "2026-01-01T00:00:00Z" },
+      newUser: { createdAt: "2026-04-01T00:00:00Z" },
+    };
+    const s = computeFutbolStandings(dbFutbol, ["oldUser", "newUser"], [{ id: "j1" }], usersMap);
+    expect(s.find(x => x.name === "oldUser").points).toBe(3);
+    expect(s.find(x => x.name === "newUser").points).toBe(0);
+    expect(s.find(x => x.name === "newUser").missed).toBe(0);
+  });
+
+  it("same points → newer user ranked below older user", () => {
+    const dbFutbol = {
+      jornadas: { j1: { id: "j1", deadline: "2026-05-01T21:00:00Z", matches: [{ home: "A", away: "B" }] } },
+      bets: {
+        j1: {
+          oldUser: { matches: [{ home: 1, away: 0 }] },
+          newUser: { matches: [{ home: 1, away: 0 }] },
+        },
+      },
+      results: { j1: { matches: [{ home: 1, away: 0 }] } },
+    };
+    const usersMap = {
+      oldUser: { createdAt: "2026-01-01T00:00:00Z" },
+      newUser: { createdAt: "2026-04-01T00:00:00Z" },
+    };
+    const s = computeFutbolStandings(dbFutbol, ["newUser", "oldUser"], [{ id: "j1" }], usersMap);
+    expect(s[0].name).toBe("oldUser");
+    expect(s[1].name).toBe("newUser");
   });
 });
 
