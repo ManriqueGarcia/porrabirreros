@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toLocalDateTimeInput, parseLocalDateTime } from "../utils.js";
 import { computeDeadlineFromKickoffs } from "../mundial-utils.js";
 import { toast } from "../toast.jsx";
@@ -21,8 +21,14 @@ export function MundialAdmin({ db, setDb, currentUser }) {
   const [matches, setMatches] = useState([]);
   const [scores, setScores] = useState([]);
   const [savingJornada, setSavingJornada] = useState(false);
+  const prevSelectedRef = useRef(selected);
+  const draftDirtyRef = useRef(false);
 
   useEffect(() => {
+    const selectedChanged = prevSelectedRef.current !== selected;
+    prevSelectedRef.current = selected;
+    if (!selectedChanged && draftDirtyRef.current) return;
+
     const j = selected ? mundial.jornadas?.[selected] : null;
     const base = j?.matches?.length ? j.matches : [];
     setMatches(base);
@@ -34,7 +40,10 @@ export function MundialAdmin({ db, setDb, currentUser }) {
       penalties: m.penalties ?? null,
       penWinner: m.penWinner ?? null,
     })));
+    draftDirtyRef.current = false;
   }, [selected, mundial.jornadas?.[selected], mundial.results?.[selected]]);
+
+  const markDraftDirty = () => { draftDirtyRef.current = true; };
 
   const participants = useMemo(() => getParticipantsForPorra(db, "mundial"), [db.participants, db.users]);
   if (!isAdminFor(db.users?.[currentUser], "mundial")) return null;
@@ -89,6 +98,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
         const m = prev.mundial || defaultMundialState();
         return { ...prev, mundial: { ...m, results: { ...m.results, [selected]: resultData } } };
       });
+      draftDirtyRef.current = false;
       toast.success("Resultados guardados");
     } catch {
       toast.error("Error al guardar resultados");
@@ -96,6 +106,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
   };
 
   const updateMatch = (idx, field, value) => {
+    markDraftDirty();
     setMatches((prev) => prev.map((m, i) => (i === idx ? { ...m, [field]: value } : m)));
   };
 
@@ -118,14 +129,14 @@ export function MundialAdmin({ db, setDb, currentUser }) {
               </div>
               <input type="datetime-local" className="select border rounded px-2 py-1 w-full text-xs" value={m.kickoff ? toLocalDateTimeInput(new Date(m.kickoff)) : ""} onChange={(e) => updateMatch(idx, "kickoff", parseLocalDateTime(e.target.value)?.toISOString() || "")} />
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ L" value={scores[idx]?.home} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, home: parseScoreField(e.target.value) } : s))} />
-                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ V" value={scores[idx]?.away} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, away: parseScoreField(e.target.value) } : s))} />
+                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ L" value={scores[idx]?.home} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, home: parseScoreField(e.target.value) } : s)); }} />
+                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ V" value={scores[idx]?.away} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, away: parseScoreField(e.target.value) } : s)); }} />
               </div>
               {m.knockout && (
                 <div className="flex flex-wrap gap-2 text-xs">
-                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: true } : s))} /> Prórroga</label>
-                  <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: true } : s))} /> Penaltis</label>
-                  <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s))}>
+                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: true } : s)); }} /> Prórroga</label>
+                  <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: true } : s)); }} /> Penaltis</label>
+                  <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s)); }}>
                     <option value="">— Ganador pen. —</option>
                     <option value="home">{home}</option>
                     <option value="away">{away}</option>

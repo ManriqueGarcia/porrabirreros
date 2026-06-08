@@ -268,16 +268,19 @@ function GroupApp({ groupId }) {
     return () => { cancelled = true; };
   }, []);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || view === "admin") return;
+    refreshRemoteState();
     const ACTIVE_INTERVAL = 60_000;
     const BACKGROUND_INTERVAL = 300_000;
     let timerId;
     const schedule = () => {
+      if (view === "admin") return;
       const interval = document.visibilityState === "visible" ? ACTIVE_INTERVAL : BACKGROUND_INTERVAL;
       timerId = setTimeout(() => { refreshRemoteState().finally(schedule); }, interval);
     };
     schedule();
     const onVisibility = () => {
+      if (view === "admin") return;
       if (document.visibilityState === "visible") {
         clearTimeout(timerId);
         refreshRemoteState().finally(schedule);
@@ -285,7 +288,7 @@ function GroupApp({ groupId }) {
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => { clearTimeout(timerId); document.removeEventListener("visibilitychange", onVisibility); };
-  }, [hydrated, refreshRemoteState]);
+  }, [hydrated, refreshRemoteState, view]);
   useEffect(() => {
     if (!hydrated) return;
     if (consumeSkipRemoteSave()) return;
