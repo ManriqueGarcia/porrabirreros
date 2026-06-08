@@ -267,20 +267,21 @@ function GroupApp({ groupId }) {
     })();
     return () => { cancelled = true; };
   }, []);
+  const pauseRemoteSync = view === "admin" || view === "participante";
   useEffect(() => {
-    if (!hydrated || view === "admin") return;
+    if (!hydrated || pauseRemoteSync) return;
     refreshRemoteState();
     const ACTIVE_INTERVAL = 60_000;
     const BACKGROUND_INTERVAL = 300_000;
     let timerId;
     const schedule = () => {
-      if (view === "admin") return;
+      if (pauseRemoteSync) return;
       const interval = document.visibilityState === "visible" ? ACTIVE_INTERVAL : BACKGROUND_INTERVAL;
       timerId = setTimeout(() => { refreshRemoteState().finally(schedule); }, interval);
     };
     schedule();
     const onVisibility = () => {
-      if (view === "admin") return;
+      if (pauseRemoteSync) return;
       if (document.visibilityState === "visible") {
         clearTimeout(timerId);
         refreshRemoteState().finally(schedule);
@@ -288,7 +289,7 @@ function GroupApp({ groupId }) {
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => { clearTimeout(timerId); document.removeEventListener("visibilitychange", onVisibility); };
-  }, [hydrated, refreshRemoteState, view]);
+  }, [hydrated, refreshRemoteState, pauseRemoteSync]);
   useEffect(() => {
     if (!hydrated) return;
     if (consumeSkipRemoteSave()) return;

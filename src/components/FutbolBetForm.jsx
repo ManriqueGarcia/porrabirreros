@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "../toast.jsx";
 
 export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
@@ -10,13 +10,21 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
   const [scores,setScores]=useState(initialScores);
   const [trashtalk,setTrashtalk]=useState(bet?.trashtalk||"");
   const betFingerprint=JSON.stringify([bet?.matches,bet?.submittedAt,bet?.trashtalk]);
+  const prevJornadaIdRef=useRef(jornada?.id);
+  const draftDirtyRef=useRef(false);
   useEffect(()=>{
+    const jornadaChanged=prevJornadaIdRef.current!==jornada?.id;
+    prevJornadaIdRef.current=jornada?.id;
+    if(!jornadaChanged && draftDirtyRef.current && editing) return;
     setScores(initialScores());
     setTrashtalk(bet?.trashtalk||"");
     if(bet?.submittedAt && bet?.matches?.some(m=>m?.home!=null||m?.away!=null)) { setEditing(false); setSaving(false); }
-  },[betFingerprint,jornada?.id,matches.length]);
+    draftDirtyRef.current=false;
+  },[betFingerprint,jornada?.id,matches.length,editing]);
+  const markDraftDirty=()=>{ draftDirtyRef.current=true; };
   const handleScoreChange=(idx,field,val)=>{
-    const clean=val===""?"":Math.max(0,parseInt(val,10)||0);
+    markDraftDirty();
+    const clean=val===""?"":Math.min(99,Math.max(0,parseInt(val,10)||0));
     setScores(prev=>prev.map((s,i)=> i===idx ? {...s, [field]: clean===""?"":String(clean)} : s));
   };
   const allFilled=scores.length===matches.length && scores.every(s=>s.home!==""&&s.home!=null&&s.away!==""&&s.away!=null);
@@ -27,6 +35,8 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
     setSaving(true);
     try {
       await onSubmit({matches:parsedScores,trashtalk:trashtalk.trim()});
+      draftDirtyRef.current=false;
+      setEditing(false);
     } catch { setSaving(false); return; }
   };
 
@@ -86,7 +96,7 @@ export function FutbolBetForm({jornada,bet,disabled,onSubmit,late,canEdit}){
       ))}
       <div className="mt-2">
         <label className="text-sm font-semibold flex items-center gap-1.5">💬 Bravuconada <span className="text-[10px] text-white/30 font-normal">(opcional — se revela con los resultados)</span></label>
-        <input disabled={disabled} className="select border rounded px-3 py-2 w-full mt-1" value={trashtalk} onChange={e=>setTrashtalk(e.target.value)} placeholder="¿Algo que decir? Ej: Esta jornada es mía..." maxLength={120}/>
+        <input disabled={disabled} className="select border rounded px-3 py-2 w-full mt-1" value={trashtalk} onChange={e=>{ markDraftDirty(); setTrashtalk(e.target.value); }} placeholder="¿Algo que decir? Ej: Esta jornada es mía..." maxLength={120}/>
       </div>
       <div className="flex gap-2 mt-1">
         <button disabled={disabled||!allFilled||saving} className={`flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${disabled||saving?"bg-white/5 text-white/30 border border-white/5":!allFilled?"bg-white/5 text-white/25 border border-white/5 cursor-not-allowed":late?"bg-amber-600/20 text-amber-100 border border-amber-500/30 hover:bg-amber-600/30 shadow-lg shadow-amber-500/10":"bg-emerald-600/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-600/30 shadow-lg shadow-emerald-500/10"}`}>{saving?"⏳ Guardando...":disabled?"⏳ Cerrado por admin":!allFilled?"⚽ Rellena todos los marcadores":late?"⚠️ Guardar apuesta (fuera de plazo, -2 pts)":"⚽ Guardar apuesta"}</button>

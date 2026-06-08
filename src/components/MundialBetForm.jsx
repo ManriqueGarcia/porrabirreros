@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "../toast.jsx";
 import { MADRID_TZ } from "../config.js";
 import { formatDateTime, formatTime } from "../utils.js";
@@ -28,22 +28,33 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
   const [scores, setScores] = useState(initialScores);
   const [trashtalk, setTrashtalk] = useState(bet?.trashtalk || "");
   const betFingerprint = JSON.stringify([bet?.matches, bet?.submittedAt, bet?.trashtalk]);
+  const prevJornadaIdRef = useRef(jornada?.id);
+  const draftDirtyRef = useRef(false);
 
   useEffect(() => {
+    const jornadaChanged = prevJornadaIdRef.current !== jornada?.id;
+    prevJornadaIdRef.current = jornada?.id;
+    if (!jornadaChanged && draftDirtyRef.current && editing) return;
+
     setScores(initialScores());
     setTrashtalk(bet?.trashtalk || "");
     if (bet?.submittedAt && bet?.matches?.some((m) => m?.home != null || m?.away != null)) {
       setEditing(false);
       setSaving(false);
     }
-  }, [betFingerprint, jornada?.id, matches.length]);
+    draftDirtyRef.current = false;
+  }, [betFingerprint, jornada?.id, matches.length, editing]);
+
+  const markDraftDirty = () => { draftDirtyRef.current = true; };
 
   const handleScoreChange = (idx, field, val) => {
+    markDraftDirty();
     const clean = val === "" ? "" : Math.min(99, Math.max(0, parseInt(val, 10) || 0));
     setScores((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: clean === "" ? "" : String(clean) } : s)));
   };
 
   const setKoField = (idx, field, value) => {
+    markDraftDirty();
     setScores((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
   };
 
@@ -65,6 +76,8 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
     setSaving(true);
     try {
       await onSubmit({ matches: buildPayloadMatches(), trashtalk: trashtalk.trim() });
+      draftDirtyRef.current = false;
+      setEditing(false);
     } catch {
       setSaving(false);
     }
@@ -178,7 +191,7 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
           </div>
         );
       })}
-      <input disabled={disabled} className="select border rounded px-3 py-2 w-full text-sm" value={trashtalk} onChange={(e) => setTrashtalk(e.target.value)} placeholder="Bravuconada (opcional)" maxLength={120} />
+      <input disabled={disabled} className="select border rounded px-3 py-2 w-full text-sm" value={trashtalk} onChange={(e) => { markDraftDirty(); setTrashtalk(e.target.value); }} placeholder="Bravuconada (opcional)" maxLength={120} />
       <button disabled={disabled || !allFilled || saving} type="submit" className="w-full px-5 py-3 rounded-xl font-bold text-sm bg-amber-600/20 text-amber-100 border border-amber-500/30 disabled:opacity-40">
         {saving ? "⏳ Guardando..." : late ? "⚠️ Guardar (fuera de plazo)" : "🏆 Guardar apuesta mundial"}
       </button>
