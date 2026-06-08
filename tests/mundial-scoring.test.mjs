@@ -8,10 +8,51 @@ describe("mundial scoring", () => {
     expect(futbolMatchPoints({ home: 1, away: 0 }, { home: 2, away: 1 })).toEqual({ points: 1, exact: false, sign: true });
   });
 
-  it("knockout bonus points", () => {
+  it("knockout bonus points when 90′ sign is correct", () => {
     const pred = { home: 1, away: 1, extraTime: true, penalties: true, penWinner: "home" };
     const res = { home: 1, away: 1, extraTime: true, penalties: true, penWinner: "home" };
-    expect(mundialKnockoutBonus(pred, res, true).points).toBe(4);
+    expect(mundialKnockoutBonus(pred, res, true, true).points).toBe(4);
+  });
+
+  it("knockout bonus zero when 90′ sign is wrong", () => {
+    const pred = { home: 2, away: 0, extraTime: true, penalties: true, penWinner: "home" };
+    const res = { home: 1, away: 1, extraTime: true, penalties: true, penWinner: "home" };
+    expect(mundialKnockoutBonus(pred, res, true, false).points).toBe(0);
+  });
+
+  it("knockout bonus counts with sign hit but inexact 90′ score", () => {
+    const pred = { home: 2, away: 2, extraTime: true };
+    const res = { home: 1, away: 1, extraTime: true, penalties: false };
+    expect(futbolMatchPoints(pred, res).sign).toBe(true);
+    expect(mundialKnockoutBonus(pred, res, true, true).points).toBe(1);
+  });
+
+  it("KO jornada: inexact 90′ with sign still earns KO bonus via scoreMundialJornada", () => {
+    const seed = buildMundialSeedState();
+    const jId = "wc-r32";
+    const db = {
+      mundial: {
+        ...seed,
+        results: {
+          [jId]: {
+            matches: [{ home: 1, away: 1, extraTime: true, penalties: true, penWinner: "home" }],
+          },
+        },
+        bets: {
+          [jId]: {
+            Alice: {
+              matches: [{ home: 2, away: 2, extraTime: true, penalties: true, penWinner: "home" }],
+              submittedAt: "2026-01-01T00:00:00.000Z",
+              late: false,
+            },
+          },
+        },
+      },
+    };
+    const s = scoreMundialJornada(db, jId, "Alice");
+    expect(s.exact).toBe(0);
+    expect(s.signs).toBe(1);
+    expect(s.points).toBe(5);
   });
 
   it("scores full jornada with penalties", () => {

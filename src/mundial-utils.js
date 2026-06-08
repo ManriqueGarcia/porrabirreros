@@ -23,9 +23,9 @@ export function futbolMatchPoints(pred, res) {
   return { points, exact, sign: signOk };
 }
 
-/** Bonos KO: +1 prórroga, +1 penaltis, +2 ganador penaltis (si hubo penaltis). */
-export function mundialKnockoutBonus(pred, res, knockout) {
-  if (!knockout) return { points: 0, items: [] };
+/** Bonos KO: +1 prórroga, +1 penaltis, +2 ganador penaltis (si hubo penaltis). Solo si acertaste el signo 1X2 a 90′. */
+export function mundialKnockoutBonus(pred, res, knockout, signOk = false) {
+  if (!knockout || !signOk) return { points: 0, items: [] };
   let points = 0;
   const items = [];
   if (pred?.extraTime != null && res?.extraTime != null && pred.extraTime === res.extraTime) {
@@ -82,7 +82,7 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
     points += p;
     if (ex) exact++;
     if (sign) signs++;
-    const koBonus = mundialKnockoutBonus(pred, m, def.knockout);
+    const koBonus = mundialKnockoutBonus(pred, m, def.knockout, sign);
     points += koBonus.points;
     items.push(...koBonus.items);
 

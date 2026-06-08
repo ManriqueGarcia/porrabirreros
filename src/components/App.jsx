@@ -5,7 +5,7 @@ import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadT
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
-import { buildMundialSeedState } from "../../lib/mundial-fixtures.mjs";
+import { buildMundialSeedState, MUNDIAL_FIXTURES_VERSION } from "../../lib/mundial-fixtures.mjs";
 import { Avatar } from "./Avatar.jsx";
 import { CircuitCard } from "./CircuitCard.jsx";
 import { ChangePasswordModal, ChangeAvatarModal } from "./Auth.jsx";
@@ -377,7 +377,12 @@ function GroupApp({ groupId }) {
   }, [drivers, teams, db.meta, defaultPwdHash]);
   useEffect(() => {
     if (!hydrated) return;
-    const needsMigration = Object.entries(db.users || {}).filter(([_, u]) => !u.porras || (u.isAdmin && !u.adminRoles));
+    const needsMigration = Object.entries(db.users || {}).filter(([_, u]) =>
+      !u.porras
+      || (u.porras?.futbol && !u.porras?.mundial)
+      || (u.isAdmin && !u.adminRoles)
+      || (u.adminRoles?.futbol && !u.adminRoles?.mundial)
+    );
     if (!needsMigration.length) return;
     skipRemoteSaveRef.current = true;
     setDb(prev => {
@@ -432,15 +437,29 @@ function GroupApp({ groupId }) {
   }, [hydrated, db.futbol, db.meta]);
   useEffect(() => {
     if (!hydrated) return;
-    if (db.meta?.mundialSeeded) return;
-    skipRemoteSaveRef.current = true;
+    const fixturesVersion = db.meta?.mundialFixturesVersion || (db.meta?.mundialSeeded ? 1 : 0);
+    if (fixturesVersion >= MUNDIAL_FIXTURES_VERSION) return;
     const seed = buildMundialSeedState();
-    setDb((prev) => ({
-      ...prev,
-      mundial: seed,
-      meta: { ...(prev.meta || {}), mundialSeeded: true },
-    }));
-  }, [hydrated, db.meta?.mundialSeeded]);
+    setDb((prev) => {
+      const m = prev.mundial || {};
+      return {
+        ...prev,
+        mundial: {
+          ...seed,
+          bets: m.bets || {},
+          results: m.results || {},
+          betsWindow: m.betsWindow || {},
+          betsReveal: m.betsReveal || {},
+          betHistory: m.betHistory || {},
+        },
+        meta: {
+          ...(prev.meta || {}),
+          mundialSeeded: true,
+          mundialFixturesVersion: MUNDIAL_FIXTURES_VERSION,
+        },
+      };
+    });
+  }, [hydrated, db.meta?.mundialFixturesVersion, db.meta?.mundialSeeded]);
   const raceOverrides = db.meta?.raceOverrides || {};
   const races = useMemo(() => (Array.isArray(cal) ? cal : []).map(item => {
     const override = raceOverrides[item.key] || {};
@@ -528,7 +547,7 @@ function GroupApp({ groupId }) {
         <div className="flex items-center gap-2">
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode === "f1" ? "bg-red-600/25 text-white border border-red-500/30 shadow-lg shadow-red-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("f1")}>F1</button>
           <button className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode === "futbol" ? "bg-emerald-600/25 text-white border border-emerald-500/30 shadow-lg shadow-emerald-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("futbol")}>FUT</button>
-          <button className={`px-3 py-2 rounded-xl font-bold text-xs tracking-wide transition-all ${mode === "mundial" ? "bg-amber-600/25 text-white border border-amber-500/30 shadow-lg shadow-amber-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("mundial")}>WC</button>
+          <button className={`px-2 py-2 rounded-xl font-bold text-[10px] md:text-xs tracking-wide transition-all ${mode === "mundial" ? "bg-amber-600/25 text-white border border-amber-500/30 shadow-lg shadow-amber-600/10" : "bg-white/5 text-white/40 border border-white/8 hover:bg-white/10 hover:text-white/70"}`} onClick={() => handleModeChange("mundial")}>Mundial&apos;26</button>
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title={theme === "dark" ? "Modo claro" : "Modo oscuro"}>{theme === "dark" ? "☀️" : "🌙"}</button>
           <button className="px-2 py-2 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors border border-white/5 hover:border-white/15" onClick={() => setLang(lang === "es" ? "en" : "es")} title="Cambiar idioma">{lang === "es" ? "EN" : "ES"}</button>
           {user && <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10">

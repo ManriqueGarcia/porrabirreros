@@ -139,6 +139,7 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
             </div>
             {m.knockout && (
               <div className="mt-3 pt-2 border-t border-white/10 space-y-2 text-xs">
+                <p className="text-amber-200/50 text-[10px]">Bonos KO: no hace falta el marcador exacto; basta acertar el signo 1X2 a 90′.</p>
                 <div className="flex flex-wrap gap-3">
                   <label className="flex items-center gap-1 cursor-pointer">
                     <input type="radio" name={`et-${idx}`} disabled={disabled} checked={scores[idx]?.extraTime === true} onChange={() => setKoField(idx, "extraTime", true)} />

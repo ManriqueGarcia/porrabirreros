@@ -8,7 +8,7 @@
     "preview": "npx serve dist",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:unit": "vitest run tests/scoring.test.mjs tests/futbol-scoring.test.mjs tests/f1-cancelled-races.test.mjs tests/laliga-fixtures.test.mjs tests/mundial-scoring.test.mjs",
+    "test:unit": "vitest run tests/scoring.test.mjs tests/futbol-scoring.test.mjs tests/f1-cancelled-races.test.mjs tests/laliga-fixtures.test.mjs tests/mundial-scoring.test.mjs tests/mundial-fixtures.test.mjs",
     "test:api": "vitest run tests/api-functional.test.mjs",
     "test:all": "vitest run",
     "test:watch": "vitest",
