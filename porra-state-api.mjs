@@ -1774,6 +1774,11 @@ export const handler = async (event) => {
       for (const [jId, jB] of Object.entries(mun.bets || {})) {
         for (const [name, bet] of Object.entries(jB || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|BET#${name}`, ...bet });
       }
+      for (const [jId, jH] of Object.entries(mun.betHistory || {})) {
+        for (const [name, log] of Object.entries(jH || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|HISTORY#${name}`, log });
+      }
+      for (const [jId, w] of Object.entries(mun.betsWindow || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|WINDOW`, ...w });
+      for (const [jId, r] of Object.entries(mun.betsReveal || {})) ops.push({ pk: gpk, sk: `MUN#${jId}|REVEAL`, ...r });
       for (let i = 0; i < ops.length; i += 25) {
         const batch = ops.slice(i, i + 25).map(item => ({ PutRequest: { Item: item } }));
         await batchWriteWithRetry({ [TABLE]: batch });

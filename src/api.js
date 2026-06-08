@@ -80,6 +80,14 @@ export async function saveRemoteState(payload, _user) {
 let _saveRemoteUser = "";
 export function setSaveRemoteUser(u) { _saveRemoteUser = u || ""; }
 
+let _skipNextRemoteSave = false;
+/** Evita PUT /state tras cambios ya persistidos por API granular (resultados, jornadas, etc.). */
+export function skipNextRemoteSave() { _skipNextRemoteSave = true; }
+export function consumeSkipRemoteSave() {
+  if (_skipNextRemoteSave) { _skipNextRemoteSave = false; return true; }
+  return false;
+}
+
 export const saveRemoteDebounced = debounce((db) => {
   saveRemoteState(db, _saveRemoteUser).catch(err => console.warn("No se pudo guardar estado remoto", err));
 }, 1500);

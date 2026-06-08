@@ -39,7 +39,7 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
   }, [betFingerprint, jornada?.id, matches.length]);
 
   const handleScoreChange = (idx, field, val) => {
-    const clean = val === "" ? "" : Math.max(0, parseInt(val, 10) || 0);
+    const clean = val === "" ? "" : Math.min(99, Math.max(0, parseInt(val, 10) || 0));
     setScores((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: clean === "" ? "" : String(clean) } : s)));
   };
 

@@ -55,6 +55,29 @@ describe("mundial scoring", () => {
     expect(s.points).toBe(5);
   });
 
+  it("scores high two-digit results (e.g. 21-0)", () => {
+    const seed = buildMundialSeedState();
+    const jId = "wc-md1";
+    const db = {
+      mundial: {
+        ...seed,
+        results: {
+          [jId]: {
+            matches: [{ home: 21, away: 0, extraTime: false, penalties: false }],
+          },
+        },
+        bets: {
+          [jId]: {
+            Alice: { matches: [{ home: 21, away: 0, extraTime: false, penalties: false }], submittedAt: "2026-01-01T00:00:00.000Z", late: false },
+            Bob: { matches: [{ home: 10, away: 0, extraTime: false, penalties: false }], submittedAt: "2026-01-01T00:00:00.000Z", late: false },
+          },
+        },
+      },
+    };
+    expect(scoreMundialJornada(db, jId, "Alice").points).toBe(3);
+    expect(scoreMundialJornada(db, jId, "Bob").points).toBe(1);
+  });
+
   it("scores full jornada with penalties", () => {
     const seed = buildMundialSeedState();
     const jId = "wc-md1";

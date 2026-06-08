@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
-import { fetchRemoteState, saveRemoteDebounced, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired, resetStateETag } from "../api.js";
+import { fetchRemoteState, saveRemoteDebounced, consumeSkipRemoteSave, skipNextRemoteSave, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired, resetStateETag } from "../api.js";
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
@@ -244,12 +244,11 @@ function GroupApp({ groupId }) {
     window.location.hash = "#/";
   }, []);
   useEffect(() => { setOnSessionExpired(() => logout("Sesión expirada. Vuelve a iniciar sesión.")); return () => setOnSessionExpired(null); }, [logout]);
-  const skipRemoteSaveRef = useRef(false);
   const refreshRemoteState = useCallback(async () => {
     try {
       const remote = await fetchRemoteState();
       if (remote) {
-        skipRemoteSaveRef.current = true;
+        skipNextRemoteSave();
         setDb(remote);
       }
     } catch (err) { console.warn("No se pudo refrescar estado remoto", err); }
@@ -260,7 +259,7 @@ function GroupApp({ groupId }) {
       try {
         const remote = await fetchRemoteState();
         if (remote && !cancelled) {
-          skipRemoteSaveRef.current = true;
+          skipNextRemoteSave();
           setDb(remote);
         }
       } catch (err) { console.warn("No se pudo cargar estado remoto", err); }
@@ -289,10 +288,7 @@ function GroupApp({ groupId }) {
   }, [hydrated, refreshRemoteState]);
   useEffect(() => {
     if (!hydrated) return;
-    if (skipRemoteSaveRef.current) {
-      skipRemoteSaveRef.current = false;
-      return;
-    }
+    if (consumeSkipRemoteSave()) return;
     saveRemoteDebounced(db);
   }, [db, hydrated]);
   const [loadError, setLoadError] = useState(null);
@@ -363,7 +359,7 @@ function GroupApp({ groupId }) {
     if (db.meta?.seeded || !defaultPwdHash) return;
     const initial = CONFIG.participants;
     const adminUser = initial[initial.length - 1];
-    skipRemoteSaveRef.current = true;
+    skipNextRemoteSave();
     setDb(prev => {
       const baseUsers = { ...(prev.users || {}) }; initial.forEach(n => { if (!baseUsers[n]) baseUsers[n] = { name: n, passwordHash: defaultPwdHash, mustChange: true, isAdmin: n === adminUser, blocked: false }; else if (baseUsers[n].password && !baseUsers[n].passwordHash) { baseUsers[n] = { ...baseUsers[n], passwordHash: defaultPwdHash }; delete baseUsers[n].password; } });
       const baseParticipants = { ...(prev.participants || {}) }; initial.forEach(n => { if (!baseParticipants[n]) baseParticipants[n] = { name: n, createdAt: nowISO() }; });
@@ -384,7 +380,7 @@ function GroupApp({ groupId }) {
       || (u.adminRoles?.futbol && !u.adminRoles?.mundial)
     );
     if (!needsMigration.length) return;
-    skipRemoteSaveRef.current = true;
+    skipNextRemoteSave();
     setDb(prev => {
       const users = { ...(prev.users || {}) };
       needsMigration.forEach(([name]) => {
@@ -408,7 +404,7 @@ function GroupApp({ groupId }) {
   useEffect(() => {
     if (!hydrated) return;
     if (db.meta?.futbolJornadasV3) return;
-    skipRemoteSaveRef.current = true;
+    skipNextRemoteSave();
     const defaultJornadas = [
       { id: "J27", name: "Jornada 27 (6-9 Mar)", deadline: new Date(2026, 2, 6, 21, 0).toISOString(), matches: [{ home: "Celta de Vigo", away: "Real Madrid" }, { home: "Athletic Club", away: "FC Barcelona" }, { home: "Atlético de Madrid", away: "Real Sociedad" }, { home: "FC Andorra", away: "Real Sporting de Gijón" }] },
       { id: "J28", name: "Jornada 28 (13-16 Mar)", deadline: new Date(2026, 2, 13, 21, 0).toISOString(), matches: [{ home: "Real Madrid", away: "Elche" }, { home: "FC Barcelona", away: "Sevilla" }, { home: "Real Sociedad", away: "Osasuna" }, { home: "Real Sporting de Gijón", away: "Castellón" }] },
@@ -440,6 +436,7 @@ function GroupApp({ groupId }) {
     const fixturesVersion = db.meta?.mundialFixturesVersion || (db.meta?.mundialSeeded ? 1 : 0);
     if (fixturesVersion >= MUNDIAL_FIXTURES_VERSION) return;
     const seed = buildMundialSeedState();
+    skipNextRemoteSave();
     setDb((prev) => {
       const m = prev.mundial || {};
       return {
@@ -482,7 +479,7 @@ function GroupApp({ groupId }) {
     if (!participants.length) return;
     const needsUpdate = races.some(r => !r.cancelled && !db.questionOwner?.[r.key]);
     if (!needsUpdate) return;
-    skipRemoteSaveRef.current = true;
+    skipNextRemoteSave();
     setDb(prev => {
       const next = { ...prev, questionOwner: { ...(prev.questionOwner || {}) } };
       races.forEach(r => {

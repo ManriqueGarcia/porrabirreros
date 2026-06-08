@@ -5,7 +5,14 @@ import { toast } from "../toast.jsx";
 import { listMundialJornadas, defaultMundialState, matchDisplayName } from "../mundial-utils.js";
 import { getParticipantsForPorra } from "./UserManagement.jsx";
 import { isAdminFor } from "../admin-roles.js";
-import { adminMundial, saveResultMundial } from "../api.js";
+import { adminMundial, saveResultMundial, skipNextRemoteSave } from "../api.js";
+
+function parseScoreField(val) {
+  if (val === "" || val == null) return "";
+  const n = parseInt(String(val), 10);
+  if (!Number.isFinite(n) || n < 0) return "";
+  return String(Math.min(99, n));
+}
 
 export function MundialAdmin({ db, setDb, currentUser }) {
   const mundial = db.mundial || defaultMundialState();
@@ -48,6 +55,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
     };
     try {
       await adminMundial(selected, currentUser, "jornada", { ...jornadaData, order: mundial.order || [] });
+      skipNextRemoteSave();
       setDb((prev) => {
         const m = prev.mundial || defaultMundialState();
         return { ...prev, mundial: { ...m, jornadas: { ...m.jornadas, [selected]: jornadaData } } };
@@ -63,8 +71,8 @@ export function MundialAdmin({ db, setDb, currentUser }) {
     if (!selected) return;
     const parsed = scores.map((s, idx) => {
       const row = {
-        home: s.home === "" || s.home == null ? null : Number(s.home),
-        away: s.away === "" || s.away == null ? null : Number(s.away),
+        home: s.home === "" || s.home == null ? null : Math.min(99, Math.max(0, parseInt(String(s.home), 10) || 0)),
+        away: s.away === "" || s.away == null ? null : Math.min(99, Math.max(0, parseInt(String(s.away), 10) || 0)),
       };
       if (matches[idx]?.knockout) {
         if (s.extraTime != null) row.extraTime = s.extraTime;
@@ -74,12 +82,13 @@ export function MundialAdmin({ db, setDb, currentUser }) {
       return row;
     });
     const resultData = { matches: parsed };
-    setDb((prev) => {
-      const m = prev.mundial || defaultMundialState();
-      return { ...prev, mundial: { ...m, results: { ...m.results, [selected]: resultData } } };
-    });
     try {
       await saveResultMundial(selected, currentUser, resultData);
+      skipNextRemoteSave();
+      setDb((prev) => {
+        const m = prev.mundial || defaultMundialState();
+        return { ...prev, mundial: { ...m, results: { ...m.results, [selected]: resultData } } };
+      });
       toast.success("Resultados guardados");
     } catch {
       toast.error("Error al guardar resultados");
@@ -109,8 +118,8 @@ export function MundialAdmin({ db, setDb, currentUser }) {
               </div>
               <input type="datetime-local" className="select border rounded px-2 py-1 w-full text-xs" value={m.kickoff ? toLocalDateTimeInput(new Date(m.kickoff)) : ""} onChange={(e) => updateMatch(idx, "kickoff", parseLocalDateTime(e.target.value)?.toISOString() || "")} />
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" min="0" className="select border rounded px-2 py-1" placeholder="Goles 90′ L" value={scores[idx]?.home} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, home: e.target.value } : s))} />
-                <input type="number" min="0" className="select border rounded px-2 py-1" placeholder="Goles 90′ V" value={scores[idx]?.away} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, away: e.target.value } : s))} />
+                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ L" value={scores[idx]?.home} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, home: parseScoreField(e.target.value) } : s))} />
+                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ V" value={scores[idx]?.away} onChange={(e) => setScores((p) => p.map((s, i) => i === idx ? { ...s, away: parseScoreField(e.target.value) } : s))} />
               </div>
               {m.knockout && (
                 <div className="flex flex-wrap gap-2 text-xs">
