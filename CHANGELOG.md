@@ -10,7 +10,7 @@ Todos los cambios relevantes del proyecto están documentados en este archivo.
 
 - Modo **WC** en la app: jornadas precargadas (grupos J1–J3, dieciseisavos, octavos, cuartos, semifinal, tercer puesto, final), partido de España + estrella por grupo, cruces TBD en eliminatorias, horarios España + local del estadio.
 - Puntuación como fútbol (+3/+1, penalizaciones); en KO bonus opcional prórroga/penaltis (+1/+1/+2).
-- Premio solo al final: cena de bocata (sin birra por jornada).
+- Premio solo al final: cena de bocata para el campeon absoluto, invitada por el resto (sin birra por jornada).
 - API DynamoDB `MUN#` y rutas `/bets|results|admin/mundial`; tests `tests/mundial-scoring.test.mjs`.
 
 ---

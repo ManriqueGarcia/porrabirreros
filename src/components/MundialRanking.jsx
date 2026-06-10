@@ -31,7 +31,7 @@ export function MundialRanking({ db }) {
       </div>
       {scope === "all" && leader && completed.length > 0 && (
         <p className="text-xs text-amber-300/80 p-2 rounded-lg bg-amber-500/10 border border-amber-500/15">
-          Premio final: el último en la clasificación invita a <b>cena de bocata</b> al resto. Líder actual: <b>{leader}</b> (sin premio por jornada).
+          Premio final: al cerrar el torneo, el <b>primero</b> de la clasificación general se lleva una <b>cena de bocata</b> invitada por el resto. Líder actual: <b>{leader}</b> (sin premio por jornada).
         </p>
       )}
       <div className="space-y-2">

@@ -88,7 +88,7 @@ export function MundialParticipante({ user, db, setDb }) {
     <div className={`grid gap-4 ${showOthers ? "md:grid-cols-[minmax(0,1fr)_minmax(220px,340px)]" : ""}`}>
       <div className="card card-racing p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">🏆 Mundial 2026 <span className="text-xs opacity-40">· porra bocata</span></h2>
+          <h2 className="section-title">🏆 Mundial 2026 <span className="text-xs opacity-40">· al final, cena de bocata al campeón</span></h2>
           {jornada && (
             <button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/80" onClick={() => setShowOthers((p) => !p)}>
               {showOthers ? "Ocultar" : "👀 Ver otras apuestas"}

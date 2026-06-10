@@ -209,7 +209,7 @@ build.mjs                  Script de build (esbuild + Tailwind CLI)
 - Calendario precargado: fase de grupos (Espana + partido estrella por grupo A–L), dieciseisavos (ronda de 32), octavos, cuartos, semifinal, tercer puesto y final
 - Horarios en hora Espana y hora local del estadio; cruces KO como TBD hasta que el admin los rellena
 - Misma puntuacion 90′ que futbol; en eliminatorias bonus opcional por prorroga/penaltis (+1/+1/+2)
-- Premio solo al final del torneo: cena de bocata (sin birra por jornada)
+- Premio solo al final del torneo: el primero de la clasificacion general se lleva una cena de bocata invitada por el resto (sin birra por jornada)
 - Participantes: mismos que la porra de futbol (`porras.mundial`)
 
 ### Penalizaciones (ambos modos)
