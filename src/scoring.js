@@ -46,7 +46,7 @@ export function scoreForRace(db, raceKey, name, raceFromCalendar, userCreatedAt)
   const gotAllQ = res?.qAnswers && bet.q?.length >= 3 && bet.q.some(a => a?.trim()) && bet.q.every((a, i) => (a || '').toLowerCase().trim() === (res.qAnswers[i] || '').toLowerCase().trim());
   if (gotPole && gotAllPod) pts += 2;
   if (gotPole && gotAllPod && gotAllQ) pts += 2;
-  if (!bet.pole && (!bet.podium || bet.podium.filter(Boolean).length < 3)) { pts -= 1; pen++; }
+  if (!bet.pole || !bet.podium || bet.podium.filter(Boolean).length < 3) { pts -= 1; pen++; }
   if (bet.late) { pts -= 2; pen++; }
   if (gotAllPod) exact = 1;
   const fullHouse = !!(gotPole && gotAllPod && gotAllQ);
