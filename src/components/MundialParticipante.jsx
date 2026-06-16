@@ -15,8 +15,16 @@ export function MundialParticipante({ user, db, setDb }) {
   const [showOthers, setShowOthers] = useState(false);
   const mundial = db.mundial || defaultMundialState();
   const jornadas = useMemo(() => listMundialJornadas(mundial), [mundial]);
+  const mundialHasAllResults = (j) => {
+    const r = mundial.results?.[j.id];
+    return !!(r && r.matches?.length > 0 && r.matches.every((m) => m.home != null && m.away != null));
+  };
   const [selected, setSelected] = useState(() => {
     const nowMs = Date.now();
+    const pendingResult = [...jornadas]
+      .filter(j => { const dl = getEffectiveDeadline(j); return dl && dl.getTime() <= nowMs && !mundialHasAllResults(j); })
+      .pop();
+    if (pendingResult) return pendingResult.id;
     const upcoming = jornadas.find((j) => {
       const dl = getEffectiveDeadline(j);
       return dl && dl.getTime() > nowMs;
@@ -27,6 +35,10 @@ export function MundialParticipante({ user, db, setDb }) {
   useEffect(() => {
     if ((!selected || !jornadas.find((j) => j.id === selected)) && jornadas.length) {
       const nowMs = Date.now();
+      const pendingResult = [...jornadas]
+        .filter(j => { const dl = getEffectiveDeadline(j); return dl && dl.getTime() <= nowMs && !mundialHasAllResults(j); })
+        .pop();
+      if (pendingResult) { setSelected(pendingResult.id); return; }
       const upcoming = jornadas.find((j) => {
         const dl = getEffectiveDeadline(j);
         return dl && dl.getTime() > nowMs;
