@@ -24,8 +24,11 @@ export function Participante({user,races,db,setDb,drivers,circuits,selectedRaceK
       const valid=races.some(r=>r.key===selected);
       if(!selected||!valid){
         const nowMs=Date.now();
+        const pendingResult=[...races]
+          .filter(r=>!r.cancelled && !isKnownCancelledF1Key(r.key) && r.cutoff && r.cutoff.getTime()<=nowMs && !hasRaceResults(db.results?.[r.key],r))
+          .sort((a,b)=>b.round-a.round)[0];
         const upcoming=races.find(r=>!r.cancelled && r.cutoff && r.cutoff.getTime()>nowMs);
-        setSelected(upcoming?.key || races.filter(r=>!r.cancelled).pop()?.key || races[races.length-1].key);
+        setSelected(pendingResult?.key || upcoming?.key || races.filter(r=>!r.cancelled).pop()?.key || races[races.length-1].key);
       }
     }
   },[races,selected]);
