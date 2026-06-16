@@ -42,8 +42,8 @@ export function scoreForRace(db, raceKey, name, raceFromCalendar, userCreatedAt)
   if (res?.podium) { bet.podium?.forEach((p, i) => { if (p === res.podium[i]) { pts++; hits++; } }); }
   if (res?.qAnswers) { bet.q?.forEach((a, i) => { if ((a || '').toLowerCase().trim() === (res.qAnswers[i] || '').toLowerCase().trim()) { pts++; hits++; } }); }
   const gotPole = res?.pole && bet.pole === res.pole;
-  const gotAllPod = res?.podium && bet.podium?.every((p, i) => p === res.podium[i]);
-  const gotAllQ = res?.qAnswers && bet.q?.every((a, i) => (a || '').toLowerCase().trim() === (res.qAnswers[i] || '').toLowerCase().trim());
+  const gotAllPod = res?.podium && bet.podium?.length >= 3 && bet.podium.every((p, i) => p && p === res.podium[i]);
+  const gotAllQ = res?.qAnswers && bet.q?.length >= 3 && bet.q.some(a => a?.trim()) && bet.q.every((a, i) => (a || '').toLowerCase().trim() === (res.qAnswers[i] || '').toLowerCase().trim());
   if (gotPole && gotAllPod) pts += 2;
   if (gotPole && gotAllPod && gotAllQ) pts += 2;
   if (!bet.pole && (!bet.podium || bet.podium.filter(Boolean).length < 3)) { pts -= 1; pen++; }

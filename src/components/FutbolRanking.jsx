@@ -105,7 +105,7 @@ export function FutbolRanking({db}){
         )}
         <p className="text-[11px] text-white/30">Desempates: puntos → victorias → exactos → signos → menos pen. → menor dif. goles → apuesta más temprana.</p>
         <button className="mt-3 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
-          exportCSV("ranking_futbol.csv",["Pos","Nombre","Puntos","Victorias","Exactos","Signos","Pen."],standings.map((r,i)=>[i+1,r.name,r.points,r.wins,r.exact,r.signs,r.penCount]));
+          exportCSV("ranking_futbol.csv",["Pos","Nombre","Puntos","Victorias","Exactos","Signos","Pen."],rows.map((r,i)=>[i+1,r.name,r.points,r.wins||0,r.exact,r.signs,r.penCount]));
         }}>📥 Exportar CSV</button>
         <button className="mt-3 ml-2 text-xs text-white/30 hover:text-white/60 transition-colors" onClick={()=>{
           exportPDF("Ranking Fútbol — Porra Birreros",["Pos","Nombre","Puntos","Victorias","Exactos","Signos","Pen."],standings.map((r,i)=>[i+1,r.name,r.points,r.wins,r.exact,r.signs,r.penCount]));

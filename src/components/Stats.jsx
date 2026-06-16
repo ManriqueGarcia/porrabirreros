@@ -225,8 +225,8 @@ function Stats({db,races,currentUser}){
         const sorted=[...completedRaces].sort((a,b)=>a.round-b.round);
         const streaks=f1Participants.map(name=>{
           const perRace=sorted.map(r=>{
-            const s=scoreForRace(db,r.key,name,r);
-            const scores=f1Participants.map(n=>scoreForRace(db,r.key,n,r));
+            const scores=f1Participants.map(n=>({name:n,...scoreForRace(db,r.key,n,r)}));
+            const s=scores.find(x=>x.name===name)||{points:0,gotPole:false,hits:0};
             const best=Math.max(...scores.map(x=>x.points));
             const winners=scores.filter(x=>x.points===best);
             const won=winners.length===1&&s.points===best;

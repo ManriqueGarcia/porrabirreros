@@ -134,8 +134,8 @@ export function MundialAdmin({ db, setDb, currentUser }) {
               </div>
               {m.knockout && (
                 <div className="flex flex-wrap gap-2 text-xs">
-                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: true } : s)); }} /> Prórroga</label>
-                  <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: true } : s)); }} /> Penaltis</label>
+                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: !s.extraTime } : s)); }} /> Prórroga</label>
+                  <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: !s.penalties } : s)); }} /> Penaltis</label>
                   <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s)); }}>
                     <option value="">— Ganador pen. —</option>
                     <option value="home">{home}</option>

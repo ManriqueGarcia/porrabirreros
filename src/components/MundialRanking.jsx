@@ -14,8 +14,10 @@ export function MundialRanking({ db }) {
   const rows = useMemo(() => {
     if (scope === "all") return standings;
     if (!mundial.results?.[scope]) return [];
-    return participants.map((name) => ({ ...scoreMundialJornada(db, scope, name), name }))
-      .sort((a, b) => b.points - a.points);
+    return participants.map((name) => {
+      const uCreated = db.participants?.[name]?.createdAt;
+      return { ...scoreMundialJornada(db, scope, name, uCreated), name };
+    }).sort((a, b) => b.points - a.points || b.exact - a.exact || b.signs - a.signs || a.goalDiff - b.goalDiff);
   }, [scope, standings, participants, mundial.results, db]);
   const completed = jornadas.filter((j) => mundial.results?.[j.id]);
   const leader = standings[0]?.name;
@@ -48,7 +50,7 @@ export function MundialRanking({ db }) {
         ))}
       </div>
       {rows.length === 0 && <p className="text-sm text-white/40 text-center py-6">Sin resultados publicados aún.</p>}
-      <button className="text-xs text-white/30 hover:text-white/60" onClick={() => exportCSV("ranking_mundial.csv", ["Pos", "Nombre", "Puntos"], standings.map((r, i) => [i + 1, r.name, r.points]))}>📥 Exportar CSV</button>
+      <button className="text-xs text-white/30 hover:text-white/60" onClick={() => exportCSV("ranking_mundial.csv", ["Pos", "Nombre", "Puntos"], rows.map((r, i) => [i + 1, r.name, r.points]))}>📥 Exportar CSV</button>
     </div>
   );
 }

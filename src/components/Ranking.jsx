@@ -53,7 +53,8 @@ function Ranking({db,races,setDb,currentUser}){
     const race=completed[0];
     const res=db.results[race.key];
     const scores=parts.map(name=>{
-      const s=scoreForRace(db,race.key,name,race);
+      const uCreated=db.participants?.[name]?.createdAt;
+      const s=scoreForRace(db,race.key,name,race,uCreated);
       return {name,...s};
     }).sort((a,b)=>b.points-a.points);
     const winner=scores[0];
@@ -130,8 +131,9 @@ function Ranking({db,races,setDb,currentUser}){
     const prevRaces=(races||[]).filter(r=>r.key!==latestKey);
     const gpWins=computeGPWins(db,prevRaces,participants);
     const prevStandings=participants.map(n=>{
+      const uCreated=db.participants?.[n]?.createdAt;
       const acc=prevRaces.reduce((a,race)=>{
-        const s=scoreForRace(db,race.key,n,race);
+        const s=scoreForRace(db,race.key,n,race,uCreated);
         a.points+=s.points; a.hits+=s.hits; a.exact+=s.exact; a.pen+=s.pen; return a;
       },{points:Number(basePoints[n]||0),hits:0,exact:0,pen:0});
       return {name:n,...acc,wins:gpWins[n]||0,avgSubmit:computeAvgSubmitTime(db,prevRaces,n)};
