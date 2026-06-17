@@ -5,7 +5,7 @@ import { formatDateTime, formatTime } from "../utils.js";
 import { matchDisplayName } from "../mundial-utils.js";
 
 function emptyKo() {
-  return { extraTime: null, penalties: null, penWinner: null };
+  return { penalties: null, penWinner: null };
 }
 
 export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit }) {
@@ -19,7 +19,6 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
     return {
       home: b?.home ?? "",
       away: b?.away ?? "",
-      extraTime: b?.extraTime ?? null,
       penalties: b?.penalties ?? null,
       penWinner: b?.penWinner ?? null,
     };
@@ -63,9 +62,11 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
   const buildPayloadMatches = () => scores.map((s, idx) => {
     const row = { home: Number(s.home), away: Number(s.away) };
     if (matches[idx]?.knockout) {
-      if (s.extraTime != null) row.extraTime = s.extraTime;
-      if (s.penalties != null) row.penalties = s.penalties;
-      if (s.penalties && s.penWinner) row.penWinner = s.penWinner;
+      const isDraw = s.home !== "" && s.away !== "" && Number(s.home) === Number(s.away);
+      if (isDraw) {
+        if (s.penalties != null) row.penalties = s.penalties;
+        if (s.penWinner) row.penWinner = s.penWinner;
+      }
     }
     return row;
   });
@@ -117,11 +118,10 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
                 <div key={idx} className="px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.05] text-sm">
                   <div className="text-white/50 text-xs mb-1">{home} vs {away}</div>
                   <span className="font-bold text-white/90 tabular-nums">{b?.home ?? "—"} - {b?.away ?? "—"}</span>
-                  {m.knockout && (b?.extraTime != null || b?.penalties != null) && (
+                  {m.knockout && (b?.penalties != null || b?.penWinner) && (
                     <div className="text-[10px] text-white/40 mt-1">
-                      {b?.extraTime != null && <span>Prórroga: {b.extraTime ? "sí" : "no"} · </span>}
-                      {b?.penalties != null && <span>Penaltis: {b.penalties ? "sí" : "no"}</span>}
-                      {b?.penalties && b?.penWinner && <span> · Ganador pen.: {b.penWinner === "home" ? home : away}</span>}
+                      {b?.penalties != null && <span>Penaltis: {b.penalties ? "sí" : "no"}{b?.penWinner ? " · " : ""}</span>}
+                      {b?.penWinner && <span>Gana: {b.penWinner === "home" ? home : away}</span>}
                     </div>
                   )}
                 </div>
@@ -150,44 +150,37 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
               <input disabled={disabled} type="number" min="0" className="score-input w-12" value={scores[idx]?.away} onChange={(e) => handleScoreChange(idx, "away", e.target.value)} onWheel={(e) => e.target.blur()} />
               <span className="text-xs text-white/50 w-16 truncate">{away}</span>
             </div>
-            {m.knockout && (
-              <div className="mt-3 pt-2 border-t border-white/10 space-y-2 text-xs">
-                <p className="text-amber-200/50 text-[10px]">Bonos KO: no hace falta el marcador exacto; basta acertar el signo 1X2 a 90′.</p>
-                <div className="flex flex-wrap gap-3">
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input type="radio" name={`et-${idx}`} disabled={disabled} checked={scores[idx]?.extraTime === true} onChange={() => setKoField(idx, "extraTime", true)} />
-                    <span>Prórroga sí</span>
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input type="radio" name={`et-${idx}`} disabled={disabled} checked={scores[idx]?.extraTime === false} onChange={() => setKoField(idx, "extraTime", false)} />
-                    <span>Prórroga no</span>
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input type="radio" name={`pen-${idx}`} disabled={disabled} checked={scores[idx]?.penalties === true} onChange={() => setKoField(idx, "penalties", true)} />
-                    <span>Penaltis sí</span>
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input type="radio" name={`pen-${idx}`} disabled={disabled} checked={scores[idx]?.penalties === false} onChange={() => setKoField(idx, "penalties", false)} />
-                    <span>Penaltis no</span>
-                  </label>
-                </div>
-                {scores[idx]?.penalties && (
+            {m.knockout && (() => {
+              const s = scores[idx];
+              const isDraw = s?.home !== "" && s?.home != null && s?.away !== "" && s?.away != null && Number(s.home) === Number(s.away);
+              if (!isDraw) return null;
+              return (
+                <div className="mt-3 pt-2 border-t border-white/10 space-y-2 text-xs">
+                  <p className="text-amber-200/60 text-[10px]">Apostaste empate → prórroga implícita. Bonos adicionales (opcional):</p>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input type="radio" name={`pen-${idx}`} disabled={disabled} checked={scores[idx]?.penalties === true} onChange={() => setKoField(idx, "penalties", true)} />
+                      <span>Penaltis sí</span>
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input type="radio" name={`pen-${idx}`} disabled={disabled} checked={scores[idx]?.penalties === false} onChange={() => setKoField(idx, "penalties", false)} />
+                      <span>Penaltis no</span>
+                    </label>
+                  </div>
                   <div className="flex flex-wrap gap-3">
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input type="radio" name={`pw-${idx}`} disabled={disabled} checked={scores[idx]?.penWinner === "home"} onChange={() => setKoField(idx, "penWinner", "home")} />
-                      <span>Gana {home} (pen.)</span>
+                      <span>Gana {home}</span>
                     </label>
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input type="radio" name={`pw-${idx}`} disabled={disabled} checked={scores[idx]?.penWinner === "away"} onChange={() => setKoField(idx, "penWinner", "away")} />
-                      <span>Gana {away} (pen.)</span>
+                      <span>Gana {away}</span>
                     </label>
                   </div>
-                )}
-                <p className="text-[10px] text-white/30">Opcional en apuesta; +1/+1/+2 si aciertas prórroga, penaltis y ganador en penaltis.</p>
-              </div>
-            )}
+                  <p className="text-[10px] text-white/30">+1 si aciertas penaltis sí/no · +2 si aciertas quién gana (ET o penaltis)</p>
+                </div>
+              );
+            })()}
           </div>
         );
       })}

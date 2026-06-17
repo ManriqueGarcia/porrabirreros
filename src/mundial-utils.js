@@ -26,19 +26,19 @@ export function futbolMatchPoints(pred, res) {
 /** Bonos KO: +1 prórroga, +1 penaltis, +2 ganador penaltis (si hubo penaltis). Solo si acertaste el signo 1X2 a 90′. */
 export function mundialKnockoutBonus(pred, res, knockout, signOk = false) {
   if (!knockout || !signOk) return { points: 0, items: [] };
+  // Solo los que apostaron empate (→ prórroga implícita) pueden sumar bonos KO
+  const betDraw = pred?.home != null && pred?.away != null && Number(pred.home) === Number(pred.away);
+  if (!betDraw) return { points: 0, items: [] };
   let points = 0;
   const items = [];
-  if (pred?.extraTime != null && res?.extraTime != null && pred.extraTime === res.extraTime) {
-    points += 1;
-    items.push({ label: "Prórroga acertada", delta: 1 });
-  }
   if (pred?.penalties != null && res?.penalties != null && pred.penalties === res.penalties) {
     points += 1;
-    items.push({ label: "Penaltis acertados (sí/no)", delta: 1 });
+    items.push({ label: "Penaltis acertados", delta: 1 });
   }
-  if (res?.penalties && pred?.penWinner && res?.penWinner && pred.penWinner === res.penWinner) {
+  // penWinner = ganador final (en prórroga o penaltis)
+  if (res?.penWinner && pred?.penWinner && pred.penWinner === res.penWinner) {
     points += 2;
-    items.push({ label: "Ganador en penaltis", delta: 2 });
+    items.push({ label: "Ganador (prórroga/penaltis) acertado", delta: 2 });
   }
   return { points, items };
 }

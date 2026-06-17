@@ -134,13 +134,17 @@ export function MundialAdmin({ db, setDb, currentUser }) {
               </div>
               {m.knockout && (
                 <div className="flex flex-wrap gap-2 text-xs">
-                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: !s.extraTime } : s)); }} /> Prórroga</label>
-                  <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: !s.penalties } : s)); }} /> Penaltis</label>
-                  <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s)); }}>
-                    <option value="">— Ganador pen. —</option>
-                    <option value="home">{home}</option>
-                    <option value="away">{away}</option>
-                  </select>
+                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: !s.extraTime, penWinner: !s.extraTime ? s.penWinner : null } : s)); }} /> Prórroga</label>
+                  {scores[idx]?.extraTime && (
+                    <>
+                      <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: !s.penalties } : s)); }} /> Penaltis</label>
+                      <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s)); }}>
+                        <option value="">— Ganador (ET/pen.) —</option>
+                        <option value="home">{home}</option>
+                        <option value="away">{away}</option>
+                      </select>
+                    </>
+                  )}
                 </div>
               )}
             </div>
