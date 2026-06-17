@@ -177,7 +177,7 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
                       <span>Gana {away}</span>
                     </label>
                   </div>
-                  <p className="text-[10px] text-white/30">+1 si aciertas penaltis sí/no · +2 si aciertas quién gana (ET o penaltis)</p>
+                  <p className="text-[10px] text-white/30">+1 si aciertas penaltis sí/no · +1 si aciertas quién gana (ET o penaltis)</p>
                 </div>
               );
             })()}

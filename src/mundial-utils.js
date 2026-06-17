@@ -37,8 +37,8 @@ export function mundialKnockoutBonus(pred, res, knockout, signOk = false) {
   }
   // penWinner = ganador final (en prórroga o penaltis)
   if (res?.penWinner && pred?.penWinner && pred.penWinner === res.penWinner) {
-    points += 2;
-    items.push({ label: "Ganador (prórroga/penaltis) acertado", delta: 2 });
+    points += 1;
+    items.push({ label: "Ganador (prórroga/penaltis) acertado", delta: 1 });
   }
   return { points, items };
 }
