@@ -111,7 +111,8 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
     items.push({ label: "Apuesta fuera de plazo", delta: latePenalty });
   }
   let catPenalty = 0;
-  if (!missed && !late && points === 0 && !FUTBOL_CAT_PENALTY_EXCLUDED_USERS.has(name)) {
+  const allResultsComplete = official.every(m => m.home != null && m.away != null);
+  if (!missed && !late && points === 0 && allResultsComplete && !FUTBOL_CAT_PENALTY_EXCLUDED_USERS.has(name)) {
     catPenalty = -1;
     points += catPenalty;
     items.push({ label: "Apuesta catastrófica", delta: catPenalty });

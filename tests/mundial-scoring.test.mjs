@@ -102,4 +102,61 @@ describe("mundial scoring", () => {
     expect(s.points).toBe(3);
     expect(s.exact).toBe(1);
   });
+
+  it("catastrófica NOT applied with partial results (some matches still null)", () => {
+    const seed = buildMundialSeedState();
+    const jId = "wc-md1";
+    const db = {
+      mundial: {
+        ...seed,
+        results: {
+          [jId]: {
+            matches: [
+              { home: 4, away: 1 },   // resultado disponible
+              { home: null, away: null }, // pendiente
+            ],
+          },
+        },
+        bets: {
+          [jId]: {
+            Alice: {
+              matches: [{ home: 1, away: 2 }, { home: 2, away: 0 }],
+              submittedAt: "2026-01-01T00:00:00.000Z",
+              late: false,
+            },
+          },
+        },
+      },
+    };
+    const s = scoreMundialJornada(db, jId, "Alice");
+    expect(s.points).toBe(0);    // falló el único resultado disponible
+    expect(s.catPenalty).toBe(0); // catastrófica NO aplica: hay resultados pendientes
+  });
+
+  it("catastrófica applies when all results are complete and user scores 0", () => {
+    const seed = buildMundialSeedState();
+    const jId = "wc-md1";
+    const db = {
+      mundial: {
+        ...seed,
+        results: {
+          [jId]: {
+            matches: [{ home: 4, away: 1 }], // resultado completo
+          },
+        },
+        bets: {
+          [jId]: {
+            Alice: {
+              matches: [{ home: 1, away: 2 }], // signo opuesto → 0 pts
+              submittedAt: "2026-01-01T00:00:00.000Z",
+              late: false,
+            },
+          },
+        },
+      },
+    };
+    const s = scoreMundialJornada(db, jId, "Alice");
+    expect(s.points).toBe(-1);
+    expect(s.catPenalty).toBe(-1);
+  });
 });
