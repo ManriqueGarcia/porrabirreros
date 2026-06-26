@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import { CACHE_BUST, CONFIG, DEFAULT_PASSWORD_HASH, ADMIN_SECRET_HASH, QUESTION_AUTHORS_ORDER, MADRID_TZ, SESSION_TIMEOUT_MS } from "../config.js";
 import { nowISO, hashPassword, getSession, createSession, clearSession, toZonedDate, formatDateTime, formatTime, checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from "../utils.js";
-import { fetchRemoteState, saveRemoteDebounced, consumeSkipRemoteSave, skipNextRemoteSave, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired, resetStateETag } from "../api.js";
+import { fetchRemoteState, saveRemoteDebounced, consumeSkipRemoteSave, skipNextRemoteSave, loadCalendar, loadDrivers, loadTeams, loadCircuits, setActiveGroupId, authLogin, setSaveRemoteUser, setSessionToken, setOnSessionExpired, resetStateETag, setOnSaveError } from "../api.js";
 import { LangCtx } from "../i18n.jsx";
 import { toast, ToastContainer } from "../toast.jsx";
 import { defaultFutbolState } from "../futbol-utils.js";
@@ -244,6 +244,7 @@ function GroupApp({ groupId }) {
     window.location.hash = "#/";
   }, []);
   useEffect(() => { setOnSessionExpired(() => logout("Sesión expirada. Vuelve a iniciar sesión.")); return () => setOnSessionExpired(null); }, [logout]);
+  useEffect(() => { setOnSaveError(() => { toast.warn("No se pudo guardar automáticamente. Si eres el autor de preguntas, usa el botón «Publicar»."); }); return () => setOnSaveError(null); }, []);
   const refreshRemoteState = useCallback(async () => {
     try {
       const remote = await fetchRemoteState();

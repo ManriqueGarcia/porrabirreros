@@ -1550,6 +1550,39 @@ export const handler = async (event) => {
       for (const item of userDataItems) await deleteItem(item.pk, item.sk);
       return res(200, { ok: true });
     }
+    // PUT /g/{groupId}/questions/f1/{raceKey} — autor de preguntas (no requiere ser admin)
+    if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "questions" && segments[3] === "f1" && segments[4]) {
+      const gid = segments[1];
+      const reqUser = rawUser ? await resolveUserInGroup(gid, rawUser) : "";
+      if (!reqUser) return forbidden("Autenticación requerida");
+      const raceKey = segments[4];
+      if (!isValidId(raceKey)) return badReq("raceKey inválido");
+      const existingQ = (await gGetItem(gid, "META", "QUESTIONS")) || {};
+      const isOwner = (existingQ.questionOwner || {})[raceKey] === reqUser;
+      if (!isOwner && !(await isAdminInGroup(gid, reqUser))) return forbidden("Solo el autor asignado o un admin puede guardar las preguntas");
+      const { questions, publish } = body;
+      if (!Array.isArray(questions) || questions.length !== 3) return badReq("Se requieren exactamente 3 preguntas");
+      if (questions.some(q => typeof q !== "string" || q.length > 500)) return badReq("Pregunta inválida o demasiado larga");
+      const updatedQ = {
+        ...existingQ,
+        questions: { ...(existingQ.questions || {}), [raceKey]: questions },
+      };
+      if (publish) {
+        updatedQ.questionsStatus = {
+          ...(existingQ.questionsStatus || {}),
+          [raceKey]: { published: true, author: reqUser, publishedAt: new Date().toISOString() },
+        };
+      } else {
+        const prevStatus = (existingQ.questionsStatus || {})[raceKey] || {};
+        updatedQ.questionsStatus = {
+          ...(existingQ.questionsStatus || {}),
+          [raceKey]: { ...prevStatus, updatedAt: new Date().toISOString() },
+        };
+      }
+      await gPutItem(gid, "META", "QUESTIONS", updatedQ);
+      log("info", "questions_f1_saved", { group: gid, raceKey, user: reqUser, publish: !!publish });
+      return res(200, { ok: true });
+    }
     // PUT /g/{groupId}/admin/f1/{raceKey}
     if (method === "PUT" && segments[0] === "g" && segments[1] && segments[2] === "admin" && segments[3] === "f1" && segments[4]) {
       const gid = segments[1];

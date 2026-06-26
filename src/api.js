@@ -88,8 +88,19 @@ export function consumeSkipRemoteSave() {
   return false;
 }
 
+let _onSaveError = null;
+let _lastSaveErrorAt = 0;
+export function setOnSaveError(fn) { _onSaveError = fn; }
+
 export const saveRemoteDebounced = debounce((db) => {
-  saveRemoteState(db, _saveRemoteUser).catch(err => console.warn("No se pudo guardar estado remoto", err));
+  saveRemoteState(db, _saveRemoteUser).catch(err => {
+    console.warn("No se pudo guardar estado remoto", err);
+    const now = Date.now();
+    if (_onSaveError && now - _lastSaveErrorAt > 300_000) {
+      _lastSaveErrorAt = now;
+      _onSaveError(err);
+    }
+  });
 }, 1500);
 
 // ─── F1 Bets ───
@@ -134,6 +145,12 @@ export async function deleteUser(targetUser, reqUser) {
 
 export async function saveMeta(user, meta) {
   return apiCall("PUT", "/meta", user, { meta });
+}
+
+// ─── Questions F1 (disponible para autores no-admin) ───
+
+export async function saveQuestionsF1(raceKey, questions, publish) {
+  return apiCall("PUT", `/questions/f1/${raceKey}`, null, { questions, publish: !!publish });
 }
 
 // ─── Admin F1 ───
