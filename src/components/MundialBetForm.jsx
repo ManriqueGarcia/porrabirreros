@@ -33,7 +33,7 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
   useEffect(() => {
     const jornadaChanged = prevJornadaIdRef.current !== jornada?.id;
     prevJornadaIdRef.current = jornada?.id;
-    if (!jornadaChanged && draftDirtyRef.current && editing) return;
+    if (!jornadaChanged && draftDirtyRef.current) return;
 
     setScores(initialScores());
     setTrashtalk(bet?.trashtalk || "");
@@ -42,7 +42,8 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
       setSaving(false);
     }
     draftDirtyRef.current = false;
-  }, [betFingerprint, jornada?.id, matches.length, editing]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [betFingerprint, jornada?.id, matches.length]);
 
   const markDraftDirty = () => { draftDirtyRef.current = true; };
 
