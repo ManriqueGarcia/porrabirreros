@@ -22,6 +22,7 @@ import { FutbolRanking, FutbolEvolutionChart } from "./FutbolRanking.jsx";
 import { FutbolStats } from "./FutbolStats.jsx";
 import { MundialParticipante } from "./MundialParticipante.jsx";
 import { MundialRanking } from "./MundialRanking.jsx";
+import { MundialEstadisticas } from "./MundialEstadisticas.jsx";
 import { AdminPanel } from "./AdminPanel.jsx";
 import { hasAnyAdminRole } from "../admin-roles.js";
 import { CreateGroup } from "./CreateGroup.jsx";
@@ -570,7 +571,7 @@ function GroupApp({ groupId }) {
     {user && <nav className="porra-nav justify-center hidden md:flex" role="tablist" aria-label="Navegación principal">
       <button role="tab" aria-selected={view === "participante"} className={view === "participante" ? "nav-active" : ""} onClick={() => setView("participante")}>Mi apuesta</button>
       <button role="tab" aria-selected={view === "ranking"} className={view === "ranking" ? "nav-active" : ""} onClick={() => setView("ranking")}>Ranking</button>
-      {(mode === "f1" || mode === "futbol") && <button role="tab" aria-selected={view === "stats"} className={view === "stats" ? "nav-active" : ""} onClick={() => setView("stats")}>Estadísticas</button>}
+      {(mode === "f1" || mode === "futbol" || mode === "mundial") && <button role="tab" aria-selected={view === "stats"} className={view === "stats" ? "nav-active" : ""} onClick={() => setView("stats")}>Estadísticas</button>}
       {mode === "f1" && <button role="tab" aria-selected={view === "questions"} className={view === "questions" ? "nav-active" : ""} onClick={() => setView("questions")}>Preguntas</button>}
       {mode === "f1" && <button role="tab" aria-selected={view === "historico"} className={view === "historico" ? "nav-active" : ""} onClick={() => setView("historico")}>Histórico</button>}
       <button role="tab" aria-selected={view === "rules"} className={view === "rules" ? "nav-active" : ""} onClick={() => setView("rules")}>Normas</button>
@@ -604,6 +605,7 @@ function GroupApp({ groupId }) {
           <>
             {view === "participante" && <MundialParticipante user={user} db={db} setDb={setDbUser} />}
             {view === "ranking" && <MundialRanking db={db} />}
+            {view === "stats" && <MundialEstadisticas db={db} user={user} />}
             {view === "rules" && <MundialRules />}
           </>
         )}
