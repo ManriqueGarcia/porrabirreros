@@ -4,10 +4,6 @@ import { MADRID_TZ } from "../config.js";
 import { formatDateTime, formatTime } from "../utils.js";
 import { matchDisplayName } from "../mundial-utils.js";
 
-function emptyKo() {
-  return { penalties: null, penWinner: null };
-}
-
 export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit }) {
   const matches = jornada?.matches || [];
   const hasSavedBet = !!(bet?.submittedAt && bet?.matches?.some((m) => m?.home != null || m?.away != null));

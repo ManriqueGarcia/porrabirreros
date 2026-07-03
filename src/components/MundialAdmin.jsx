@@ -20,6 +20,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
   const [selected, setSelected] = useState(() => jornadas[0]?.id || "");
   const [matches, setMatches] = useState([]);
   const [scores, setScores] = useState([]);
+  const [champion, setChampion] = useState("");
   const [savingJornada, setSavingJornada] = useState(false);
   const prevSelectedRef = useRef(selected);
   const draftDirtyRef = useRef(false);
@@ -40,6 +41,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
       penalties: m.penalties ?? null,
       penWinner: m.penWinner ?? null,
     })));
+    setChampion(res?.champion || "");
     draftDirtyRef.current = false;
   }, [selected, mundial.jornadas?.[selected], mundial.results?.[selected]]);
 
@@ -78,19 +80,26 @@ export function MundialAdmin({ db, setDb, currentUser }) {
 
   const saveResults = async () => {
     if (!selected) return;
-    const parsed = scores.map((s, idx) => {
-      const row = {
-        home: s.home === "" || s.home == null ? null : Math.min(99, Math.max(0, parseInt(String(s.home), 10) || 0)),
-        away: s.away === "" || s.away == null ? null : Math.min(99, Math.max(0, parseInt(String(s.away), 10) || 0)),
-      };
-      if (matches[idx]?.knockout) {
-        if (s.extraTime != null) row.extraTime = s.extraTime;
-        if (s.penalties != null) row.penalties = s.penalties;
-        if (s.penWinner) row.penWinner = s.penWinner;
-      }
-      return row;
-    });
-    const resultData = { matches: parsed };
+    const jornada = mundial.jornadas?.[selected];
+    let resultData;
+    if (jornada?.phase === "champion") {
+      if (!champion.trim()) { toast.error("Introduce el país campeón antes de guardar"); return; }
+      resultData = { matches: [], champion: champion.trim() };
+    } else {
+      const parsed = scores.map((s, idx) => {
+        const row = {
+          home: s.home === "" || s.home == null ? null : Math.min(99, Math.max(0, parseInt(String(s.home), 10) || 0)),
+          away: s.away === "" || s.away == null ? null : Math.min(99, Math.max(0, parseInt(String(s.away), 10) || 0)),
+        };
+        if (matches[idx]?.knockout) {
+          if (s.extraTime != null) row.extraTime = s.extraTime;
+          if (s.penalties != null) row.penalties = s.penalties;
+          if (s.penWinner) row.penWinner = s.penWinner;
+        }
+        return row;
+      });
+      resultData = { matches: parsed };
+    }
     try {
       await saveResultMundial(selected, currentUser, resultData);
       skipNextRemoteSave();
@@ -117,42 +126,57 @@ export function MundialAdmin({ db, setDb, currentUser }) {
         {jornadas.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
       </select>
       {autoDeadline && <p className="text-xs text-amber-300/70">Cierre auto: {autoDeadline.toLocaleString("es-ES", { timeZone: "Europe/Madrid" })}</p>}
-      <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-        {matches.map((m, idx) => {
-          const { home, away } = matchDisplayName(m);
-          return (
-            <div key={idx} className="border border-white/10 rounded p-2 space-y-2 text-sm">
-              <div className="text-xs text-amber-200/80">Partido {idx + 1}{m.knockout ? " · KO" : ""}</div>
-              <div className="grid grid-cols-2 gap-2">
-                <input className="select border rounded px-2 py-1" value={m.home === "TBD" ? (m.homeLabel || "") : m.home} onChange={(e) => updateMatch(idx, m.home === "TBD" ? "homeLabel" : "home", e.target.value)} placeholder="Local" />
-                <input className="select border rounded px-2 py-1" value={m.away === "TBD" ? (m.awayLabel || "") : m.away} onChange={(e) => updateMatch(idx, m.away === "TBD" ? "awayLabel" : "away", e.target.value)} placeholder="Visitante" />
-              </div>
-              <input type="datetime-local" className="select border rounded px-2 py-1 w-full text-xs" value={m.kickoff ? toLocalDateTimeInput(new Date(m.kickoff)) : ""} onChange={(e) => updateMatch(idx, "kickoff", parseLocalDateTime(e.target.value)?.toISOString() || "")} />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ L" value={scores[idx]?.home} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, home: parseScoreField(e.target.value) } : s)); }} />
-                <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ V" value={scores[idx]?.away} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, away: parseScoreField(e.target.value) } : s)); }} />
-              </div>
-              {m.knockout && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: !s.extraTime, penWinner: !s.extraTime ? s.penWinner : null } : s)); }} /> Prórroga</label>
-                  {scores[idx]?.extraTime && (
-                    <>
-                      <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: !s.penalties } : s)); }} /> Penaltis</label>
-                      <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s)); }}>
-                        <option value="">— Ganador (ET/pen.) —</option>
-                        <option value="home">{home}</option>
-                        <option value="away">{away}</option>
-                      </select>
-                    </>
-                  )}
+      {mundial.jornadas?.[selected]?.phase === "champion" ? (
+        <div className="border border-amber-500/30 rounded p-3 space-y-2 bg-amber-500/[.04]">
+          <div className="text-xs font-semibold text-amber-200">🏆 Campeón del mundo (resultado)</div>
+          <input
+            className="select border rounded px-2 py-1 w-full text-sm"
+            placeholder="País campeón (dejar vacío hasta conocerlo)"
+            value={champion}
+            onChange={(e) => { markDraftDirty(); setChampion(e.target.value); }}
+          />
+          <p className="text-[10px] text-white/35">Introduce el país campeón y guarda resultados para puntuar</p>
+        </div>
+      ) : (
+        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          {matches.map((m, idx) => {
+            const { home, away } = matchDisplayName(m);
+            return (
+              <div key={idx} className="border border-white/10 rounded p-2 space-y-2 text-sm">
+                <div className="text-xs text-amber-200/80">Partido {idx + 1}{m.knockout ? " · KO" : ""}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="select border rounded px-2 py-1" value={m.home === "TBD" ? (m.homeLabel || "") : m.home} onChange={(e) => updateMatch(idx, m.home === "TBD" ? "homeLabel" : "home", e.target.value)} placeholder="Local" />
+                  <input className="select border rounded px-2 py-1" value={m.away === "TBD" ? (m.awayLabel || "") : m.away} onChange={(e) => updateMatch(idx, m.away === "TBD" ? "awayLabel" : "away", e.target.value)} placeholder="Visitante" />
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <input type="datetime-local" className="select border rounded px-2 py-1 w-full text-xs" value={m.kickoff ? toLocalDateTimeInput(new Date(m.kickoff)) : ""} onChange={(e) => updateMatch(idx, "kickoff", parseLocalDateTime(e.target.value)?.toISOString() || "")} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ L" value={scores[idx]?.home} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, home: parseScoreField(e.target.value) } : s)); }} />
+                  <input type="number" min="0" max="99" className="select border rounded px-2 py-1" placeholder="Goles 90′ V" value={scores[idx]?.away} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, away: parseScoreField(e.target.value) } : s)); }} />
+                </div>
+                {m.knockout && (
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <label><input type="checkbox" checked={scores[idx]?.extraTime === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, extraTime: !s.extraTime, penWinner: !s.extraTime ? s.penWinner : null } : s)); }} /> Prórroga</label>
+                    {scores[idx]?.extraTime && (
+                      <>
+                        <label><input type="checkbox" checked={scores[idx]?.penalties === true} onChange={() => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penalties: !s.penalties } : s)); }} /> Penaltis</label>
+                        <select className="select border rounded px-1 py-0.5" value={scores[idx]?.penWinner || ""} onChange={(e) => { markDraftDirty(); setScores((p) => p.map((s, i) => i === idx ? { ...s, penWinner: e.target.value || null } : s)); }}>
+                          <option value="">— Ganador (ET/pen.) —</option>
+                          <option value="home">{home}</option>
+                          <option value="away">{away}</option>
+                        </select>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
-        <button className="px-3 py-2 rounded bg-amber-700 text-white text-sm disabled:opacity-50" onClick={saveJornada} disabled={savingJornada}>Guardar jornada / partidos</button>
+        {mundial.jornadas?.[selected]?.phase !== "champion" && (
+          <button className="px-3 py-2 rounded bg-amber-700 text-white text-sm disabled:opacity-50" onClick={saveJornada} disabled={savingJornada}>Guardar jornada / partidos</button>
+        )}
         <button className="px-3 py-2 rounded bg-slate-800 text-white text-sm" onClick={saveResults}>Guardar resultados</button>
       </div>
       <p className="text-[11px] text-white/35">Edita cruces TBD, equipos estrella y marcadores. Participantes: {participants.join(", ") || "—"}</p>
