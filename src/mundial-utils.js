@@ -97,6 +97,18 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
     });
   });
 
+  if (res.champion && bet?.champion) {
+    const ok = bet.champion === res.champion;
+    if (ok) {
+      points += 10;
+      items.push({ label: `¿Campeón? ${bet.champion} ✅`, delta: 10 });
+    } else {
+      items.push({ label: `¿Campeón? ${bet.champion} vs ${res.champion}`, delta: 0 });
+    }
+  } else if (res.champion && !bet?.champion) {
+    items.push({ label: "¿Campeón? No apostaste", delta: 0 });
+  }
+
   const missed = !bet;
   let missingPenalty = 0;
   let latePenalty = 0;

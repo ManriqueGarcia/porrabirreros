@@ -70,6 +70,7 @@ export function MundialParticipante({ user, db, setDb }) {
     const ts = nowISO();
     const late = deadline ? new Date() >= deadline : false;
     const nextBet = { matches: payload.matches, trashtalk: payload.trashtalk, submittedAt: ts, late };
+    if (payload.champion) nextBet.champion = payload.champion;
     try {
       await saveBetMundial(selected, user, nextBet);
     } catch (err) {
@@ -150,8 +151,25 @@ export function MundialParticipante({ user, db, setDb }) {
                   <div className="flex items-center gap-2 mb-1"><Avatar name={name} size="sm" mode="futbol" /> <b>{name}</b></div>
                   {ob?.matches ? (jornada.matches || []).map((m, idx) => {
                     const { home, away } = matchDisplayName(m);
-                    return <div key={idx} className="text-white/50">{home} {ob.matches[idx]?.home}-{ob.matches[idx]?.away} {away}</div>;
+                    const b = ob.matches[idx];
+                    return (
+                      <div key={idx} className="text-white/50">
+                        {home} {b?.home ?? "—"}-{b?.away ?? "—"} {away}
+                        {m.knockout && (b?.penalties != null || b?.penWinner) && (
+                          <span className="text-white/30 text-[10px] ml-1">
+                            ({b?.penalties != null ? (b.penalties ? "penaltis" : "sin penaltis") : ""}
+                            {b?.penalties != null && b?.penWinner ? " · " : ""}
+                            {b?.penWinner ? `gana ${b.penWinner === "home" ? home : away}` : ""})
+                          </span>
+                        )}
+                      </div>
+                    );
                   }) : <span className="text-white/30">Sin apuesta</span>}
+                  {jornada.phase === "r16" && (
+                    <div className="mt-1 text-amber-300/70">
+                      🏆 Campeón: <span className="text-amber-100">{ob?.champion || <span className="text-white/30">—</span>}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

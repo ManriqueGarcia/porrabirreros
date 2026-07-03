@@ -8,8 +8,21 @@ function emptyKo() {
   return { penalties: null, penWinner: null };
 }
 
+function teamsFromJornada(jornada) {
+  if (!jornada?.matches?.length) return [];
+  const teams = new Set();
+  for (const m of jornada.matches) {
+    const { home, away } = matchDisplayName(m);
+    if (home && home !== "TBD") teams.add(home);
+    if (away && away !== "TBD") teams.add(away);
+  }
+  return [...teams].sort();
+}
+
 export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit }) {
   const matches = jornada?.matches || [];
+  const isChampionJornada = jornada?.phase === "r16";
+  const championTeams = isChampionJornada ? teamsFromJornada(jornada) : [];
   const hasSavedBet = !!(bet?.submittedAt && bet?.matches?.some((m) => m?.home != null || m?.away != null));
   const [editing, setEditing] = useState(!hasSavedBet);
   const [saving, setSaving] = useState(false);
@@ -26,7 +39,8 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
 
   const [scores, setScores] = useState(initialScores);
   const [trashtalk, setTrashtalk] = useState(bet?.trashtalk || "");
-  const betFingerprint = JSON.stringify([bet?.matches, bet?.submittedAt, bet?.trashtalk]);
+  const [champion, setChampion] = useState(bet?.champion || "");
+  const betFingerprint = JSON.stringify([bet?.matches, bet?.submittedAt, bet?.trashtalk, bet?.champion]);
   const prevJornadaIdRef = useRef(jornada?.id);
   const draftDirtyRef = useRef(false);
 
@@ -37,6 +51,7 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
 
     setScores(initialScores());
     setTrashtalk(bet?.trashtalk || "");
+    setChampion(bet?.champion || "");
     if (bet?.submittedAt && bet?.matches?.some((m) => m?.home != null || m?.away != null)) {
       setEditing(false);
       setSaving(false);
@@ -76,7 +91,9 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
     if (!allFilled) return toast.error("Rellena todos los marcadores (90′) antes de guardar");
     setSaving(true);
     try {
-      await onSubmit({ matches: buildPayloadMatches(), trashtalk: trashtalk.trim() });
+      const payload = { matches: buildPayloadMatches(), trashtalk: trashtalk.trim() };
+      if (isChampionJornada && champion) payload.champion = champion;
+      await onSubmit(payload);
       draftDirtyRef.current = false;
       setEditing(false);
     } catch {
@@ -127,6 +144,12 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
                 </div>
               );
             })}
+            {isChampionJornada && (
+              <div className="px-3 py-2 rounded-lg bg-amber-500/[.06] border border-amber-500/20 text-sm mt-2">
+                <div className="text-amber-300/70 text-xs mb-1">🏆 ¿Campeón del mundo?</div>
+                <span className="font-bold text-amber-100">{bet.champion || <span className="text-white/30">No apostaste</span>}</span>
+              </div>
+            )}
           </div>
         </div>
         <button disabled={!canEdit} onClick={() => setEditing(true)} className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium ${canEdit ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "opacity-40 cursor-not-allowed"}`}>
@@ -184,12 +207,27 @@ export function MundialBetForm({ jornada, bet, disabled, onSubmit, late, canEdit
           </div>
         );
       })}
+      {isChampionJornada && (
+        <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/[.06] space-y-2">
+          <div className="text-xs font-semibold text-amber-200">🏆 ¿Qué país ganará el Mundial?</div>
+          <p className="text-[10px] text-white/40">Elige un equipo de los que están en Octavos · +10 pts si aciertas</p>
+          <select
+            disabled={disabled}
+            className="select border rounded px-3 py-2 w-full text-sm"
+            value={champion}
+            onChange={(e) => { markDraftDirty(); setChampion(e.target.value); }}
+          >
+            <option value="">— Sin apuesta —</option>
+            {championTeams.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      )}
       <input disabled={disabled} className="select border rounded px-3 py-2 w-full text-sm" value={trashtalk} onChange={(e) => { markDraftDirty(); setTrashtalk(e.target.value); }} placeholder="Bravuconada (opcional)" maxLength={120} />
       <button disabled={disabled || !allFilled || saving} type="submit" className="w-full px-5 py-3 rounded-xl font-bold text-sm bg-amber-600/20 text-amber-100 border border-amber-500/30 disabled:opacity-40">
         {saving ? "⏳ Guardando..." : late ? "⚠️ Guardar (fuera de plazo)" : "🏆 Guardar apuesta mundial"}
       </button>
       {hasSavedBet && !saving && (
-        <button type="button" onClick={() => { setScores(initialScores()); setEditing(false); }} className="w-full text-sm text-white/40">Cancelar</button>
+        <button type="button" onClick={() => { setScores(initialScores()); setChampion(bet?.champion || ""); setEditing(false); }} className="w-full text-sm text-white/40">Cancelar</button>
       )}
     </form>
   );
