@@ -98,7 +98,6 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
     if (sign) signs++;
     const koBonus = mundialKnockoutBonus(pred, m, def.knockout, sign);
     points += koBonus.points;
-    items.push(...koBonus.items);
 
     if (pred && pred.home != null && pred.away != null && m.home != null && m.away != null) {
       goalDiff += Math.abs(Number(pred.home) - Number(m.home)) + Math.abs(Number(pred.away) - Number(m.away));
@@ -106,7 +105,7 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
       goalDiff += 10;
     }
     items.push({
-      label: `${hName} ${pred?.home ?? "?"}-${pred?.away ?? "?"} vs ${m.home ?? "?"}-${m.away ?? "?"}${koBonus.points ? ` (+${koBonus.points} KO)` : ""}`,
+      label: `${hName} ${pred?.home ?? "?"}-${pred?.away ?? "?"} ${aName} vs ${m.home ?? "?"}-${m.away ?? "?"}${koBonus.points ? ` (+${koBonus.points}KO)` : ""}`,
       delta: p + koBonus.points,
     });
   });

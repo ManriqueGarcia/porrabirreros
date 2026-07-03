@@ -377,25 +377,36 @@ export function MundialParticipante({ user, db, setDb }) {
             <p className="text-xs text-white/40">Visibles tras el cierre.</p>
           ) : (
             <div className="space-y-3">
-              {others.map(({ name, bet: ob }) => (
-                <div key={name} className="border border-white/10 rounded-lg p-2 text-xs">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Avatar name={name} size="sm" mode="futbol" />
-                    <b>{name}</b>
-                  </div>
-                  {isChampion ? (
-                    ob?.champion ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        {COUNTRY_FLAGS[ob.champion] && (
-                          <span className="text-2xl leading-none">{COUNTRY_FLAGS[ob.champion]}</span>
-                        )}
-                        <span className="text-amber-200/90 font-semibold">{ob.champion}</span>
+              {others.map(({ name, bet: ob }) => {
+                const otherScore = hasAnyResult ? scoreMundialJornada(db, selected, name) : null;
+                return (
+                  <div key={name} className="border border-white/10 rounded-lg p-2 text-xs">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Avatar name={name} size="sm" mode="futbol" />
+                      <b>{name}</b>
+                      {otherScore && <span className="ml-auto font-bold text-amber-200">{otherScore.points} pts</span>}
+                    </div>
+                    {isChampion ? (
+                      ob?.champion ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          {COUNTRY_FLAGS[ob.champion] && (
+                            <span className="text-2xl leading-none">{COUNTRY_FLAGS[ob.champion]}</span>
+                          )}
+                          <span className="text-amber-200/90 font-semibold">{ob.champion}</span>
+                        </div>
+                      ) : (
+                        <span className="text-white/30">Sin apuesta</span>
+                      )
+                    ) : otherScore ? (
+                      <div className="space-y-0.5 mt-1">
+                        {otherScore.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-white/50">
+                            <span className="truncate pr-2">{item.label}</span>
+                            <span className={item.delta > 0 ? "text-emerald-300" : item.delta < 0 ? "text-red-400" : ""}>{item.delta > 0 ? `+${item.delta}` : item.delta}</span>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <span className="text-white/30">Sin apuesta</span>
-                    )
-                  ) : (
-                    ob?.matches ? (
+                    ) : ob?.matches ? (
                       (jornada.matches || []).map((m, idx) => {
                         const { home, away } = matchDisplayName(m);
                         const b = ob.matches[idx];
@@ -414,10 +425,10 @@ export function MundialParticipante({ user, db, setDb }) {
                       })
                     ) : (
                       <span className="text-white/30">Sin apuesta</span>
-                    )
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
