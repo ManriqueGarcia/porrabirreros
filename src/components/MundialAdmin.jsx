@@ -86,7 +86,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
       if (matches[idx]?.knockout) {
         if (s.extraTime != null) row.extraTime = s.extraTime;
         if (s.penalties != null) row.penalties = s.penalties;
-        if (s.penalties && s.penWinner) row.penWinner = s.penWinner;
+        if (s.penWinner) row.penWinner = s.penWinner;
       }
       return row;
     });
