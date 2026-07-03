@@ -10,6 +10,22 @@ import { MundialBetForm } from "./MundialBetForm.jsx";
 import { CountdownBadge } from "./CountdownBadge.jsx";
 import { fireConfetti } from "../confetti.js";
 
+const COUNTRY_FLAGS = {
+  "Argentina": "🇦🇷", "Brasil": "🇧🇷", "España": "🇪🇸", "Francia": "🇫🇷",
+  "Alemania": "🇩🇪", "Portugal": "🇵🇹", "Países Bajos": "🇳🇱", "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "México": "🇲🇽", "Uruguay": "🇺🇾", "Colombia": "🇨🇴", "Marruecos": "🇲🇦",
+  "Japón": "🇯🇵", "Corea del Sur": "🇰🇷", "Suiza": "🇨🇭", "Austria": "🇦🇹",
+  "Bélgica": "🇧🇪", "Turquía": "🇹🇷", "Croacia": "🇭🇷", "Senegal": "🇸🇳",
+  "Australia": "🇦🇺", "Estados Unidos": "🇺🇸", "Canadá": "🇨🇦", "Ecuador": "🇪🇨",
+  "Ghana": "🇬🇭", "Egipto": "🇪🇬", "Suecia": "🇸🇪", "Noruega": "🇳🇴",
+  "Polonia": "🇵🇱", "Escocia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Arabia Saudita": "🇸🇦", "Irán": "🇮🇷",
+  "Irak": "🇮🇶", "Jordania": "🇯🇴", "Uzbekistán": "🇺🇿", "Haití": "🇭🇹",
+  "Cabo Verde": "🇨🇻", "Sudáfrica": "🇿🇦", "Rep. Dem. del Congo": "🇨🇩",
+  "Costa de Marfil": "🇨🇮", "Argelia": "🇩🇿", "Curazao": "🇨🇼",
+  "Bosnia y Herzegovina": "🇧🇦", "Panamá": "🇵🇦", "Paraguay": "🇵🇾",
+  "Chequia": "🇨🇿", "Rumania": "🇷🇴", "Serbia": "🇷🇸", "Dinamarca": "🇩🇰",
+};
+
 function teamsFromJornada(jornada) {
   if (!jornada?.matches?.length) return [];
   const teams = new Set();
@@ -46,19 +62,28 @@ function ChampionBetForm({ bet, disabled, canEdit, late, onSubmit, teams }) {
   };
 
   if (hasSavedBet && !editing) {
+    const savedFlag = COUNTRY_FLAGS[bet.champion];
     return (
       <div className="space-y-3">
-        <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/[.04]">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-amber-400 text-lg">✅</span>
-            <span className="text-sm font-semibold text-amber-200">Apuesta registrada</span>
+        <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-900/50 via-yellow-900/20 to-amber-800/30 p-5 text-center">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+          <span className="absolute top-2 left-3 text-amber-400/40 text-base select-none">✦</span>
+          <span className="absolute top-2 right-3 text-amber-400/40 text-base select-none">✦</span>
+          <div className="relative space-y-1">
+            <div className="text-3xl">🏆</div>
+            <div className="text-[10px] font-semibold text-amber-300/60 uppercase tracking-widest">Tu apuesta</div>
+            {savedFlag && (
+              <div className="text-5xl mt-1 leading-none" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" }}>
+                {savedFlag}
+              </div>
+            )}
+            <div className="text-2xl font-black text-amber-100 mt-1">{bet.champion}</div>
             {bet.late && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20 ml-1">
+              <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 mt-1">
                 Fuera de plazo
               </span>
             )}
           </div>
-          <div className="text-2xl font-bold text-amber-100">{bet.champion}</div>
         </div>
         <button
           disabled={!canEdit}
@@ -73,27 +98,68 @@ function ChampionBetForm({ bet, disabled, canEdit, late, onSubmit, teams }) {
     );
   }
 
+  const previewFlag = COUNTRY_FLAGS[champion];
+
   return (
     <form className="space-y-4" onSubmit={submit}>
-      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/[.06] space-y-3">
-        <div className="text-sm text-amber-200/70">Elige el país que crees que ganará el Mundial:</div>
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-900/40 to-amber-900/10 px-4 pt-5 pb-4 text-center">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+        <div
+          className="text-5xl mb-2 inline-block"
+          style={{ filter: "drop-shadow(0 0 18px rgba(251,191,36,0.55))" }}
+        >
+          🏆
+        </div>
+        <div className="text-base font-black text-amber-100 tracking-tight">¿Quién ganará el Mundial?</div>
+        <div className="text-[11px] text-amber-300/60 mt-0.5 mb-3">
+          La pregunta del torneo · responde antes del primer partido de Octavos
+        </div>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 text-xs font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+          +10 pts si aciertas
+        </span>
+      </div>
+
+      {/* Country picker */}
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[.06] p-4 space-y-3">
+        <div className="text-xs text-amber-200/70 font-medium">Selecciona tu campeón del mundo:</div>
+        <div className="text-center min-h-[64px] flex flex-col items-center justify-center">
+          {previewFlag ? (
+            <>
+              <span
+                className="text-6xl leading-none"
+                style={{ filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.6))" }}
+              >
+                {previewFlag}
+              </span>
+              <div className="text-sm font-bold text-amber-100 mt-1">{champion}</div>
+            </>
+          ) : (
+            <span className="text-3xl text-white/10">🌐</span>
+          )}
+        </div>
         <select
           disabled={disabled}
-          className="select border rounded px-3 py-2 w-full text-base font-semibold"
+          className="select border rounded px-3 py-2.5 w-full text-sm font-semibold"
           value={champion}
           onChange={(e) => setChampion(e.target.value)}
         >
-          <option value="">— Selecciona un país —</option>
-          {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+          <option value="">— Elige un país —</option>
+          {teams.map((t) => (
+            <option key={t} value={t}>
+              {COUNTRY_FLAGS[t] ? `${COUNTRY_FLAGS[t]} ${t}` : t}
+            </option>
+          ))}
         </select>
-        <p className="text-[10px] text-white/35">+10 pts si aciertas el campeón del mundo</p>
       </div>
+
       <button
         disabled={disabled || !champion || saving}
         type="submit"
-        className="w-full px-5 py-3 rounded-xl font-bold text-sm bg-amber-600/20 text-amber-100 border border-amber-500/30 disabled:opacity-40"
+        className="w-full px-5 py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-amber-700/50 to-yellow-700/30 text-amber-100 border border-amber-400/40 disabled:opacity-40 shadow-lg shadow-amber-900/20 hover:from-amber-600/60 hover:to-yellow-600/40 transition-all"
       >
-        {saving ? "⏳ Guardando..." : late ? "⚠️ Guardar (fuera de plazo)" : "🏆 Guardar apuesta"}
+        {saving ? "⏳ Guardando..." : late ? "⚠️ Guardar (fuera de plazo)" : "🏆 ¡Apostar por mi campeón!"}
       </button>
       {hasSavedBet && !saving && (
         <button
@@ -228,12 +294,19 @@ export function MundialParticipante({ user, db, setDb }) {
           )}
         </div>
 
+        {/* Jornada dropdown — champion option gets golden treatment */}
         <select
-          className="select select-strong border rounded px-3 py-2 mb-3 w-full"
+          className={`select select-strong border rounded px-3 py-2 mb-3 w-full transition-colors ${
+            isChampion ? "border-amber-400/50 text-amber-100 font-semibold" : ""
+          }`}
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
         >
-          {jornadas.map((j) => <option key={j.id} value={j.id}>{j.name || j.id}</option>)}
+          {jornadas.map((j) => (
+            <option key={j.id} value={j.id}>
+              {j.phase === "champion" ? "🏆 ¿Quién ganará el Mundial? · +10 pts" : (j.name || j.id)}
+            </option>
+          ))}
         </select>
 
         {jornada && betCount.total > 0 && !hasResult && (
@@ -306,9 +379,16 @@ export function MundialParticipante({ user, db, setDb }) {
                     <b>{name}</b>
                   </div>
                   {isChampion ? (
-                    <div className="text-amber-200/80 font-semibold">
-                      {ob?.champion || <span className="text-white/30">Sin apuesta</span>}
-                    </div>
+                    ob?.champion ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        {COUNTRY_FLAGS[ob.champion] && (
+                          <span className="text-2xl leading-none">{COUNTRY_FLAGS[ob.champion]}</span>
+                        )}
+                        <span className="text-amber-200/90 font-semibold">{ob.champion}</span>
+                      </div>
+                    ) : (
+                      <span className="text-white/30">Sin apuesta</span>
+                    )
                   ) : (
                     ob?.matches ? (
                       (jornada.matches || []).map((m, idx) => {
