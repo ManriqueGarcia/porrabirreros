@@ -57,6 +57,33 @@ describe("mundial scoring", () => {
     expect(s.points).toBe(3); // signo +1, penaltis +1, ganador +1
   });
 
+  it("KO jornada: ET without penalties still awards winner bonus", () => {
+    const seed = buildMundialSeedState();
+    const jId = "wc-r32";
+    const db = {
+      mundial: {
+        ...seed,
+        results: {
+          [jId]: {
+            matches: [{ home: 1, away: 1, extraTime: true, penalties: false, penWinner: "home" }],
+          },
+        },
+        bets: {
+          [jId]: {
+            Alice: {
+              matches: [{ home: 0, away: 0, penalties: false, penWinner: "home" }],
+              submittedAt: "2026-01-01T00:00:00.000Z",
+              late: false,
+            },
+          },
+        },
+      },
+    };
+    const s = scoreMundialJornada(db, jId, "Alice");
+    expect(s.signs).toBe(1);
+    expect(s.points).toBe(3); // signo +1, penaltis (no) +1, ganador ET +1
+  });
+
   it("scores high two-digit results (e.g. 21-0)", () => {
     const seed = buildMundialSeedState();
     const jId = "wc-md1";
