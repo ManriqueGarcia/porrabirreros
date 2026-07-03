@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNow, nowISO, formatDateTime, formatTime } from "../utils.js";
+import { useNow, nowISO, formatDateTime } from "../utils.js";
 import { MADRID_TZ } from "../config.js";
 import { saveBetMundial } from "../api.js";
 import { toast } from "../toast.jsx";
@@ -10,19 +10,121 @@ import { MundialBetForm } from "./MundialBetForm.jsx";
 import { CountdownBadge } from "./CountdownBadge.jsx";
 import { fireConfetti } from "../confetti.js";
 
+function teamsFromJornada(jornada) {
+  if (!jornada?.matches?.length) return [];
+  const teams = new Set();
+  for (const m of jornada.matches) {
+    const { home, away } = matchDisplayName(m);
+    if (home && home !== "TBD") teams.add(home);
+    if (away && away !== "TBD") teams.add(away);
+  }
+  return [...teams].sort();
+}
+
+function ChampionBetForm({ bet, disabled, canEdit, late, onSubmit, teams }) {
+  const [champion, setChampion] = useState(bet?.champion || "");
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const hasSavedBet = !!(bet?.champion && bet?.submittedAt);
+
+  useEffect(() => {
+    setChampion(bet?.champion || "");
+    if (bet?.submittedAt && bet?.champion) setEditing(false);
+  }, [bet?.champion, bet?.submittedAt]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!champion) return toast.error("Selecciona un campeón antes de guardar");
+    setSaving(true);
+    try {
+      await onSubmit({ champion, matches: [] });
+      setEditing(false);
+    } catch {
+      // onSubmit shows error toast
+    }
+    setSaving(false);
+  };
+
+  if (hasSavedBet && !editing) {
+    return (
+      <div className="space-y-3">
+        <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/[.04]">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-400 text-lg">✅</span>
+            <span className="text-sm font-semibold text-amber-200">Apuesta registrada</span>
+            {bet.late && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20 ml-1">
+                Fuera de plazo
+              </span>
+            )}
+          </div>
+          <div className="text-2xl font-bold text-amber-100">{bet.champion}</div>
+        </div>
+        <button
+          disabled={!canEdit}
+          onClick={() => setEditing(true)}
+          className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium ${
+            canEdit ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "opacity-40 cursor-not-allowed"
+          }`}
+        >
+          {canEdit ? "✏️ Cambiar apuesta" : "🔒 Apuestas cerradas"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="space-y-4" onSubmit={submit}>
+      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/[.06] space-y-3">
+        <div className="text-sm text-amber-200/70">Elige el país que crees que ganará el Mundial:</div>
+        <select
+          disabled={disabled}
+          className="select border rounded px-3 py-2 w-full text-base font-semibold"
+          value={champion}
+          onChange={(e) => setChampion(e.target.value)}
+        >
+          <option value="">— Selecciona un país —</option>
+          {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <p className="text-[10px] text-white/35">+10 pts si aciertas el campeón del mundo</p>
+      </div>
+      <button
+        disabled={disabled || !champion || saving}
+        type="submit"
+        className="w-full px-5 py-3 rounded-xl font-bold text-sm bg-amber-600/20 text-amber-100 border border-amber-500/30 disabled:opacity-40"
+      >
+        {saving ? "⏳ Guardando..." : late ? "⚠️ Guardar (fuera de plazo)" : "🏆 Guardar apuesta"}
+      </button>
+      {hasSavedBet && !saving && (
+        <button
+          type="button"
+          onClick={() => { setChampion(bet.champion); setEditing(false); }}
+          className="w-full text-sm text-white/40"
+        >
+          Cancelar
+        </button>
+      )}
+    </form>
+  );
+}
+
 export function MundialParticipante({ user, db, setDb }) {
   const now = useNow();
   const [showOthers, setShowOthers] = useState(false);
   const mundial = db.mundial || defaultMundialState();
   const jornadas = useMemo(() => listMundialJornadas(mundial), [mundial]);
-  const mundialHasAllResults = (j) => {
+
+  const mundialHasResult = (j) => {
+    if (!j) return false;
+    if (j.phase === "champion") return !!(mundial.results?.[j.id]?.champion);
     const r = mundial.results?.[j.id];
     return !!(r && r.matches?.length > 0 && r.matches.every((m) => m.home != null && m.away != null));
   };
+
   const [selected, setSelected] = useState(() => {
     const nowMs = Date.now();
     const pendingResult = [...jornadas]
-      .filter(j => { const dl = getEffectiveDeadline(j); return dl && dl.getTime() <= nowMs && !mundialHasAllResults(j); })
+      .filter((j) => { const dl = getEffectiveDeadline(j); return dl && dl.getTime() <= nowMs && !mundialHasResult(j); })
       .pop();
     if (pendingResult) return pendingResult.id;
     const upcoming = jornadas.find((j) => {
@@ -36,7 +138,7 @@ export function MundialParticipante({ user, db, setDb }) {
     if ((!selected || !jornadas.find((j) => j.id === selected)) && jornadas.length) {
       const nowMs = Date.now();
       const pendingResult = [...jornadas]
-        .filter(j => { const dl = getEffectiveDeadline(j); return dl && dl.getTime() <= nowMs && !mundialHasAllResults(j); })
+        .filter((j) => { const dl = getEffectiveDeadline(j); return dl && dl.getTime() <= nowMs && !mundialHasResult(j); })
         .pop();
       if (pendingResult) { setSelected(pendingResult.id); return; }
       const upcoming = jornadas.find((j) => {
@@ -45,32 +147,42 @@ export function MundialParticipante({ user, db, setDb }) {
       });
       setSelected(upcoming?.id || jornadas[0]?.id);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, jornadas]);
 
   const jornada = jornadas.find((j) => j.id === selected);
+  const isChampion = jornada?.phase === "champion";
   const deadline = jornada ? getEffectiveDeadline(jornada) : null;
   const manualWindow = mundial.betsWindow?.[selected];
   const manualReveal = mundial.betsReveal?.[selected];
   const isLate = deadline ? now >= deadline : false;
-  const jornadaResult = jornada ? mundial.results?.[selected] : null;
-  const hasResult = !!(jornadaResult && jornadaResult.matches?.length > 0 && jornadaResult.matches.every((m) => m.home != null && m.away != null));
+  const hasResult = mundialHasResult(jornada);
   const canEdit = !manualWindow?.forceClosed && !hasResult;
   const revealAt = deadline ? new Date(deadline.getTime() + 60 * 1000) : null;
   const canViewFull = manualReveal?.forceShow || (!!revealAt && now > revealAt);
-  const bet = jornada ? (mundial.bets?.[selected]?.[user] || { matches: [], submittedAt: null, late: false }) : null;
-  const res = jornada ? mundial.results?.[selected] : null;
+
+  const bet = jornada
+    ? (mundial.bets?.[selected]?.[user] || (isChampion ? {} : { matches: [], submittedAt: null, late: false }))
+    : null;
+
   const participants = useMemo(() => getParticipantsForPorra(db, "mundial"), [db.participants, db.users]);
-  const others = participants.filter((n) => n !== user).map((name) => ({ name, bet: jornada ? mundial.bets?.[selected]?.[name] : null }));
-  const myScore = jornada && res ? scoreMundialJornada(db, selected, user) : null;
+  const others = participants.filter((n) => n !== user).map((name) => ({
+    name, bet: jornada ? mundial.bets?.[selected]?.[name] : null,
+  }));
+  const myScore = jornada && hasResult ? scoreMundialJornada(db, selected, user) : null;
   const [saving, setSaving] = useState(false);
+
+  const r16Jornada = mundial.jornadas?.["wc-r16"];
+  const championTeams = useMemo(() => teamsFromJornada(r16Jornada), [r16Jornada]);
 
   const saveBet = async (payload) => {
     if (!jornada || saving) throw new Error("busy");
     setSaving(true);
     const ts = nowISO();
     const late = deadline ? new Date() >= deadline : false;
-    const nextBet = { matches: payload.matches, trashtalk: payload.trashtalk, submittedAt: ts, late };
-    if (payload.champion) nextBet.champion = payload.champion;
+    const nextBet = isChampion
+      ? { champion: payload.champion, matches: [], submittedAt: ts, late }
+      : { matches: payload.matches, trashtalk: payload.trashtalk, submittedAt: ts, late };
     try {
       await saveBetMundial(selected, user, nextBet);
     } catch (err) {
@@ -101,19 +213,33 @@ export function MundialParticipante({ user, db, setDb }) {
     <div className={`grid gap-4 ${showOthers ? "md:grid-cols-[minmax(0,1fr)_minmax(220px,340px)]" : ""}`}>
       <div className="card card-racing p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">🏆 Mundial 2026 <span className="text-xs opacity-40">· al final, cena de bocata al campeón</span></h2>
+          <h2 className="section-title">
+            🏆 Mundial 2026{" "}
+            <span className="text-xs opacity-40">· al final, cena de bocata al campeón</span>
+          </h2>
           {jornada && (
-            <button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/80" onClick={() => setShowOthers((p) => !p)}>
+            <button
+              type="button"
+              className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/80"
+              onClick={() => setShowOthers((p) => !p)}
+            >
               {showOthers ? "Ocultar" : "👀 Ver otras apuestas"}
             </button>
           )}
         </div>
-        <select className="select select-strong border rounded px-3 py-2 mb-3 w-full" value={selected} onChange={(e) => setSelected(e.target.value)}>
+
+        <select
+          className="select select-strong border rounded px-3 py-2 mb-3 w-full"
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+        >
           {jornadas.map((j) => <option key={j.id} value={j.id}>{j.name || j.id}</option>)}
         </select>
+
         {jornada && betCount.total > 0 && !hasResult && (
           <div className="text-xs text-amber-300/70 mb-3">{betCount.done}/{betCount.total} han apostado</div>
         )}
+
         {jornada && deadline && (
           <div className="mb-3 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-sm">
             <span className="font-semibold text-amber-200">Cierre: </span>
@@ -122,11 +248,33 @@ export function MundialParticipante({ user, db, setDb }) {
             <CountdownBadge target={deadline} />
           </div>
         )}
+
         {jornada ? (
-          <MundialBetForm jornada={jornada} bet={bet} disabled={!canEdit || saving} canEdit={canEdit && !saving} late={isLate} onSubmit={saveBet} />
+          isChampion ? (
+            <ChampionBetForm
+              bet={bet}
+              disabled={!canEdit || saving}
+              canEdit={canEdit && !saving}
+              late={isLate}
+              onSubmit={saveBet}
+              teams={championTeams}
+            />
+          ) : (
+            <MundialBetForm
+              jornada={jornada}
+              bet={bet}
+              disabled={!canEdit || saving}
+              canEdit={canEdit && !saving}
+              late={isLate}
+              onSubmit={saveBet}
+            />
+          )
         ) : (
-          <p className="text-sm text-white/40 text-center py-6">Calendario no cargado. Recarga o contacta al admin.</p>
+          <p className="text-sm text-white/40 text-center py-6">
+            Calendario no cargado. Recarga o contacta al admin.
+          </p>
         )}
+
         {myScore && (
           <div className="mt-4 p-4 rounded-xl border border-amber-500/15 bg-amber-500/5">
             <div className="font-bold text-lg text-amber-200 mb-2">{myScore.points} pts</div>
@@ -134,41 +282,54 @@ export function MundialParticipante({ user, db, setDb }) {
               {myScore.items.map((item, idx) => (
                 <div key={idx} className="flex justify-between text-xs text-white/50">
                   <span className="truncate pr-2">{item.label}</span>
-                  <span className={item.delta > 0 ? "text-emerald-300" : item.delta < 0 ? "text-red-400" : ""}>{item.delta > 0 ? `+${item.delta}` : item.delta}</span>
+                  <span className={item.delta > 0 ? "text-emerald-300" : item.delta < 0 ? "text-red-400" : ""}>
+                    {item.delta > 0 ? `+${item.delta}` : item.delta}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         )}
       </div>
+
       {showOthers && jornada && (
         <div className="card p-4">
           <h3 className="section-title mb-3">Apuestas de otros</h3>
-          {!canViewFull ? <p className="text-xs text-white/40">Visibles tras el cierre.</p> : (
+          {!canViewFull ? (
+            <p className="text-xs text-white/40">Visibles tras el cierre.</p>
+          ) : (
             <div className="space-y-3">
               {others.map(({ name, bet: ob }) => (
                 <div key={name} className="border border-white/10 rounded-lg p-2 text-xs">
-                  <div className="flex items-center gap-2 mb-1"><Avatar name={name} size="sm" mode="futbol" /> <b>{name}</b></div>
-                  {ob?.matches ? (jornada.matches || []).map((m, idx) => {
-                    const { home, away } = matchDisplayName(m);
-                    const b = ob.matches[idx];
-                    return (
-                      <div key={idx} className="text-white/50">
-                        {home} {b?.home ?? "—"}-{b?.away ?? "—"} {away}
-                        {m.knockout && (b?.penalties != null || b?.penWinner) && (
-                          <span className="text-white/30 text-[10px] ml-1">
-                            ({b?.penalties != null ? (b.penalties ? "penaltis" : "sin penaltis") : ""}
-                            {b?.penalties != null && b?.penWinner ? " · " : ""}
-                            {b?.penWinner ? `gana ${b.penWinner === "home" ? home : away}` : ""})
-                          </span>
-                        )}
-                      </div>
-                    );
-                  }) : <span className="text-white/30">Sin apuesta</span>}
-                  {jornada.phase === "r16" && (
-                    <div className="mt-1 text-amber-300/70">
-                      🏆 Campeón: <span className="text-amber-100">{ob?.champion || <span className="text-white/30">—</span>}</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Avatar name={name} size="sm" mode="futbol" />
+                    <b>{name}</b>
+                  </div>
+                  {isChampion ? (
+                    <div className="text-amber-200/80 font-semibold">
+                      {ob?.champion || <span className="text-white/30">Sin apuesta</span>}
                     </div>
+                  ) : (
+                    ob?.matches ? (
+                      (jornada.matches || []).map((m, idx) => {
+                        const { home, away } = matchDisplayName(m);
+                        const b = ob.matches[idx];
+                        return (
+                          <div key={idx} className="text-white/50">
+                            {home} {b?.home ?? "—"}-{b?.away ?? "—"} {away}
+                            {m.knockout && (b?.penalties != null || b?.penWinner) && (
+                              <span className="text-white/30 text-[10px] ml-1">
+                                ({b?.penalties != null ? (b.penalties ? "penaltis" : "sin penaltis") : ""}
+                                {b?.penalties != null && b?.penWinner ? " · " : ""}
+                                {b?.penWinner ? `gana ${b.penWinner === "home" ? home : away}` : ""})
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <span className="text-white/30">Sin apuesta</span>
+                    )
                   )}
                 </div>
               ))}

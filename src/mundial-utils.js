@@ -48,6 +48,20 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
   const jornada = mundial.jornadas?.[jornadaId];
   const bet = mundial.bets?.[jornadaId]?.[name];
   const res = mundial.results?.[jornadaId];
+
+  if (jornada?.phase === "champion") {
+    const hasRes = !!(res?.champion);
+    if (!hasRes) return { pending: true, points: 0, exact: 0, signs: 0, qHits: 0, missed: false, catPenalty: 0, missingPenalty: 0, latePenalty: 0, late: false, goalDiff: 0, items: [], notYetJoined: false };
+    if (!bet?.champion) return { pending: false, points: 0, exact: 0, signs: 0, qHits: 0, missed: true, catPenalty: 0, missingPenalty: 0, latePenalty: 0, late: false, goalDiff: 0, items: [{ label: "¿Campeón del mundo? No apostaste", delta: 0 }], notYetJoined: false };
+    const ok = bet.champion === res.champion;
+    const pts = ok ? 10 : 0;
+    return {
+      pending: false, points: pts, exact: 0, signs: 0, qHits: 0, missed: false, catPenalty: 0,
+      missingPenalty: 0, latePenalty: 0, late: false, goalDiff: 0, notYetJoined: false,
+      items: [{ label: ok ? `¿Campeón del mundo? ${bet.champion} ✅` : `¿Campeón del mundo? ${bet.champion} vs ${res.champion}`, delta: pts }],
+    };
+  }
+
   if (!res) {
     return {
       pending: true, points: 0, exact: 0, signs: 0, qHits: 0, missed: false, catPenalty: 0,
@@ -96,18 +110,6 @@ export function scoreMundialJornada(db, jornadaId, name, userCreatedAt) {
       delta: p + koBonus.points,
     });
   });
-
-  if (res.champion && bet?.champion) {
-    const ok = bet.champion === res.champion;
-    if (ok) {
-      points += 10;
-      items.push({ label: `¿Campeón? ${bet.champion} ✅`, delta: 10 });
-    } else {
-      items.push({ label: `¿Campeón? ${bet.champion} vs ${res.champion}`, delta: 0 });
-    }
-  } else if (res.champion && !bet?.champion) {
-    items.push({ label: "¿Campeón? No apostaste", delta: 0 });
-  }
 
   const missed = !bet;
   let missingPenalty = 0;
