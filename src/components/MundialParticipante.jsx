@@ -145,15 +145,42 @@ export function MundialParticipante({ user, db, setDb }) {
           <h3 className="section-title mb-3">Apuestas de otros</h3>
           {!canViewFull ? <p className="text-xs text-white/40">Visibles tras el cierre.</p> : (
             <div className="space-y-3">
-              {others.map(({ name, bet: ob }) => (
-                <div key={name} className="border border-white/10 rounded-lg p-2 text-xs">
-                  <div className="flex items-center gap-2 mb-1"><Avatar name={name} size="sm" mode="futbol" /> <b>{name}</b></div>
-                  {ob?.matches ? (jornada.matches || []).map((m, idx) => {
-                    const { home, away } = matchDisplayName(m);
-                    return <div key={idx} className="text-white/50">{home} {ob.matches[idx]?.home}-{ob.matches[idx]?.away} {away}</div>;
-                  }) : <span className="text-white/30">Sin apuesta</span>}
-                </div>
-              ))}
+              {others.map(({ name, bet: ob }) => {
+                const otherScore = res ? scoreMundialJornada(db, selected, name) : null;
+                return (
+                  <div key={name} className="border border-white/10 rounded-lg p-2 text-xs">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Avatar name={name} size="sm" mode="futbol" /> <b>{name}</b>
+                      {otherScore && <span className="ml-auto font-bold text-amber-200">{otherScore.points} pts</span>}
+                    </div>
+                    {otherScore ? (
+                      <div className="space-y-0.5 mt-1">
+                        {otherScore.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-white/50">
+                            <span className="truncate pr-2">{item.label}</span>
+                            <span className={item.delta > 0 ? "text-emerald-300" : item.delta < 0 ? "text-red-400" : ""}>{item.delta > 0 ? `+${item.delta}` : item.delta}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : ob?.matches ? (jornada.matches || []).map((m, idx) => {
+                      const { home, away } = matchDisplayName(m);
+                      const b = ob.matches[idx];
+                      return (
+                        <div key={idx} className="text-white/50">
+                          {home} {b?.home ?? "—"}-{b?.away ?? "—"} {away}
+                          {m.knockout && (b?.penalties != null || b?.penWinner) && (
+                            <span className="text-white/30 text-[10px] ml-1">
+                              ({b?.penalties != null ? (b.penalties ? "penaltis" : "sin penaltis") : ""}
+                              {b?.penalties != null && b?.penWinner ? " · " : ""}
+                              {b?.penWinner ? `gana ${b.penWinner === "home" ? home : away}` : ""})
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }) : <span className="text-white/30">Sin apuesta</span>}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
