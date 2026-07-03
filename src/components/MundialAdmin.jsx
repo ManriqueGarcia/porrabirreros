@@ -20,6 +20,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
   const [selected, setSelected] = useState(() => jornadas[0]?.id || "");
   const [matches, setMatches] = useState([]);
   const [scores, setScores] = useState([]);
+  const [champion, setChampion] = useState("");
   const [savingJornada, setSavingJornada] = useState(false);
   const prevSelectedRef = useRef(selected);
   const draftDirtyRef = useRef(false);
@@ -40,6 +41,7 @@ export function MundialAdmin({ db, setDb, currentUser }) {
       penalties: m.penalties ?? null,
       penWinner: m.penWinner ?? null,
     })));
+    setChampion(res?.champion || "");
     draftDirtyRef.current = false;
   }, [selected, mundial.jornadas?.[selected], mundial.results?.[selected]]);
 
@@ -91,6 +93,8 @@ export function MundialAdmin({ db, setDb, currentUser }) {
       return row;
     });
     const resultData = { matches: parsed };
+    const jornada = mundial.jornadas?.[selected];
+    if (jornada?.phase === "r16" && champion.trim()) resultData.champion = champion.trim();
     try {
       await saveResultMundial(selected, currentUser, resultData);
       skipNextRemoteSave();
@@ -151,6 +155,18 @@ export function MundialAdmin({ db, setDb, currentUser }) {
           );
         })}
       </div>
+      {mundial.jornadas?.[selected]?.phase === "r16" && (
+        <div className="border border-amber-500/30 rounded p-3 space-y-2 bg-amber-500/[.04]">
+          <div className="text-xs font-semibold text-amber-200">🏆 Campeón del mundo (resultado)</div>
+          <input
+            className="select border rounded px-2 py-1 w-full text-sm"
+            placeholder="País campeón (dejar vacío hasta conocerlo)"
+            value={champion}
+            onChange={(e) => { markDraftDirty(); setChampion(e.target.value); }}
+          />
+          <p className="text-[10px] text-white/35">Se incluye al guardar resultados · deja vacío si aún no hay campeón</p>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <button className="px-3 py-2 rounded bg-amber-700 text-white text-sm disabled:opacity-50" onClick={saveJornada} disabled={savingJornada}>Guardar jornada / partidos</button>
         <button className="px-3 py-2 rounded bg-slate-800 text-white text-sm" onClick={saveResults}>Guardar resultados</button>

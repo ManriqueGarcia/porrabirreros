@@ -159,6 +159,7 @@ function validateMundialBet(bet) {
     const ex = validateMundialMatchExtras(m);
     if (ex) return ex;
   }
+  if (bet.champion != null && (typeof bet.champion !== "string" || bet.champion.length > 100)) return "champion inválido";
   return null;
 }
 
@@ -169,6 +170,7 @@ function validateMundialResult(result) {
     const ex = validateMundialMatchExtras(m);
     if (ex) return ex;
   }
+  if (result.champion != null && (typeof result.champion !== "string" || result.champion.length > 100)) return "champion inválido";
   return null;
 }
 
@@ -641,6 +643,7 @@ async function handleSaveBetMundial(jornadaId, reqUser, body) {
   const tt = sanitizeTrashtalk(bet);
   const betData = { matches: bet.matches || [], submittedAt: ts, late };
   if (tt) betData.trashtalk = tt;
+  if (bet.champion) betData.champion = String(bet.champion).trim().slice(0, 100);
 
   await putItem(`MUN#${jornadaId}`, `BET#${reqUser}`, betData);
   await appendToHistory(`MUN#${jornadaId}`, `HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
