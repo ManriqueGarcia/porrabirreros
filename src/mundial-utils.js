@@ -215,7 +215,7 @@ export function computeMundialStats(mundial, participants, jornadas, usersMap) {
 
   const completedRegular = regularJornadas.filter((j) => {
     const r = mundial.results?.[j.id];
-    return !!(r && r.matches?.length > 0 && r.matches.every((m) => m.home != null && m.away != null));
+    return !!(r && r.matches?.some((m) => m.home != null && m.away != null));
   });
 
   const perUser = {};

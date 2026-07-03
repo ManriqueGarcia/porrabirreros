@@ -237,7 +237,12 @@ export function MundialParticipante({ user, db, setDb }) {
   const others = participants.filter((n) => n !== user).map((name) => ({
     name, bet: jornada ? mundial.bets?.[selected]?.[name] : null,
   }));
-  const myScore = jornada && hasResult ? scoreMundialJornada(db, selected, user) : null;
+  const hasAnyResult = !!(jornada && (() => {
+    if (jornada.phase === "champion") return mundial.results?.[jornada.id]?.champion;
+    const r = mundial.results?.[jornada.id];
+    return r?.matches?.some((m) => m.home != null && m.away != null);
+  })());
+  const myScore = hasAnyResult ? scoreMundialJornada(db, selected, user) : null;
   const [saving, setSaving] = useState(false);
 
   const r16Jornada = mundial.jornadas?.["wc-r16"];
