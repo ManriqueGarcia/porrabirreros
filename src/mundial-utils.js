@@ -209,6 +209,114 @@ export function getEffectiveDeadline(jornada) {
   return null;
 }
 
+export function computeMundialStats(mundial, participants, jornadas, usersMap) {
+  const allJornadas = jornadas || [];
+  const regularJornadas = allJornadas.filter((j) => j.phase !== "champion");
+
+  const completedRegular = regularJornadas.filter((j) => {
+    const r = mundial.results?.[j.id];
+    return !!(r && r.matches?.length > 0 && r.matches.every((m) => m.home != null && m.away != null));
+  });
+
+  const perUser = {};
+  participants.forEach((name) => {
+    let totalMatches = 0, exactCount = 0, signCount = 0;
+    let totalGoalsPredicted = 0, goalMatchCount = 0;
+    let drawPredicted = 0, homeWinPredicted = 0;
+    let totalLeadMs = 0, leadCount = 0;
+    let bestPoints = -Infinity, bestJornada = null;
+
+    completedRegular.forEach((j) => {
+      const bet = mundial.bets?.[j.id]?.[name];
+      const res = mundial.results?.[j.id];
+      const official = res?.matches || [];
+
+      if (bet?.submittedAt) {
+        const dl = getEffectiveDeadline(j);
+        if (dl) {
+          const lead = dl.getTime() - new Date(bet.submittedAt).getTime();
+          if (lead > 0) { totalLeadMs += lead; leadCount++; }
+        }
+      }
+
+      official.forEach((m, idx) => {
+        const pred = bet?.matches?.[idx];
+        if (!pred || pred.home == null || pred.away == null || m.home == null || m.away == null) return;
+        totalMatches++;
+        const { exact, sign } = futbolMatchPoints(pred, m);
+        if (exact) exactCount++;
+        if (sign) signCount++;
+        totalGoalsPredicted += Number(pred.home) + Number(pred.away);
+        goalMatchCount++;
+        const s = futbolSign(pred);
+        if (s === "X") drawPredicted++;
+        if (s === "1") homeWinPredicted++;
+      });
+
+      const sc = scoreMundialJornada({ mundial }, j.id, name, usersMap?.[name]?.createdAt);
+      if (!sc.notYetJoined && sc.points > bestPoints) {
+        bestPoints = sc.points;
+        bestJornada = { id: j.id, name: j.name, points: sc.points };
+      }
+    });
+
+    perUser[name] = {
+      totalMatches,
+      exactCount,
+      signCount,
+      exactPct: totalMatches > 0 ? exactCount / totalMatches : 0,
+      signPct: totalMatches > 0 ? signCount / totalMatches : 0,
+      avgGoalsPredicted: goalMatchCount > 0 ? totalGoalsPredicted / goalMatchCount : 0,
+      drawPct: totalMatches > 0 ? drawPredicted / totalMatches : 0,
+      homeWinPct: totalMatches > 0 ? homeWinPredicted / totalMatches : 0,
+      avgLeadHours: leadCount > 0 ? totalLeadMs / leadCount / 3_600_000 : null,
+      bestJornada,
+    };
+  });
+
+  const matchStats = [];
+  completedRegular.forEach((j) => {
+    const res = mundial.results?.[j.id];
+    const official = res?.matches || [];
+    const defs = j.matches || [];
+
+    official.forEach((m, idx) => {
+      if (m.home == null || m.away == null) return;
+      const def = defs[idx] || {};
+      const { home, away } = matchDisplayName(def);
+      let mExact = 0, mSign = 0, mBets = 0;
+
+      participants.forEach((name) => {
+        const pred = mundial.bets?.[j.id]?.[name]?.matches?.[idx];
+        if (!pred || pred.home == null || pred.away == null) return;
+        mBets++;
+        const { exact, sign } = futbolMatchPoints(pred, m);
+        if (exact) mExact++;
+        if (sign) mSign++;
+      });
+
+      if (mBets > 0) {
+        matchStats.push({
+          jornadaId: j.id, jornadaName: j.name, matchIdx: idx,
+          home, away, homeGoals: m.home, awayGoals: m.away,
+          exactCount: mExact, signCount: mSign, betCount: mBets,
+        });
+      }
+    });
+  });
+
+  const championVotes = {};
+  const championBets = mundial.bets?.["wc-champion"] || {};
+  participants.forEach((name) => {
+    const b = championBets[name];
+    if (b?.champion) championVotes[b.champion] = (championVotes[b.champion] || 0) + 1;
+  });
+
+  const standings = computeMundialStandings(mundial, participants, allJornadas, usersMap);
+
+  return { perUser, matchStats, championVotes, standings };
+}
+
 export function listMundialJornadas(mundial) {
   const entries = Object.values(mundial?.jornadas || {});
   const order = mundial?.order || [];

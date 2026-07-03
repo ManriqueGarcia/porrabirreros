@@ -9,6 +9,7 @@ import { Avatar } from "./Avatar.jsx";
 import { MundialBetForm } from "./MundialBetForm.jsx";
 import { CountdownBadge } from "./CountdownBadge.jsx";
 import { fireConfetti } from "../confetti.js";
+import { MundialEstadisticas } from "./MundialEstadisticas.jsx";
 
 const COUNTRY_FLAGS = {
   "Argentina": "🇦🇷", "Brasil": "🇧🇷", "España": "🇪🇸", "Francia": "🇫🇷",
@@ -177,6 +178,7 @@ function ChampionBetForm({ bet, disabled, canEdit, late, onSubmit, teams }) {
 export function MundialParticipante({ user, db, setDb }) {
   const now = useNow();
   const [showOthers, setShowOthers] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const mundial = db.mundial || defaultMundialState();
   const jornadas = useMemo(() => listMundialJornadas(mundial), [mundial]);
 
@@ -276,6 +278,7 @@ export function MundialParticipante({ user, db, setDb }) {
   }, [selected, mundial.bets, participants, jornada]);
 
   return (
+    <div className="space-y-4">
     <div className={`grid gap-4 ${showOthers ? "md:grid-cols-[minmax(0,1fr)_minmax(220px,340px)]" : ""}`}>
       <div className="card card-racing p-4 md:p-5 min-w-0">
         <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center md:justify-between">
@@ -283,15 +286,28 @@ export function MundialParticipante({ user, db, setDb }) {
             🏆 Mundial 2026{" "}
             <span className="text-xs opacity-40">· al final, cena de bocata al campeón</span>
           </h2>
-          {jornada && (
+          <div className="flex gap-2 flex-wrap">
+            {jornada && (
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/80"
+                onClick={() => setShowOthers((p) => !p)}
+              >
+                {showOthers ? "Ocultar apuestas" : "👀 Ver otras apuestas"}
+              </button>
+            )}
             <button
               type="button"
-              className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/80"
-              onClick={() => setShowOthers((p) => !p)}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                showStats
+                  ? "bg-amber-500/20 border-amber-400/40 text-amber-200"
+                  : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+              }`}
+              onClick={() => setShowStats((p) => !p)}
             >
-              {showOthers ? "Ocultar" : "👀 Ver otras apuestas"}
+              📊 Estadísticas
             </button>
-          )}
+          </div>
         </div>
 
         {/* Jornada dropdown — champion option gets golden treatment */}
@@ -417,6 +433,8 @@ export function MundialParticipante({ user, db, setDb }) {
           )}
         </div>
       )}
+    </div>
+    {showStats && <MundialEstadisticas db={db} user={user} />}
     </div>
   );
 }
