@@ -1442,6 +1442,7 @@ export const handler = async (event) => {
       const tt = sanitizeTrashtalk(bet);
       const betData = { matches: bet.matches || [], submittedAt: ts, late };
       if (tt) betData.trashtalk = tt;
+      if (bet.champion) betData.champion = String(bet.champion).trim().slice(0, 100);
       await gPutItem(gid, `MUN#${jId}`, `BET#${reqUser}`, betData);
       await appendToHistory(`G#${gid}`, `MUN#${jId}|HISTORY#${reqUser}`, { ts, matches: betData.matches, late });
       log("info", "bet_mundial_saved", { group: gid, jornadaId: jId, user: reqUser, late });
